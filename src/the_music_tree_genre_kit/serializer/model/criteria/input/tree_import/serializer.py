@@ -1,0 +1,8 @@
+from django.conf import settings
+
+from the_music_tree_genre_kit.serializer.AppInputSerializer import AppInputSerializer
+from the_music_tree_genre_kit.serializer.field.TreeField import TreeField
+
+
+class CriteriaTreeImportSerializer(AppInputSerializer):
+    tree: TreeField = TreeField(allow_empty=False, max_nodes_count=settings.CRITERIA_TREE_IMPORT_MAX_TOTAL_COUNT)
