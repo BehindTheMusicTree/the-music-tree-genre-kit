@@ -6,7 +6,7 @@ from .AppField import AppField
 
 
 class AppCharField(AppField, serializers.CharField):
-    def to_internal_value(self, data: Any) -> str:
+    def to_internal_value(self, data: Any) -> str | None:
         if data is None:
             if not self.allow_null:
                 self.fail("null")
