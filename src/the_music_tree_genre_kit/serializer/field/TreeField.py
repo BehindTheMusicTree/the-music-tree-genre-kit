@@ -83,14 +83,6 @@ class TreeField(AppListField):
         return super().get_error_field_name()
 
     def run_validation(self, data: Any = None) -> Any:
-        print(f"TREE FIELD - Starting validation with data type: {type(data)}")
-        if isinstance(data, list) and len(data) > 0:
-            print(f"TREE FIELD - First node: {data[0]}")
-            if isinstance(data[0], dict) and "children" in data[0]:
-                print(f"TREE FIELD - First node's children: {data[0]['children']}")
-                if isinstance(data[0]["children"], list) and len(data[0]["children"]) > 0:
-                    print(f"TREE FIELD - First node's first child: {data[0]['children'][0]}")
-
         if data is None:
             if not self.allow_null:
                 self.fail("null")
