@@ -40,7 +40,7 @@ class BaseModel(models.Model):
         ctx = self._create_save_context(**kwargs)
 
         # Get any existing update_fields
-        existing_update_fields = set(kwargs.get("update_fields", []))
+        existing_update_fields = set(kwargs.get("update_fields") or [])
 
         # Run prepare save and get modified kwargs
         kwargs = self._prepare_save(ctx)
