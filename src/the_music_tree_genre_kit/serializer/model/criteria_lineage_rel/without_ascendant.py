@@ -1,0 +1,19 @@
+from rest_framework import serializers
+
+from the_music_tree_genre_kit.criteria.lineage_rel.AbstractCriteriaLineageRel import AbstractCriteriaLineageRel
+from the_music_tree_genre_kit.serializer.model.criteria.output.minimum import CriteriaMinimumSerializer
+
+from .Fields import Fields as AvailableFields
+
+
+class Fields:
+    DESCENDANT = AvailableFields.DESCENDANT
+    DEGREE = AvailableFields.DEGREE
+
+
+class CriteriaLineageRelWithoutAscendantSerializer(serializers.ModelSerializer):
+    descendant = CriteriaMinimumSerializer()
+
+    class Meta:
+        model = AbstractCriteriaLineageRel
+        fields = [Fields.DESCENDANT, Fields.DEGREE]

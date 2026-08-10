@@ -8,12 +8,17 @@ authors = [
     { name = "mignot", email = "garcia.andreas.1991@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "Django==5.2.8",
+    "djangorestframework==3.15.1",
+]
 
 [project.optional-dependencies]
 dev = [
+    "django-stubs==5.2.1",
     "mypy==1.18.2",
     "pytest==8.1.1",
+    "pytest-django==4.8.0",
     "ruff==0.15.9",
 ]
 
@@ -24,11 +29,53 @@ build-backend = "uv_build"
 [tool.ruff]
 # Shared rule set vendored from hear-the-music-tree-api/baselines/ruff.toml.
 extend = "baselines/ruff.toml"
+extend-exclude = ["**/migrations"]
+
+[tool.ruff.lint.per-file-ignores]
+# Deferred imports are used deliberately across Django models and serializers, mirroring hear-api.
+"src/**" = ["PLC0415"]
 
 [tool.mypy]
 python_version = "3.14"
+plugins = ["mypy_django_plugin.main"]
 warn_unused_configs = true
+ignore_missing_imports = true
+check_untyped_defs = false
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+no_implicit_optional = false
+warn_return_any = false
+disable_error_code = [
+    "abstract",
+    "arg-type",
+    "assignment",
+    "attr-defined",
+    "dict-item",
+    "misc",
+    "no-redef",
+    "operator",
+    "override",
+    "return",
+    "return-value",
+    "type-abstract",
+    "type-var",
+    "union-attr",
+    "valid-type",
+    "var-annotated",
+]
+
+[tool.django-stubs]
+django_settings_module = "tests.settings"
+
+[[tool.mypy.overrides]]
+module = "the_music_tree_genre_kit.migrations.*"
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "pytest"
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
+DJANGO_SETTINGS_MODULE = "tests.settings"

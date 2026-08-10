@@ -1,0 +1,45 @@
+from typing import Any, Protocol, runtime_checkable
+
+from django.core.exceptions import ImproperlyConfigured
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+from the_music_tree_genre_kit.exception.validation.app.AppValidationException import AppValidationException
+from the_music_tree_genre_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
+
+from .NonSelfReferencingField import NonSelfReferencingField
+
+
+@runtime_checkable
+class HasDescendantCheck(Protocol):
+    def is_descendant_of(self, other: Any) -> bool: ...
+
+
+class DescendantAwareField[T: models.Model](NonSelfReferencingField[T]):
+    """
+    A field that ensures the referenced object is not a descendant of the current object.
+    Extends NonSelfReferencingField to prevent self-referencing and adds descendant checking.
+    """
+
+    default_error_messages = {"descendant_reference": _("Cannot reference a descendant of the object.")}
+
+    def to_internal_value(self, data: Any) -> T | None:
+        value = NonSelfReferencingField.to_internal_value(self, data)
+        if value is None:
+            return None
+
+        instance = self.parent.instance
+        if instance:
+            if not hasattr(instance, "is_descendant_of"):
+                raise ImproperlyConfigured("Instance must have is_descendant_of method.")
+
+            # We know value is of type T since it came from NonSelfReferencingField[T]
+            model_instance = value
+            if isinstance(model_instance, HasDescendantCheck) and model_instance.is_descendant_of(instance):
+                raise AppValidationException(
+                    field_name=str(self.field_name),
+                    message=self.error_messages["descendant_reference"],
+                    field_validation_error_code=FieldValidationErrorCode.ANCESTOR_REFERENCE,
+                )
+
+        return value
