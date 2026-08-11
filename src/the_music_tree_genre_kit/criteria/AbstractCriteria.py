@@ -4,15 +4,14 @@ from django.conf import settings
 from django.db import IntegrityError, models
 from django.db.models import QuerySet
 from django.utils.translation import gettext as _
-
-from the_music_tree_genre_kit.base.save_context import SaveContext
-from the_music_tree_genre_kit.exception.validation.app.AppValidationException import AppValidationException
-from the_music_tree_genre_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
-from the_music_tree_genre_kit.field.AppCharField import AppCharField
-from the_music_tree_genre_kit.field.foreign_key.AppForeignKey import AppForeignKey
-from the_music_tree_genre_kit.field.foreign_key.PrivateForeignKey import PrivateForeignKey
-from the_music_tree_genre_kit.field.foreign_key.PrivateManyToManyField import PrivateManyToManyField
-from the_music_tree_genre_kit.private_unique_resource.PrivateUniqueResource import PrivateUniqueResource
+from the_music_tree_api_kit.base.save_context import SaveContext
+from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
+from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
+from the_music_tree_api_kit.field.AppCharField import AppCharField
+from the_music_tree_api_kit.field.foreign_key.AppForeignKey import AppForeignKey
+from the_music_tree_api_kit.field.foreign_key.PrivateForeignKey import PrivateForeignKey
+from the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField import PrivateManyToManyField
+from the_music_tree_api_kit.private_unique_resource.PrivateUniqueResource import PrivateUniqueResource
 
 from .Fields import Fields
 from .lineage_rel.Fields import Fields as CriteriaLineageRelFields

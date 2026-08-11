@@ -2,8 +2,8 @@ from typing import Any, TypeVar
 
 from django.db import models, transaction
 from django.db.models import QuerySet
+from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
 
-from the_music_tree_genre_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
 from the_music_tree_genre_kit.serializer.model.criteria.input.Fields import Fields as InputFields
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields as TreeImportFields
 

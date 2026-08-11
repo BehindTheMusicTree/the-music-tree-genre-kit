@@ -2,10 +2,10 @@
 
 import django.db.models.deletion
 import django.utils.timezone
-import the_music_tree_genre_kit.field
-import the_music_tree_genre_kit.field.foreign_key.AppForeignKey
-import the_music_tree_genre_kit.field.foreign_key.PrivateForeignKey
-import the_music_tree_genre_kit.field.foreign_key.PrivateManyToManyField
+import the_music_tree_api_kit.field
+import the_music_tree_api_kit.field.foreign_key.AppForeignKey
+import the_music_tree_api_kit.field.foreign_key.PrivateForeignKey
+import the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField
 import uuid
 from django.conf import settings
 from django.db import migrations, models
@@ -27,10 +27,10 @@ class Migration(migrations.Migration):
                 ('uuid', models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False, unique=True)),
                 ('created_on', models.DateTimeField(default=django.utils.timezone.now, editable=False)),
                 ('updated_on', models.DateTimeField(null=True)),
-                ('_name', the_music_tree_genre_kit.field.AppCharField(db_column='name', max_length=255)),
-                ('parent', the_music_tree_genre_kit.field.foreign_key.PrivateForeignKey.PrivateForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children', to='fixture_app.criteria')),
-                ('root', the_music_tree_genre_kit.field.foreign_key.PrivateForeignKey.PrivateForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='descendants', to='fixture_app.criteria')),
-                ('type', the_music_tree_genre_kit.field.foreign_key.AppForeignKey.AppForeignKey(on_delete=django.db.models.deletion.CASCADE, to='the_music_tree_genre_kit.criteriatype')),
+                ('_name', the_music_tree_api_kit.field.AppCharField(db_column='name', max_length=255)),
+                ('parent', the_music_tree_api_kit.field.foreign_key.PrivateForeignKey.PrivateForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='children', to='fixture_app.criteria')),
+                ('root', the_music_tree_api_kit.field.foreign_key.PrivateForeignKey.PrivateForeignKey(on_delete=django.db.models.deletion.DO_NOTHING, related_name='descendants', to='fixture_app.criteria')),
+                ('type', the_music_tree_api_kit.field.foreign_key.AppForeignKey.AppForeignKey(on_delete=django.db.models.deletion.CASCADE, to='the_music_tree_genre_kit.criteriatype')),
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='%(class)ss', to=settings.AUTH_USER_MODEL)),
             ],
         ),
@@ -49,7 +49,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='criteria',
             name='ascendants',
-            field=the_music_tree_genre_kit.field.foreign_key.PrivateManyToManyField.PrivateManyToManyField(through='fixture_app.CriteriaLineageRel', through_fields=('descendant', 'ascendant'), to='fixture_app.criteria'),
+            field=the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField.PrivateManyToManyField(through='fixture_app.CriteriaLineageRel', through_fields=('descendant', 'ascendant'), to='fixture_app.criteria'),
         ),
         migrations.AddConstraint(
             model_name='criteria',

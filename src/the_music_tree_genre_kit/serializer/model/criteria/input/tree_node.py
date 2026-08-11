@@ -1,11 +1,11 @@
 from django.conf import settings
 from rest_framework.serializers import DictField
+from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
+from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
+from the_music_tree_api_kit.serializer.AppInputSerializer import AppInputSerializer
+from the_music_tree_api_kit.serializer.field.AppCharField import AppCharField
+from the_music_tree_api_kit.serializer.field.AppListField import AppListField
 
-from the_music_tree_genre_kit.exception.validation.app.AppValidationException import AppValidationException
-from the_music_tree_genre_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
-from the_music_tree_genre_kit.serializer.AppInputSerializer import AppInputSerializer
-from the_music_tree_genre_kit.serializer.field.AppCharField import AppCharField
-from the_music_tree_genre_kit.serializer.field.AppListField import AppListField
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields
 
 
