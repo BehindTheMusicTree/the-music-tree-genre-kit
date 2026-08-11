@@ -3,6 +3,7 @@ SECRET_KEY = "fixture-only-not-for-production"
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
+    "the_music_tree_api_kit",
     "the_music_tree_genre_kit",
     "tests.fixture_app",
 ]

@@ -11,6 +11,7 @@ requires-python = ">=3.14"
 dependencies = [
     "Django==5.2.8",
     "djangorestframework==3.15.1",
+    "the-music-tree-api-kit @ git+https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git@9c01b8eb6284d0d3e1dada1f086a81e9a510cf5e",
 ]
 
 [project.optional-dependencies]

@@ -3,10 +3,9 @@ from typing import Any
 from django.conf import settings
 from django.db.models.query import QuerySet
 from rest_framework.relations import PrimaryKeyRelatedField
-
-from the_music_tree_genre_kit.serializer.field.AppCharField import AppCharField
-from the_music_tree_genre_kit.serializer.field.AppField import AppField
-from the_music_tree_genre_kit.serializer.field.foreign_key.PrivateUuidField import PrivateUuidField
+from the_music_tree_api_kit.serializer.field.AppCharField import AppCharField
+from the_music_tree_api_kit.serializer.field.AppField import AppField
+from the_music_tree_api_kit.serializer.field.foreign_key.PrivateUuidField import PrivateUuidField
 
 from .CriteriaFieldInputType import CriteriaFieldInputType
 

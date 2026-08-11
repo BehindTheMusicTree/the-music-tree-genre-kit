@@ -1,6 +1,6 @@
 from django.conf import settings
+from the_music_tree_api_kit.serializer.AppInputSerializer import AppInputSerializer
 
-from the_music_tree_genre_kit.serializer.AppInputSerializer import AppInputSerializer
 from the_music_tree_genre_kit.serializer.field.TreeField import TreeField
 
 

@@ -1,8 +1,7 @@
 from django.conf import settings
 from django.db import models
-
-from the_music_tree_genre_kit.base.BaseModel import BaseModel
-from the_music_tree_genre_kit.field.AppCharField import AppCharField
+from the_music_tree_api_kit.base.BaseModel import BaseModel
+from the_music_tree_api_kit.field.AppCharField import AppCharField
 
 
 class CriteriaType(BaseModel):
