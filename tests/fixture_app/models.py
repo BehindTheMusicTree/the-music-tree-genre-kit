@@ -1,11 +1,14 @@
 from django.db import models
 
+from tests.fixture_app.manager import CriteriaManager
 from the_music_tree_genre_kit.criteria.AbstractCriteria import AbstractCriteria
 from the_music_tree_genre_kit.criteria.Fields import Fields as CriteriaFields
 from the_music_tree_genre_kit.criteria.lineage_rel.AbstractCriteriaLineageRel import AbstractCriteriaLineageRel
 
 
 class Criteria(AbstractCriteria):
+    objects: CriteriaManager = CriteriaManager()
+
     class Meta:
         app_label = "fixture_app"
         constraints = [
@@ -22,3 +25,6 @@ class CriteriaLineageRel(AbstractCriteriaLineageRel):
 
     class Meta:
         app_label = "fixture_app"
+
+
+CriteriaManager.lineage_rel_model = CriteriaLineageRel
