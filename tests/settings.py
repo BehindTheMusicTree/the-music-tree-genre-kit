@@ -1,4 +1,8 @@
+from pathlib import Path
+
 SECRET_KEY = "fixture-only-not-for-production"
+
+DATA_DIR = Path(__file__).resolve().parent / "fixture_data"
 
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
