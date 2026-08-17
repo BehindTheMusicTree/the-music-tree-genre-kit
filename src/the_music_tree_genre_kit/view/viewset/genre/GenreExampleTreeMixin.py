@@ -19,6 +19,9 @@ class GenreExampleTreeMixin[T: AbstractCriteria]:
     `AbstractCriteriaViewSet[T]` subclass for a genre viewset (not every criteria
     type has an example tree, so this isn't folded into `AbstractCriteriaViewSet`
     itself).
+
+    To use the shared taxonomy bundled with this package instead of an app-local
+    copy, point `settings.DATA_DIR` at `the_music_tree_genre_kit.data.DATA_DIR`.
     """
 
     model_class: type[T]
