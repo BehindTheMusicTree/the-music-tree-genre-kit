@@ -1,0 +1,21 @@
+{
+  "tree": [
+    {
+      "name": "Electronic",
+      "children": [
+        {
+          "name": "House",
+          "children": []
+        },
+        {
+          "name": "Techno",
+          "children": []
+        }
+      ]
+    },
+    {
+      "name": "Rock",
+      "children": []
+    }
+  ]
+}
