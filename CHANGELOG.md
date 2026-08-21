@@ -13,6 +13,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-08-21
+
+### Added
+
+- `AbstractCriteriaManager._on_before_delete` is now fully concrete (root-criteria direct-track transfer to the criteria-less playlist, tagged-track genre clearing, child reparenting), built on the sibling `AbstractCriteriaPlaylistManager` reached via `instance.criteria_playlist`. Fixes a latent bug hoisted out of grow-the-music-tree-api: the app-level `_on_before_delete` implementations used a `Genre`-specific FK-leaf relation as "direct tracks", which is always empty for non-leaf-FK criteria types like `Tag`, silently orphaning directly-tagged tracks on root deletion instead of moving them to the criteria-less playlist. `_get_direct_tracks` is now a concrete, overridable default (generic `TrackPlaylistRel`-based; override for criteria types whose leaf FK propagates rows to ancestor playlists, e.g. `Genre`). App-specific side effects (e.g. file-metadata sync) are now a new `_on_track_genre_cleared(track)` hook.
+- `AbstractCriteriaPlaylistManager._get_direct_tracks` renamed to the public `get_direct_tracks`, since `AbstractCriteriaManager` now calls it directly.
+
+### Changed
+
+- `tests/fixture_app`'s `Track` model gained a `genre` FK to `Criteria`, to exercise the new concrete `_on_before_delete` in-kit.
+
 ## [0.3.0] - 2026-08-21
 
 ### Added
