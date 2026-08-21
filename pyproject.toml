@@ -14,7 +14,7 @@ dependencies = [
     # Pinned by tag rather than commit SHA to avoid uv's git-ref conflict when other
     # repos (e.g. grow-the-music-tree-api) also pin api-kit @ v0.1.0 — uv.lock still
     # records the resolved commit hash.
-    "the-music-tree-api-kit @ git+https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git@v0.1.0",
+    "the-music-tree-api-kit @ git+https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git@v0.2.0",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +38,8 @@ extend-exclude = ["**/migrations"]
 [tool.ruff.lint.per-file-ignores]
 # Deferred imports are used deliberately across Django models and serializers, mirroring hear-api.
 "src/**" = ["PLC0415"]
+# tests/fixture_app/manager.py <-> models.py have a circular import, same deferred-import pattern as src/**.
+"tests/fixture_app/manager.py" = ["PLC0415"]
 
 [tool.mypy]
 python_version = "3.14"
