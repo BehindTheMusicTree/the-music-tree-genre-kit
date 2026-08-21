@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Removed `Track.playlists`, the M2M-through field added in `v0.5.0` (`through=settings.TRACK_PLAYLIST_REL_MODEL`). It was purely declarative — never queried anywhere; all playlist-membership logic already goes through `TRACK_PLAYLIST_REL_MODEL` directly — and structurally broke `makemigrations` for any consuming app: `swappable_dependency` requires the through model to live in that app's first migration, but the rel model also FKs the kit's `Track`, which in turn needs that same app's `ARTIST_MODEL`/`ALBUM_MODEL`/`CRITERIA_MODEL` from its first migration, an unresolvable cycle. Confirmed via `tests/fixture_app`, whose squashed initial migration hit exactly this `CircularDependencyError`; fixed there by also splitting the fixture's `Track`/`TrackPlaylistRel` creation into a second migration after the swappable models, mirroring `grow-the-music-tree-api`'s real migration history.
+
 ## [0.5.0] - 2026-08-21
 
 ### Added

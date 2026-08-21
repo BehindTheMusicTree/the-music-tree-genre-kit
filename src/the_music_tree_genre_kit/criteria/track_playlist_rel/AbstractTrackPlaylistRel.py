@@ -17,10 +17,9 @@ class AbstractTrackPlaylistRel(PrivateStandardResource):
     resolved the same way Django resolves `settings.AUTH_USER_MODEL`. `track`
     points at the kit's own shared `Track` model directly (not
     `settings.TRACK_MODEL`, which names each app's concrete/leaf track type)
-    because this model backs `Track.playlists`'s `through=`, and Django
-    requires a many-to-many's through model to FK the exact model the field
-    is declared on, not one of its multi-table-inheritance subclasses.
-    Concrete subclasses set their own `db_table` and indexes.
+    so a single rel row can reference a track through any of the app's
+    multi-table-inheritance subclasses uniformly. Concrete subclasses set
+    their own `db_table` and indexes.
     """
 
     playlist = PrivateForeignKey(

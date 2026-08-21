@@ -10,9 +10,7 @@ class Fields(TrackablePlayCountFields):
     RATING = "rating"
     LANGUAGE = "language"
     ARCHIVED = "archived"
-    PLAYLISTS = "playlists"
 
     TRACKS_OF_ARTIST_RELATED_NAME = "tracks_of_artist"
     TRACKS_OF_ALBUM_RELATED_NAME = "tracks_of_album"
     TRACKS_OF_CRITERIA_RELATED_NAME = "tracks_of_criteria"
-    TRACKS_OF_PLAYLIST_RELATED_NAME = "tracks_of_playlist"
