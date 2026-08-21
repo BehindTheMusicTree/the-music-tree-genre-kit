@@ -214,8 +214,8 @@ wheels = [
 
 [[package]]
 name = "the-music-tree-api-kit"
-version = "0.1.0"
-source = { git = "https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git?rev=v0.1.0#6a877b2d2cb96137ab10f949d1af9eae71f3f624" }
+version = "0.2.0"
+source = { git = "https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git?rev=v0.2.0#c52a79085dcda44e6e2c80e6ced4800be7571735" }
 dependencies = [
     { name = "django" },
     { name = "django-filter" },
@@ -224,7 +224,7 @@ dependencies = [
 
 [[package]]
 name = "the-music-tree-genre-kit"
-version = "0.1.0"
+version = "0.3.0"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
@@ -250,7 +250,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = "==8.1.1" },
     { name = "pytest-django", marker = "extra == 'dev'", specifier = "==4.8.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.9" },
-    { name = "the-music-tree-api-kit", git = "https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git?rev=v0.1.0" },
+    { name = "the-music-tree-api-kit", git = "https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git?rev=v0.2.0" },
 ]
 provides-extras = ["dev"]
 
