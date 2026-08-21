@@ -17,13 +17,20 @@ T = TypeVar("T", bound=AbstractCriteria)
 class AbstractCriteriaManager(StandardResourceManager[T]):
     """
     Owns the pure tree-structure logic for criteria (ascendant refresh, root
-    propagation, common-ascendant lookup). Side effects outside the tree
-    itself (playlists, file metadata, etc.) are left to subclasses via the
-    `_on_created`/`_on_parent_changed`/`_on_renamed`/`_on_before_delete` hooks.
+    propagation, common-ascendant lookup), plus the criteria-playlist
+    orchestration around deletion (direct-track transfer to the criteria-less
+    playlist, child reparenting) built on the sibling
+    AbstractCriteriaPlaylistManager reached via `instance.criteria_playlist`.
+    Side effects outside that (playlists, file metadata, etc.) are left to
+    subclasses via the `_on_created`/`_on_parent_changed`/`_on_renamed`/
+    `_on_track_genre_cleared` hooks.
 
     Concrete subclasses must set `lineage_rel_model` to their concrete
     AbstractCriteriaLineageRel subclass, and override `_get_criteria_type`
-    to return the CriteriaType their model represents.
+    to return the CriteriaType their model represents. A criteria type whose
+    "direct tracks" aren't simply the ones in `TrackPlaylistRel` (e.g. Genre,
+    where a track's leaf FK also propagates `TrackPlaylistRel` rows to
+    ancestor playlists) must override `_get_direct_tracks`.
     """
 
     model: type[T]
@@ -69,8 +76,45 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     def _on_renamed(self, instance: T, *, old_name: str) -> None:
         """Hook: react to a criteria being renamed. No-op by default."""
 
+    def _on_track_genre_cleared(self, track: models.Model) -> None:
+        """Hook: react to a track's genre FK being cleared/reassigned by a root-criteria deletion. No-op by default."""
+
+    def _get_direct_tracks(self, instance: T) -> QuerySet:
+        """
+        Tracks directly attached to `instance`'s own playlist (not via a
+        descendant's ascendant-propagated `TrackPlaylistRel` row). Default is
+        generic (TrackPlaylistRel-based); override for criteria types whose
+        leaf FK propagates rows to ancestor playlists (e.g. Genre).
+        """
+        playlist_manager = type(instance.criteria_playlist).objects
+        return playlist_manager.get_direct_tracks(instance.criteria_playlist)
+
+    @transaction.atomic
     def _on_before_delete(self, instance: T) -> None:
-        """Hook: react just before a criteria is deleted. No-op by default."""
+        criteria_playlist = instance.criteria_playlist
+        playlist_manager = type(criteria_playlist).objects
+        track_model = playlist_manager.track_model
+
+        genre_tagged_tracks = list(track_model.objects.filter(genre=instance))
+        direct_tracks = self._get_direct_tracks(instance) if instance.is_root else None
+
+        for track in genre_tagged_tracks:
+            track.genre = instance.parent
+            track.save(update_fields=["genre_id"])
+            self._on_track_genre_cleared(track)
+
+        if instance.is_root:
+            playlist_manager.transfer_direct_tracks_to_criterialess_playlist(
+                direct_tracks=direct_tracks, criteria_playlist=criteria_playlist
+            )
+
+        if criteria_playlist.children.exists():
+            for child_playlist in criteria_playlist.children.all():
+                child_playlist.parent = instance.parent.criteria_playlist if instance.parent else None
+                child_playlist.save(update_fields=[Fields.PARENT])
+
+                if not instance.parent:
+                    playlist_manager.make_playlist_root(child_playlist)
 
     @transaction.atomic
     def create(self, **kwargs) -> T:

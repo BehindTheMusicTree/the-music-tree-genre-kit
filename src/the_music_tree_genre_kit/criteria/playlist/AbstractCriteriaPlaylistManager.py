@@ -34,7 +34,7 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
     track_playlist_rel_model: type[models.Model]
     track_model: type[models.Model]
 
-    def _get_direct_tracks(self, instance: T) -> QuerySet:
+    def get_direct_tracks(self, instance: T) -> QuerySet:
         track_ids = self.track_playlist_rel_model.objects.filter(playlist=instance).values_list("track_id", flat=True)
         return self.track_model.objects.filter(pk__in=track_ids)
 
@@ -89,13 +89,13 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
     ) -> None:
         if instance.parent:
             self.add_tracks_to_instance_and_ascendants_until_criteria_limit(
-                instance=instance.parent, tracks=self._get_direct_tracks(instance), criteria_limit=common_criteria
+                instance=instance.parent, tracks=self.get_direct_tracks(instance), criteria_limit=common_criteria
             )
 
         if old_parent:
             self.remove_tracks_from_instance_and_ascendants_until_criteria_limit(
                 instance=old_parent.criteria_playlist,
-                tracks=self._get_direct_tracks(instance),
+                tracks=self.get_direct_tracks(instance),
                 criteria_limit=common_criteria,
             )
 

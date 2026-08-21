@@ -55,6 +55,7 @@ class Playlist(PrivateUniqueResource):
 
 class Track(PrivateUniqueResource):
     title = models.CharField(max_length=255, blank=True, default="")
+    genre = models.ForeignKey(Criteria, on_delete=models.SET_NULL, null=True, blank=True, related_name="tracks")
 
     objects: TrackManager = TrackManager()
 
