@@ -7,14 +7,17 @@ import the_music_tree_api_kit.field
 import the_music_tree_api_kit.field.foreign_key.PrivateForeignKey
 import the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField
 import uuid
+from django.conf import settings
 from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('fixture_app', '0002_album_artist_playlist'),
         ('the_music_tree_genre_kit', '0001_initial'),
+        migrations.swappable_dependency(settings.ARTIST_MODEL),
+        migrations.swappable_dependency(settings.ALBUM_MODEL),
+        migrations.swappable_dependency(settings.CRITERIA_MODEL),
     ]
 
     operations = [
@@ -30,9 +33,9 @@ class Migration(migrations.Migration):
                 ('rating', models.IntegerField(blank=True, null=True, validators=[django.core.validators.MinValueValidator(0), django.core.validators.MaxValueValidator(10)])),
                 ('language', the_music_tree_api_kit.field.AppCharField(blank=True, default=None, max_length=3, null=True)),
                 ('archived', models.BooleanField(default=False)),
-                ('album', the_music_tree_api_kit.field.foreign_key.PrivateForeignKey.PrivateForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='tracks_of_album', to='fixture_app.album')),
-                ('artists', the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField.PrivateManyToManyField(blank=True, related_name='tracks_of_artist', to='fixture_app.artist')),
-                ('genre', the_music_tree_api_kit.field.foreign_key.PrivateForeignKey.PrivateForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='tracks_of_criteria', to='fixture_app.criteria')),
+                ('album', the_music_tree_api_kit.field.foreign_key.PrivateForeignKey.PrivateForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='tracks_of_album', to=settings.ALBUM_MODEL)),
+                ('artists', the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField.PrivateManyToManyField(blank=True, related_name='tracks_of_artist', to=settings.ARTIST_MODEL)),
+                ('genre', the_music_tree_api_kit.field.foreign_key.PrivateForeignKey.PrivateForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='tracks_of_criteria', to=settings.CRITERIA_MODEL)),
             ],
         ),
     ]
