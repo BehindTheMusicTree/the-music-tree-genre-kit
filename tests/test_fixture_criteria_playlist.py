@@ -84,7 +84,9 @@ def test_transfer_direct_tracks_to_criterialess_playlist(user, genre_type, tag_t
 
 
 @pytest.mark.django_db
-def test_archive_and_unarchive_instances_of_track(user, genre_type):
+def test_archive_and_unarchive_instances_of_track(user, genre_type, tag_type):
+    bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
+
     root_criteria = Criteria(user=user, type=genre_type)
     root_criteria._name = "root"
     root_criteria.save()

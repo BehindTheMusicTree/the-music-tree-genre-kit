@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Shared `Track` model and `AbstractTrackManager` (`the_music_tree_genre_kit.track`), built via Django multi-table inheritance so `grow-the-music-tree-api`'s and `hear-the-music-tree-api`'s near-identical `Track`/`UploadedTrack` managers can subclass a single concrete implementation instead of duplicating genre-playlist add/remove/update and album/artist orphan-cleanup logic. `Track.artists`/`.album`/`.playlists` resolve via new `ARTIST_MODEL`/`ALBUM_MODEL` swappable settings (same mechanism as the existing `CRITERIA_MODEL`/`TRACK_MODEL`/`PLAYLIST_MODEL`), validated by `checks.py`. `AbstractTrackManager.criteria_playlist_model` is a plain class attribute wired by the concrete app's manager module, mirroring the existing `lineage_rel_model`/`track_playlist_rel_model`/`track_model` precedent.
+- `tests/fixture_app` proves the abstraction in-kit: its `Track` is now an MTI child of the kit's `Track`, alongside new `Album`/`Artist`/`Playlist`/`CriteriaPlaylist`/`TrackPlaylistRel` fixture models exercising the full manager end-to-end.
+
 ## [0.4.0] - 2026-08-21
 
 ### Added
