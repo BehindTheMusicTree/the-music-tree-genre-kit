@@ -18,6 +18,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `GenreExampleTreeMixin` for the `tree/load-example` action.
 - `AbstractCriteriaViewSet` shared across the `tree/import_tree` actions.
 - Shared example genre tree fixture bundled with the package.
+- `AbstractCriteriaPlaylist`/`AbstractCriteriaPlaylistManager` and `AbstractTrackPlaylistRel`/`AbstractTrackPlaylistRelManager`, hoisting the near-100%-duplicated `CriteriaPlaylist`/`TrackPlaylistRel` logic out of grow-the-music-tree-api and hear-the-music-tree-api. The manager is fully concrete — no required-override hooks — via `track_playlist_rel_model`/`track_model` class attributes wired by the consuming app, mirroring the existing `AbstractCriteriaManager.lineage_rel_model` pattern. Consuming apps must set `settings.CRITERIA_MODEL`/`settings.TRACK_MODEL`/`settings.PLAYLIST_MODEL`, validated by a new Django system check.
+- `bootstrap_criterialess_playlists_for_user()`, an idempotent helper that ensures the criteria-less catch-all `CriteriaPlaylist` rows exist for a user — fixes `CriteriaPlaylist.DoesNotExist` when deleting a root `Genre`/`Tag` in apps that never created these rows.
+
+### Changed
+
+- Bumped the `the-music-tree-api-kit` dependency pin to `v0.2.0`.
 
 ## [0.2.2] - 2026-08-12
 

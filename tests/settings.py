@@ -30,6 +30,10 @@ USE_TZ = True
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+CRITERIA_MODEL = "fixture_app.Criteria"
+TRACK_MODEL = "fixture_app.Track"
+PLAYLIST_MODEL = "fixture_app.Playlist"
+
 CRITERIA_NAME_LEN_MAX = 255
 CRITERIA_TYPE_LABEL_LEN_MAX = 255
 CRITERIA_TREE_IMPORT_MAX_TOTAL_COUNT = 500
