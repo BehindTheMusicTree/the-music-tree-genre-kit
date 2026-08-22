@@ -8,6 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+.coverage
+htmlcov/
 
 # Local scratch (PR descriptions, etc.)
 .local/
