@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `PlaylistTypesLabel` imported a class named `ManualPlaylistTypeLabel` that doesn't exist in that module (only `VALUE` does), breaking every import chain that touches `PlaylistTypesLabel` since the `v0.6.0` playlist hoist.
+
 ## [0.6.0] - 2026-08-22
 
 ### Added
