@@ -13,12 +13,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-08-22
+
 ### Added
 
 - `pytest-cov`/`coverage.py` wired into the dev dependencies and test config (`fail_under = 85`, `show_missing = true`), plus new tests across `tests/test_track_manager.py`, `tests/test_playlist.py`, `tests/test_playlist_manager.py`, `tests/test_criteria_field.py`, `tests/test_descendant_aware_field.py`, and `tests/test_tree_node_serializer.py`, raising total statement coverage from ~78% to ~85%.
 
 ### Fixed
 
+- `PlaylistTypesLabel` imported a class named `ManualPlaylistTypeLabel` that doesn't exist in that module (only `VALUE` does), breaking every import chain that touches `PlaylistTypesLabel` since the `v0.6.0` playlist hoist.
 - Documented (via a regression test, not a code fix — out of scope for this test-only change) a latent bug in `AbstractTrackManager.delete_instance`: it reads `instance.playlists_with_positions`, an attribute no model or mixin in this stack defines, so the method always raises `AttributeError`. Real deletion logic lives in and works via `delete_instance_with_checking_album_and_artists_potential_deletion`, which callers should use directly until `delete_instance` itself is fixed.
 
 ## [0.6.0] - 2026-08-22
