@@ -12,6 +12,6 @@ class TrackPlaylistRel(AbstractTrackPlaylistRel):
         app_label = "the_music_tree_genre_kit"
         db_table = "the_music_tree_genre_kit_track_playlist_rel"
         indexes = [
-            models.Index(fields=["user", Fields.PLAYLIST], name="track_playlist_rel_user_playlist_idx"),
-            models.Index(fields=["user", Fields.TRACK_INTERNAL], name="track_playlist_rel_user_track_idx"),
+            models.Index(fields=["user", Fields.PLAYLIST], name="tpr_user_playlist_idx"),
+            models.Index(fields=["user", Fields.TRACK_INTERNAL], name="tpr_user_track_idx"),
         ]

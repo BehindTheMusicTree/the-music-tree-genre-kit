@@ -38,10 +38,10 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='trackplaylistrel',
-            index=models.Index(fields=['user', 'playlist'], name='track_playlist_rel_user_playlist_idx'),
+            index=models.Index(fields=['user', 'playlist'], name='tpr_user_playlist_idx'),
         ),
         migrations.AddIndex(
             model_name='trackplaylistrel',
-            index=models.Index(fields=['user', 'track'], name='track_playlist_rel_user_track_idx'),
+            index=models.Index(fields=['user', 'track'], name='tpr_user_track_idx'),
         ),
     ]
