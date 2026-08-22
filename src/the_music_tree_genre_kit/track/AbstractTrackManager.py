@@ -7,6 +7,8 @@ from django.db import models, transaction
 from django.db.models import F
 from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
 
+from the_music_tree_genre_kit.criteria.track_playlist_rel.TrackPlaylistRel import TrackPlaylistRel
+
 from .Fields import Fields
 
 if TYPE_CHECKING:
@@ -36,12 +38,11 @@ class AbstractTrackManager(StandardResourceManager[T]):
         from the_music_tree_genre_kit.criteria.type.CriteriaTypePks import CriteriaTypePks
 
         criteria_playlist_model = type(self).criteria_playlist_model
-        track_playlist_rel_model = apps.get_model(settings.TRACK_PLAYLIST_REL_MODEL)
 
         if old_genre:
             old_genre_tree_item = old_genre
             while old_genre_tree_item != genre_limit:
-                track_playlist_rel_model.objects.delete_instance(
+                TrackPlaylistRel.objects.delete_instance(
                     user=instance.user, playlist=old_genre_tree_item.criteria_playlist, track=instance
                 )
 
@@ -52,18 +53,17 @@ class AbstractTrackManager(StandardResourceManager[T]):
             genreless_criteria_playlist = criteria_playlist_model.objects.get(
                 user=instance.user, type=CriteriaTypePks.GENRE, criteria=None
             )
-            track_playlist_rel_model.objects.filter(playlist=genreless_criteria_playlist, track=instance).delete()
+            TrackPlaylistRel.objects.filter(playlist=genreless_criteria_playlist, track=instance).delete()
 
     def _add_to_genre_playlists(self, instance: T, genre_limit=None):
         from the_music_tree_genre_kit.criteria.type.CriteriaTypePks import CriteriaTypePks
 
         criteria_playlist_model = type(self).criteria_playlist_model
-        track_playlist_rel_model = apps.get_model(settings.TRACK_PLAYLIST_REL_MODEL)
 
         if instance.genre:
             genre_tree_item = instance.genre
             while genre_tree_item != genre_limit:
-                track_playlist_rel_model.objects.create(
+                TrackPlaylistRel.objects.create(
                     user=instance.user, playlist=genre_tree_item.criteria_playlist, track=instance
                 )
 
@@ -73,15 +73,11 @@ class AbstractTrackManager(StandardResourceManager[T]):
             genreless_criteria_playlist = criteria_playlist_model.objects.get(
                 user=instance.user, type=CriteriaTypePks.GENRE, criteria=None
             )
-            track_playlist_rel_model.objects.create(
-                user=instance.user, playlist=genreless_criteria_playlist, track=instance
-            )
+            TrackPlaylistRel.objects.create(user=instance.user, playlist=genreless_criteria_playlist, track=instance)
 
     def _decrease_position_of_next_tracks_in_old_track_playlists(self, user: User, playlists_with_old_position: list):
-        track_playlist_rel_model = apps.get_model(settings.TRACK_PLAYLIST_REL_MODEL)
-
         for playlist_uuid, old_position in playlists_with_old_position:
-            track_playlist_rels_to_update = track_playlist_rel_model.objects.filter(
+            track_playlist_rels_to_update = TrackPlaylistRel.objects.filter(
                 user=user, playlist=playlist_uuid, position__gt=old_position
             )
             track_playlist_rels_to_update.update(position=F("position") - 1)
@@ -113,7 +109,6 @@ class AbstractTrackManager(StandardResourceManager[T]):
     def update_instance(self, old_instance: T, **kwargs) -> T:
         album_model = apps.get_model(settings.ALBUM_MODEL)
         artist_model = apps.get_model(settings.ARTIST_MODEL)
-        track_playlist_rel_model = apps.get_model(settings.TRACK_PLAYLIST_REL_MODEL)
 
         with transaction.atomic():
             old_album_artists_list = []
@@ -148,9 +143,9 @@ class AbstractTrackManager(StandardResourceManager[T]):
 
             if old_archived_state != updated_instance.archived:
                 if updated_instance.archived:
-                    track_playlist_rel_model.objects.archive_instances_of_track(track=updated_instance)
+                    TrackPlaylistRel.objects.archive_instances_of_track(track=updated_instance)
                 else:
-                    track_playlist_rel_model.objects.unarchive_instances_of_track(track=updated_instance)
+                    TrackPlaylistRel.objects.unarchive_instances_of_track(track=updated_instance)
 
             return updated_instance
 

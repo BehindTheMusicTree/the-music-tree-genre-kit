@@ -6,6 +6,8 @@ from the_music_tree_api_kit.field.foreign_key.PrivateForeignKey import PrivateFo
 from the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField import PrivateManyToManyField
 from the_music_tree_api_kit.trackable_play_count.TrackablePlayCount import TrackablePlayCount
 
+from the_music_tree_genre_kit.playlist.Fields import Fields as PlaylistFields
+
 from .Fields import Fields
 from .TrackManager import TrackManager
 
@@ -21,12 +23,7 @@ class Track(TrackablePlayCount):
 
     Consuming apps must set `settings.ARTIST_MODEL`, `settings.ALBUM_MODEL`
     (in addition to `settings.CRITERIA_MODEL`/`settings.TRACK_MODEL`),
-    resolved the same way Django resolves `settings.AUTH_USER_MODEL`. Playlist
-    membership is accessed via `settings.TRACK_PLAYLIST_REL_MODEL` directly
-    (see `AbstractTrackPlaylistRel`), not a `Track.playlists` M2M field —
-    that field would need a migration-time dependency on the rel model,
-    which itself depends on `Track` already existing, an unresolvable cycle
-    across app boundaries.
+    resolved the same way Django resolves `settings.AUTH_USER_MODEL`.
     """
 
     title = AppCharField(max_length=settings.TRACK_TITLE_LEN_MAX)
@@ -59,6 +56,11 @@ class Track(TrackablePlayCount):
     )
     language = AppCharField(max_length=settings.LANGUAGE_LEN_MAX, blank=True, default=None, null=True)
     archived = models.BooleanField(default=False)
+    playlists = PrivateManyToManyField(
+        "the_music_tree_genre_kit.Playlist",
+        through="the_music_tree_genre_kit.TrackPlaylistRel",
+        related_name=PlaylistFields.TRACKS_RELATED_NAME,
+    )
 
     objects: TrackManager = TrackManager()
 
