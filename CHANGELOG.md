@@ -13,6 +13,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Concrete `Playlist` model and `PlaylistManager` (`the_music_tree_genre_kit.playlist`), built via Django multi-table inheritance exactly like `Track` in `v0.5.0`, so `grow-the-music-tree-api`'s and `hear-the-music-tree-api`'s near-identical `Playlist`/`ManualPlaylist`/`PlaylistManager` no longer need to be duplicated per app. `ManualPlaylist`/`CriteriaPlaylist` become true MTI children of the kit's `Playlist` in each app, mirroring `YoutubeTrack`/`UploadedTrack`'s relationship to the kit's `Track`.
+- `AbstractManualPlaylist` (`the_music_tree_genre_kit.manual_playlist`), a pure mixin (not extending `Playlist`) providing the `_name`/non-empty-name constraint/`name`/`type_label` logic shared by every app's manual playlist, mirroring `AbstractCriteriaPlaylist`'s existing shape.
+- `TrackMixin`/`TrackMixinManager`/`TrackMixinWithInternalNameManager` (`the_music_tree_genre_kit.track_mixin`), hoisted so the kit's own `Playlist` (and any app's `Criteria`/`Album`/`Artist`) can share one canonical implementation instead of each app carrying its own copy.
+- `AbstractTrackPlaylistRel.playlist`/`.track` now resolve to the kit's own concrete `Playlist`/`Track` directly (`"the_music_tree_genre_kit.Playlist"`/`.Track"`) instead of a per-app `PLAYLIST_MODEL` setting, since a single shared physical table needs no app-specific configuration. `PLAYLIST_MODEL` is dropped from `checks.py`'s required-settings validation.
+- `tests/fixture_app` proves the abstraction in-kit: adds `ManualPlaylist`, and re-points `CriteriaPlaylist` as an MTI child of the kit's `Playlist`, alongside the existing `Track`/`Album`/`Artist` fixture coverage.
+
 ### Fixed
 
 - Removed `Track.playlists`, the M2M-through field added in `v0.5.0` (`through=settings.TRACK_PLAYLIST_REL_MODEL`). It was purely declarative — never queried anywhere; all playlist-membership logic already goes through `TRACK_PLAYLIST_REL_MODEL` directly — and structurally broke `makemigrations` for any consuming app: `swappable_dependency` requires the through model to live in that app's first migration, but the rel model also FKs the kit's `Track`, which in turn needs that same app's `ARTIST_MODEL`/`ALBUM_MODEL`/`CRITERIA_MODEL` from its first migration, an unresolvable cycle. Confirmed via `tests/fixture_app`, whose squashed initial migration hit exactly this `CircularDependencyError`; fixed there by also splitting the fixture's `Track`/`TrackPlaylistRel` creation into a second migration after the swappable models, mirroring `grow-the-music-tree-api`'s real migration history.

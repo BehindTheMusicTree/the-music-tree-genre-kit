@@ -1,0 +1,14 @@
+from the_music_tree_api_kit.trackable_play_count.Fields import Fields as TrackablePlayCountFields
+
+from the_music_tree_genre_kit.track_mixin.Fields import Fields as TrackMixinFields
+
+
+class Fields(TrackMixinFields, TrackablePlayCountFields):
+    TRACKS_RELATED_NAME = "tracks_of_playlist"
+    TRACK_PLAYLIST_RELS_INTERNAL = "track_playlist_rels"
+    TRACK_PLAYLIST_RELS_PUBLIC = "track_playlist_relations"
+    TYPE_LABEL_INTERNAL = "type_label"
+    TYPE_LABEL_PUBLIC = "type"
+    PLAYLIST_TRACK_RELATIONS = "track_playlist_rels"
+    MANUAL_PLAYLIST = "manual_playlist"
+    CRITERIA_PLAYLIST = "criteria_playlist"

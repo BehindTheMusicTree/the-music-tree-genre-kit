@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.db import models
 from django.db.models import Case, F, Value, When
 from the_music_tree_api_kit.base.save_context import SaveContext
@@ -13,17 +12,17 @@ class AbstractTrackPlaylistRel(PrivateStandardResource):
     Owns the `playlist`/`track`/`position` fields and position-shift-on-insert
     behavior shared by every app's concrete track-playlist relation table.
 
-    Consuming apps must set `settings.PLAYLIST_MODEL` (e.g. "grow.Playlist"),
-    resolved the same way Django resolves `settings.AUTH_USER_MODEL`. `track`
-    points at the kit's own shared `Track` model directly (not
-    `settings.TRACK_MODEL`, which names each app's concrete/leaf track type)
-    so a single rel row can reference a track through any of the app's
-    multi-table-inheritance subclasses uniformly. Concrete subclasses set
-    their own `db_table` and indexes.
+    `playlist` and `track` both point at the kit's own shared `Playlist`/`Track`
+    models directly (not settings-resolved strings) so a single rel row can
+    reference either through any of the app's multi-table-inheritance
+    subclasses uniformly. Concrete subclasses set their own `db_table` and
+    indexes.
     """
 
     playlist = PrivateForeignKey(
-        settings.PLAYLIST_MODEL, on_delete=models.CASCADE, related_name=Fields.TRACK_PLAYLIST_RELS_RELATED_NAME
+        "the_music_tree_genre_kit.Playlist",
+        on_delete=models.CASCADE,
+        related_name=Fields.TRACK_PLAYLIST_RELS_RELATED_NAME,
     )
     track = PrivateForeignKey(
         "the_music_tree_genre_kit.Track",
