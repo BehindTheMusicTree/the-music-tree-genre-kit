@@ -1,6 +1,6 @@
 [project]
 name = "the-music-tree-genre-kit"
-version = "0.6.1"
+version = "0.7.0"
 description = "Shared genre/tag/criteria/tree Django library for hear-the-music-tree-api and grow-the-music-tree-api"
 readme = "README.md"
 license = { file = "LICENSE" }

@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-08-22
+
 ### Added
 
 - Concrete `TrackPlaylistRel` model and `TrackPlaylistRelManager` (`the_music_tree_genre_kit.criteria.track_playlist_rel`), `AbstractTrackPlaylistRel`'s first real subclass, mirroring how `Track`/`Playlist` became kit-owned in `v0.5.0`/`v0.6.0`. `TRACK_PLAYLIST_REL_MODEL` is dropped from `checks.py`'s required-settings validation and from every place the kit read it as a setting (`PlaylistManager.py`, `AbstractTrackManager.py`); the kit now hardcodes its own concrete model instead, same as it now hardcodes `Playlist`.
