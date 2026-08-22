@@ -1,0 +1,100 @@
+from typing import TYPE_CHECKING, Any, cast
+
+from django.db.models import QuerySet
+from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
+
+from the_music_tree_genre_kit.criteria.playlist.CriterialessPlaylistNames import CriterialessPlaylistNames
+from the_music_tree_genre_kit.criteria.type.CriteriaTypePks import CriteriaTypePks
+
+from .Fields import Fields
+from .PlaylistQuerySet import PlaylistQuerySet
+
+if TYPE_CHECKING:
+    from the_music_tree_genre_kit.track.Track import Track
+
+    from .Playlist import Playlist
+
+
+class PlaylistManager(StandardResourceManager):
+    def get_queryset(self) -> PlaylistQuerySet:
+        return cast(PlaylistQuerySet, PlaylistQuerySet(self.model, using=self._db))
+
+    def filter(self, *args: Any, **kwargs: Any) -> QuerySet:
+        from .PlaylistTypesLabel import PlaylistTypesLabel
+
+        type_filter = kwargs.pop(Fields.TYPE_LABEL_PUBLIC, None)
+        name_filter = kwargs.pop(Fields.NAME_PUBLIC, None)
+
+        queryset = super().filter(*args, **kwargs)
+
+        if type_filter or name_filter:
+            manual_playlist_queryset = self.none()
+            if type_filter is None or type_filter.lower() == PlaylistTypesLabel.MANUAL.lower():
+                manual_playlist_queryset = queryset.filter(
+                    manual_playlist__isnull=False, manual_playlist__name__icontains=name_filter
+                )
+
+            criteria_playlist_queryset = self.none()
+            if type_filter is None or type_filter.lower() in [
+                PlaylistTypesLabel.GENRE.lower(),
+                PlaylistTypesLabel.TAG.lower(),
+            ]:
+                criteria_playlist_queryset = queryset.filter(
+                    criteria_playlist__isnull=False,
+                    criteria_playlist__type__label__icontains=type_filter.upper() if type_filter else "",
+                    criteria_playlist__criteria__name__icontains=name_filter,
+                )
+
+            genreless_playlist = self.none()
+            if (not name_filter or name_filter.lower() in CriterialessPlaylistNames.GENRE.lower()) and type_filter in [
+                None,
+                PlaylistTypesLabel.GENRE,
+            ]:
+                genreless_playlist = queryset.filter(
+                    criteria_playlist__isnull=False,
+                    criteria_playlist__criteria__isnull=True,
+                    criteria_playlist__type_id=CriteriaTypePks.GENRE,
+                )
+
+            tagless_playlist = self.none()
+            if (not name_filter or name_filter.lower() in CriterialessPlaylistNames.TAG.lower()) and type_filter in [
+                None,
+                PlaylistTypesLabel.TAG,
+            ]:
+                tagless_playlist = queryset.filter(
+                    criteria_playlist__isnull=False,
+                    criteria_playlist__criteria__isnull=True,
+                    criteria_playlist__type_id=CriteriaTypePks.TAG,
+                )
+
+            queryset = (
+                manual_playlist_queryset.union(criteria_playlist_queryset)
+                .union(genreless_playlist)
+                .union(tagless_playlist)
+            )
+
+        return queryset
+
+    def get_ordered_relations_for_playlist(self, playlist: Playlist) -> dict[int | None, Track]:
+        """
+        Returns a dictionary of Track objects where dict[position] = track.
+        Includes both non-archived tracks (with position) and archived tracks (position is None).
+        Archived tracks (null positions) are sorted last.
+        Returns empty dict if no tracks.
+        """
+        from django.apps import apps
+        from django.conf import settings
+
+        track_playlist_rel_model = apps.get_model(settings.TRACK_PLAYLIST_REL_MODEL)
+        relations = track_playlist_rel_model.objects.get_ordered_relations_for_playlist(playlist)
+
+        if not relations.exists():
+            return {}
+
+        result: dict[int | None, Track] = {}
+        for relation in relations.filter(position__isnull=False):
+            result[relation.position] = relation.track
+        for relation in relations.filter(position__isnull=True):
+            result[len(result) + 1] = relation.track
+
+        return result

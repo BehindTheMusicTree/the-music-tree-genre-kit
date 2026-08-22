@@ -10,7 +10,6 @@ from tests.fixture_app.manager import (
     ArtistManager,
     CriteriaManager,
     CriteriaPlaylistManager,
-    PlaylistManager,
     TrackManager,
     TrackPlaylistRelManager,
 )
@@ -19,6 +18,10 @@ from the_music_tree_genre_kit.criteria.Fields import Fields as CriteriaFields
 from the_music_tree_genre_kit.criteria.lineage_rel.AbstractCriteriaLineageRel import AbstractCriteriaLineageRel
 from the_music_tree_genre_kit.criteria.playlist.AbstractCriteriaPlaylist import AbstractCriteriaPlaylist
 from the_music_tree_genre_kit.criteria.track_playlist_rel.AbstractTrackPlaylistRel import AbstractTrackPlaylistRel
+from the_music_tree_genre_kit.manual_playlist.AbstractManualPlaylist import AbstractManualPlaylist
+from the_music_tree_genre_kit.playlist.Fields import Fields as PlaylistFields
+from the_music_tree_genre_kit.playlist.Playlist import Playlist as KitPlaylist
+from the_music_tree_genre_kit.playlist.PlaylistManager import PlaylistManager as KitPlaylistManager
 from the_music_tree_genre_kit.track.Track import Track as KitTrack
 
 
@@ -44,17 +47,6 @@ class CriteriaLineageRel(AbstractCriteriaLineageRel):
 
 
 CriteriaManager.lineage_rel_model = CriteriaLineageRel
-
-
-class Playlist(PrivateUniqueResource):
-    objects: PlaylistManager = PlaylistManager()
-
-    if TYPE_CHECKING:
-        track_playlist_rels: models.QuerySet[TrackPlaylistRel]
-        criteria_playlist: CriteriaPlaylist | None
-
-    class Meta:
-        app_label = "fixture_app"
 
 
 class Artist(PrivateUniqueResource):
@@ -92,12 +84,23 @@ class Track(KitTrack):
         app_label = "fixture_app"
 
 
-class CriteriaPlaylist(AbstractCriteriaPlaylist, Playlist):  # type: ignore[django-manager-missing]
+class CriteriaPlaylist(AbstractCriteriaPlaylist, KitPlaylist):  # type: ignore[django-manager-missing]
     playlist = PrivateOneToOneField(
-        Playlist, on_delete=models.CASCADE, parent_link=True, related_name="criteria_playlist"
+        KitPlaylist, on_delete=models.CASCADE, parent_link=True, related_name=PlaylistFields.CRITERIA_PLAYLIST
     )
 
     objects: CriteriaPlaylistManager = CriteriaPlaylistManager()
+
+    class Meta:
+        app_label = "fixture_app"
+
+
+class ManualPlaylist(AbstractManualPlaylist, KitPlaylist):  # type: ignore[django-manager-missing]
+    playlist = PrivateOneToOneField(
+        KitPlaylist, on_delete=models.CASCADE, parent_link=True, related_name=PlaylistFields.MANUAL_PLAYLIST
+    )
+
+    objects: KitPlaylistManager = KitPlaylistManager()
 
     class Meta:
         app_label = "fixture_app"

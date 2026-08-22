@@ -32,7 +32,6 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 CRITERIA_MODEL = "fixture_app.Criteria"
 TRACK_MODEL = "fixture_app.Track"
-PLAYLIST_MODEL = "fixture_app.Playlist"
 ARTIST_MODEL = "fixture_app.Artist"
 ALBUM_MODEL = "fixture_app.Album"
 TRACK_PLAYLIST_REL_MODEL = "fixture_app.TrackPlaylistRel"
@@ -40,6 +39,8 @@ TRACK_PLAYLIST_REL_MODEL = "fixture_app.TrackPlaylistRel"
 CRITERIA_NAME_LEN_MAX = 255
 CRITERIA_TYPE_LABEL_LEN_MAX = 255
 CRITERIA_TREE_IMPORT_MAX_TOTAL_COUNT = 500
+
+MANUAL_PLAYLIST_NAME_LEN_MAX = 255
 
 TRACK_TITLE_LEN_MAX = 256
 TRACK_TRACK_NUMBER_MAX = 1000

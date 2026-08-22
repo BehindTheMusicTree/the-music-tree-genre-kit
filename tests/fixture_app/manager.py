@@ -14,10 +14,6 @@ class CriteriaManager(AbstractCriteriaManager):
         return CriteriaType.objects.get_or_create(label="fixture-criteria-type")[0]
 
 
-class PlaylistManager(StandardResourceManager):
-    pass
-
-
 class ArtistManager(StandardResourceManager):
     def delete_instance_if_nothing_linked(self, instance):
         if instance.albums.count() == 0 and instance.tracks_of_artist.count() == 0:

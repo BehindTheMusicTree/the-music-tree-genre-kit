@@ -8,7 +8,6 @@ _MODEL_LABEL_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$"
 _REQUIRED_SETTINGS = [
     "CRITERIA_MODEL",
     "TRACK_MODEL",
-    "PLAYLIST_MODEL",
     "ARTIST_MODEL",
     "ALBUM_MODEL",
     "TRACK_PLAYLIST_REL_MODEL",
