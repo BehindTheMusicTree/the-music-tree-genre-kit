@@ -22,6 +22,7 @@ dev = [
     "django-stubs==5.2.1",
     "mypy==1.18.2",
     "pytest==8.1.1",
+    "pytest-cov==7.0.0",
     "pytest-django==4.8.0",
     "ruff==0.15.9",
 ]
@@ -83,3 +84,13 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 pythonpath = ["."]
 DJANGO_SETTINGS_MODULE = "tests.settings"
+addopts = "--cov=src --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["*/migrations/*"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true
+exclude_also = ["if TYPE_CHECKING:"]
