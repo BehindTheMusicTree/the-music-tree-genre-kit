@@ -13,6 +13,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Concrete `TrackPlaylistRel` model and `TrackPlaylistRelManager` (`the_music_tree_genre_kit.criteria.track_playlist_rel`), `AbstractTrackPlaylistRel`'s first real subclass, mirroring how `Track`/`Playlist` became kit-owned in `v0.5.0`/`v0.6.0`. `TRACK_PLAYLIST_REL_MODEL` is dropped from `checks.py`'s required-settings validation and from every place the kit read it as a setting (`PlaylistManager.py`, `AbstractTrackManager.py`); the kit now hardcodes its own concrete model instead, same as it now hardcodes `Playlist`.
+- `Track.playlists`, a real `PrivateManyToManyField(Playlist, through=TrackPlaylistRel)`. This is now possible because the through model is kit-owned, removing the cross-app migration cycle that forced its removal in `v0.6.0`.
+- `tests/fixture_app` re-points its `TrackPlaylistRel` FKs at the kit's new concrete model and drops its own local `TrackPlaylistRel`/`TrackPlaylistRelManager`.
+
+### Changed
+
+- **Breaking:** consuming apps must drop their own `TrackPlaylistRel` model and `TRACK_PLAYLIST_REL_MODEL` setting; playlist-membership rows now live in the kit's own `the_music_tree_genre_kit_track_playlist_rel` table.
+
 ## [0.6.0] - 2026-08-22
 
 ### Added

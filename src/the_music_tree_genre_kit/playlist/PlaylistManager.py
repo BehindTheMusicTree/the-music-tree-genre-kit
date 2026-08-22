@@ -82,11 +82,9 @@ class PlaylistManager(StandardResourceManager):
         Archived tracks (null positions) are sorted last.
         Returns empty dict if no tracks.
         """
-        from django.apps import apps
-        from django.conf import settings
+        from the_music_tree_genre_kit.criteria.track_playlist_rel.TrackPlaylistRel import TrackPlaylistRel
 
-        track_playlist_rel_model = apps.get_model(settings.TRACK_PLAYLIST_REL_MODEL)
-        relations = track_playlist_rel_model.objects.get_ordered_relations_for_playlist(playlist)
+        relations = TrackPlaylistRel.objects.get_ordered_relations_for_playlist(playlist)
 
         if not relations.exists():
             return {}

@@ -11,13 +11,12 @@ from tests.fixture_app.manager import (
     CriteriaManager,
     CriteriaPlaylistManager,
     TrackManager,
-    TrackPlaylistRelManager,
 )
 from the_music_tree_genre_kit.criteria.AbstractCriteria import AbstractCriteria
 from the_music_tree_genre_kit.criteria.Fields import Fields as CriteriaFields
 from the_music_tree_genre_kit.criteria.lineage_rel.AbstractCriteriaLineageRel import AbstractCriteriaLineageRel
 from the_music_tree_genre_kit.criteria.playlist.AbstractCriteriaPlaylist import AbstractCriteriaPlaylist
-from the_music_tree_genre_kit.criteria.track_playlist_rel.AbstractTrackPlaylistRel import AbstractTrackPlaylistRel
+from the_music_tree_genre_kit.criteria.track_playlist_rel.TrackPlaylistRel import TrackPlaylistRel
 from the_music_tree_genre_kit.manual_playlist.AbstractManualPlaylist import AbstractManualPlaylist
 from the_music_tree_genre_kit.playlist.Fields import Fields as PlaylistFields
 from the_music_tree_genre_kit.playlist.Playlist import Playlist as KitPlaylist
@@ -101,13 +100,6 @@ class ManualPlaylist(AbstractManualPlaylist, KitPlaylist):  # type: ignore[djang
     )
 
     objects: KitPlaylistManager = KitPlaylistManager()
-
-    class Meta:
-        app_label = "fixture_app"
-
-
-class TrackPlaylistRel(AbstractTrackPlaylistRel):
-    objects: TrackPlaylistRelManager = TrackPlaylistRelManager()
 
     class Meta:
         app_label = "fixture_app"

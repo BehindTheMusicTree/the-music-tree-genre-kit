@@ -2,9 +2,6 @@ from the_music_tree_api_kit.public_standard_resource.StandardResourceManager imp
 
 from the_music_tree_genre_kit.criteria.AbstractCriteriaManager import AbstractCriteriaManager
 from the_music_tree_genre_kit.criteria.playlist.AbstractCriteriaPlaylistManager import AbstractCriteriaPlaylistManager
-from the_music_tree_genre_kit.criteria.track_playlist_rel.AbstractTrackPlaylistRelManager import (
-    AbstractTrackPlaylistRelManager,
-)
 from the_music_tree_genre_kit.criteria.type.CriteriaType import CriteriaType
 from the_music_tree_genre_kit.track.AbstractTrackManager import AbstractTrackManager
 
@@ -35,8 +32,4 @@ class TrackManager(AbstractTrackManager):
 
 
 class CriteriaPlaylistManager(AbstractCriteriaPlaylistManager):
-    pass
-
-
-class TrackPlaylistRelManager(AbstractTrackPlaylistRelManager):
     pass

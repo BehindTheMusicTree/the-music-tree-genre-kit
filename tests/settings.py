@@ -34,7 +34,6 @@ CRITERIA_MODEL = "fixture_app.Criteria"
 TRACK_MODEL = "fixture_app.Track"
 ARTIST_MODEL = "fixture_app.Artist"
 ALBUM_MODEL = "fixture_app.Album"
-TRACK_PLAYLIST_REL_MODEL = "fixture_app.TrackPlaylistRel"
 
 CRITERIA_NAME_LEN_MAX = 255
 CRITERIA_TYPE_LABEL_LEN_MAX = 255
