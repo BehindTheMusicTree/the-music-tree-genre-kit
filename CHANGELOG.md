@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-08-22
+
 ### Added
 
 - Concrete `Playlist` model and `PlaylistManager` (`the_music_tree_genre_kit.playlist`), built via Django multi-table inheritance exactly like `Track` in `v0.5.0`, so `grow-the-music-tree-api`'s and `hear-the-music-tree-api`'s near-identical `Playlist`/`ManualPlaylist`/`PlaylistManager` no longer need to be duplicated per app. `ManualPlaylist`/`CriteriaPlaylist` become true MTI children of the kit's `Playlist` in each app, mirroring `YoutubeTrack`/`UploadedTrack`'s relationship to the kit's `Track`.
