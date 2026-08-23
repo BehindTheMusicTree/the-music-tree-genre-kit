@@ -13,6 +13,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-08-24
+
+### Changed
+
+- Repin `the-music-tree-api-kit` to `v0.3.0`, which includes the shared `HostValidationMiddleware`.
+
 ## [0.7.0] - 2026-08-22
 
 ### Added
