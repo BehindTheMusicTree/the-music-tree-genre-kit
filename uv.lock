@@ -156,6 +156,12 @@ wheels = [
 ]
 
 [[package]]
+name = "djangorestframework-camel-case"
+version = "1.4.2"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/f4/87/647ce93053cb5e35e07bded676340774fe43190388b885c54aff47d8557b/djangorestframework-camel-case-1.4.2.tar.gz", hash = "sha256:cdae75846648abb6585c7470639a1d2fb064dc45f8e8b62aaa50be7f1a7a61f4", size = 8839, upload-time = "2023-02-13T15:28:11.941Z" }
+
+[[package]]
 name = "iniconfig"
 version = "2.3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -297,17 +303,18 @@ wheels = [
 
 [[package]]
 name = "the-music-tree-api-kit"
-version = "0.2.0"
-source = { git = "https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git?rev=v0.2.0#c52a79085dcda44e6e2c80e6ced4800be7571735" }
+version = "0.4.0"
+source = { git = "https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git?rev=v0.4.0#234b5d8f5df55cdbea222d8014e490fefae4d880" }
 dependencies = [
     { name = "django" },
     { name = "django-filter" },
     { name = "djangorestframework" },
+    { name = "djangorestframework-camel-case" },
 ]
 
 [[package]]
 name = "the-music-tree-genre-kit"
-version = "0.7.0"
+version = "0.7.1"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
@@ -335,7 +342,7 @@ requires-dist = [
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = "==7.0.0" },
     { name = "pytest-django", marker = "extra == 'dev'", specifier = "==4.8.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.9" },
-    { name = "the-music-tree-api-kit", git = "https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git?rev=v0.2.0" },
+    { name = "the-music-tree-api-kit", git = "https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git?rev=v0.4.0" },
 ]
 provides-extras = ["dev"]
 

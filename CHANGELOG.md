@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Repin `the-music-tree-api-kit` to `v0.4.0`, which adds the shared `CamelToSnakeMiddleware`.
+
 ## [0.7.1] - 2026-08-24
 
 ### Changed
