@@ -51,6 +51,14 @@
             {"name": "Liquid DnB", "children": []},
             {"name": "Neurofunk", "children": []}
           ]
+        },
+        {
+          "name": "Electropop",
+          "side": "pop",
+          "children": [
+            {"name": "Synth-Pop", "children": []},
+            {"name": "Dance-Pop", "children": []}
+          ]
         }
       ]
     },
@@ -99,6 +107,14 @@
             {"name": "Pop Punk", "children": []},
             {"name": "Hardcore Punk", "children": []}
           ]
+        },
+        {
+          "name": "Pop Rock",
+          "side": "pop",
+          "children": [
+            {"name": "Soft Rock", "children": []},
+            {"name": "Arena Rock", "children": []}
+          ]
         }
       ]
     },
@@ -117,6 +133,14 @@
           "children": [
             {"name": "Country Pop", "children": []},
             {"name": "Country Rock", "children": []}
+          ]
+        },
+        {
+          "name": "Pop Country",
+          "side": "pop",
+          "children": [
+            {"name": "Nashville Sound", "children": []},
+            {"name": "Bro-Country", "children": []}
           ]
         }
       ]
@@ -138,6 +162,14 @@
             {"name": "Drill", "children": []},
             {"name": "Cloud Rap", "children": []}
           ]
+        },
+        {
+          "name": "Pop Rap",
+          "side": "pop",
+          "children": [
+            {"name": "Mumble Rap", "children": []},
+            {"name": "Crossover Hip Hop", "children": []}
+          ]
         }
       ]
     },
@@ -156,6 +188,14 @@
           "children": [
             {"name": "Dub Techno", "children": []},
             {"name": "Dubstep", "children": []}
+          ]
+        },
+        {
+          "name": "Reggae Pop",
+          "side": "pop",
+          "children": [
+            {"name": "Reggae Fusion", "children": []},
+            {"name": "Reggaeton", "children": []}
           ]
         }
       ]
@@ -206,6 +246,14 @@
         {
           "name": "Asian",
           "children": [
+            {"name": "Enka", "children": []},
+            {"name": "Bollywood", "children": []}
+          ]
+        },
+        {
+          "name": "World Pop",
+          "side": "pop",
+          "children": [
             {"name": "K-Pop", "children": []},
             {"name": "J-Pop", "children": []}
           ]
@@ -227,6 +275,14 @@
           "children": [
             {"name": "P-Funk", "children": []},
             {"name": "G-Funk", "children": []}
+          ]
+        },
+        {
+          "name": "Disco Pop",
+          "side": "pop",
+          "children": [
+            {"name": "Euro Disco", "children": []},
+            {"name": "Dance-Pop Disco", "children": []}
           ]
         }
       ]
@@ -253,6 +309,27 @@
           "children": [
             {"name": "Smooth Jazz", "children": []},
             {"name": "Nu Jazz", "children": []}
+          ]
+        },
+        {
+          "name": "Jazz Pop",
+          "side": "pop",
+          "children": [
+            {"name": "Vocal Pop Jazz", "children": []},
+            {"name": "Jazz-Pop Fusion", "children": []}
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Pop",
+      "children": [
+        {"name": "Dance Pop", "children": []},
+        {"name": "Teen Pop", "children": []},
+        {
+          "name": "Bubblegum Pop",
+          "children": [
+            {"name": "Europop", "children": []}
           ]
         }
       ]
