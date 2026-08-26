@@ -17,6 +17,9 @@ class ArtistManager(StandardResourceManager):
             return instance.delete()
         return 0, {}
 
+    def get_artists_list_from_names_after_potential_creation(self, user, artists_names):
+        return [self.get_or_create(user=user, name=name)[0] for name in (artists_names or [])]
+
 
 class AlbumManager(StandardResourceManager):
     def delete_instance_if_no_track_linked_with_potential_album_artist_deletion(self, instance):
