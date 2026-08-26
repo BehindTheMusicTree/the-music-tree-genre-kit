@@ -13,6 +13,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-08-26
+
+### Added
+
+- `build_criteria_detailed_tracks_fields` (`serializer/model/criteria/output/detailed_tracks.py`): returns a dict of DRF field instances (a nested track list plus not-archived/archived counts) sourced from `TrackMixin`'s properties, for a consumer's `CriteriaDetailedSerializer` to assign as class attributes alongside its own app-specific fields. Prepares grow's (and eventually hear's) detailed-output `tracks`/`tracks_count`/`tracks_archived_count` fields to be sourced from the kit instead of hand-duplicated per app.
+- `build_criteria_playlist_minimum_serializer` (`serializer/model/criteria/playlist/output/minimum.py`): a drop-in serializer-class builder for `CriteriaPlaylist`'s minimum output, mirroring `build_criteria_minimum_serializer`.
+
 ## [0.8.0] - 2026-08-26
 
 ### Added
