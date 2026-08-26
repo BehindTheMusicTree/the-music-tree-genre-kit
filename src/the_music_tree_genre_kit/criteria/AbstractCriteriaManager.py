@@ -233,7 +233,11 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             result = []
             for criteria in criteria_by_parent[parent_id]:
                 child_id = criteria.uuid if hasattr(criteria, "uuid") else criteria.id
-                node = {InputFields.NAME_PUBLIC: criteria.name, InputFields.CHILDREN: build_tree(child_id)}
+                node = {
+                    InputFields.NAME_PUBLIC: criteria.name,
+                    InputFields.CHILDREN: build_tree(child_id),
+                    InputFields.SIDE: criteria.side,
+                }
                 result.append(node)
 
             return result
@@ -273,7 +277,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         def create_criteria_tree(nodes, parent=None):
             for node in nodes:
                 name = node.get(InputFields.NAME_PUBLIC)
-                criteria = self.create(name=name, parent=parent, user=user)
+                criteria = self.create(name=name, parent=parent, user=user, side=node.get(InputFields.SIDE))
 
                 children = node.get(InputFields.CHILDREN, [])
                 if children is None:

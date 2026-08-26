@@ -3,3 +3,4 @@ class Fields:
     PARENT = "parent"
     CHILDREN = "children"
     TREE = "tree"
+    SIDE = "side"

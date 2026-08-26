@@ -12,3 +12,4 @@ class CriteriaOutputFieldKey(StrEnum):
     ASCENDANTS = "ascendants"
     DESCENDANTS = "descendants"
     CHILDREN = "children"
+    SIDE = "side"
