@@ -13,6 +13,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-08-26
+
+### Added
+
+- `side` field (`core`/`pop`) on `AbstractCriteria`, meaningful only for a root's direct children. Validates placement (pop only on a root's direct child) and uniqueness (at most one pop child per root), and is threaded through tree import/export and the `simple` output serializer.
+
 ## [0.7.2] - 2026-08-25
 
 ### Changed
