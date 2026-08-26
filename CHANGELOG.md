@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Generic "load example songs" mechanism, mirroring the existing genre-example-tree mechanism: `AbstractTrackManager.import_example_songs(user, data)` wipes the user's existing tracks and seeds new ones from a flat list of `{title, artist, youtube_video_id, genre_name}` entries, matching each entry's `genre_name` case-insensitively against the user's own criteria (unmatched entries are skipped, never creating a genre-less track) and resolving/creating the artist via `settings.ARTIST_MODEL`'s manager. `SongExampleTreeMixin` (`view/viewset/track/SongExampleTreeMixin.py`) exposes this as a `songs/load-example` POST action for a track viewset, reading `song_example.json` from `settings.DATA_DIR`, with an `on_example_songs_loaded` hook for app-specific side effects. Ships a bundled `data/song_example.json` fixture — its 15 entries are hand-authored placeholders (including placeholder `youtube_video_id` values) pending a real MusicBrainz-derived export.
+
 ## [0.8.0] - 2026-08-26
 
 ### Added
