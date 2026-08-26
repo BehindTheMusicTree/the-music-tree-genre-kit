@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `data/genre_example_tree.json`: restructured to exercise the `side` (core/pop) field added in v0.8.0 — each root except Classical now has one direct child marked `side: "pop"` carrying its mainstream/pop-crossover subgenres (e.g. Electronic → Electropop, Rock/Metal → Pop Rock), and a new top-level `Pop` root was added with its own subtree of mainstream pop subgenres. `World`'s K-Pop/J-Pop moved from `Asian` into the new `World Pop` pop-side child; `Asian` now carries Enka/Bollywood instead.
+
 ## [0.9.0] - 2026-08-26
 
 ### Added
