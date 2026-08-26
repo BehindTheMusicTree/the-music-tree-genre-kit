@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from django.apps import apps
 from django.conf import settings
@@ -8,6 +8,9 @@ from django.db.models import F
 from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
 
 from the_music_tree_genre_kit.criteria.track_playlist_rel.TrackPlaylistRel import TrackPlaylistRel
+from the_music_tree_genre_kit.serializer.model.track.input.song_example.Fields import (
+    Fields as SongExampleFields,
+)
 
 from .Fields import Fields
 
@@ -172,3 +175,44 @@ class AbstractTrackManager(StandardResourceManager[T]):
             album_model.objects.delete_instance_if_no_track_linked_with_potential_album_artist_deletion(album)
         for artist in artists:
             artist_model.objects.delete_instance_if_nothing_linked(artist)
+
+    @transaction.atomic
+    def import_example_songs(self, user: User, data: list[dict[str, Any]]) -> None:
+        """
+        Imports a flat list of example songs, replacing all of the user's existing
+        tracks first (mirrors `AbstractCriteriaManager.import_criteria_tree`'s
+        wipe-then-seed semantics). An entry whose `genre_name` has no
+        case-insensitive match among the user's criteria is skipped rather than
+        creating a genre-less track.
+
+        Resolving/creating the artist is delegated to `settings.ARTIST_MODEL`'s
+        manager via `get_artists_list_from_names_after_potential_creation`, the
+        same duck-typed convention this manager already relies on for
+        `delete_instance_if_nothing_linked` - this kit has no abstract Artist
+        model of its own, so the concrete app's manager must expose it.
+        """
+        criteria_model = apps.get_model(settings.CRITERIA_MODEL)
+        artist_model = apps.get_model(settings.ARTIST_MODEL)
+
+        for track in list(self.filter(user=user)):
+            self.delete_instance_with_checking_album_and_artists_potential_deletion(track)
+
+        for entry in data:
+            genre = criteria_model.objects.filter(user=user, _name__iexact=entry[SongExampleFields.GENRE_NAME]).first()
+            if not genre:
+                continue
+
+            artists = artist_model.objects.get_artists_list_from_names_after_potential_creation(
+                user, [entry[SongExampleFields.ARTIST]]
+            )
+
+            self.create(
+                user=user,
+                title=entry[SongExampleFields.TITLE],
+                artists=artists,
+                genre=genre,
+                # `youtube_video_id` isn't a field on the abstract Track model, only on
+                # concrete video-linkable subclasses - valid only when settings.TRACK_MODEL
+                # is/extends such a subclass.
+                youtube_video_id=entry[SongExampleFields.YOUTUBE_VIDEO_ID],
+            )

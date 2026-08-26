@@ -1,0 +1,20 @@
+[
+  {
+    "title": "Strings of Life",
+    "artist": "Derrick May",
+    "youtube_video_id": "FIXTURE01",
+    "genre_name": "Techno"
+  },
+  {
+    "title": "Your Love",
+    "artist": "Frankie Knuckles",
+    "youtube_video_id": "FIXTURE02",
+    "genre_name": "House"
+  },
+  {
+    "title": "Unmatched Genre Song",
+    "artist": "Nobody",
+    "youtube_video_id": "FIXTURE03",
+    "genre_name": "Nonexistent Genre"
+  }
+]

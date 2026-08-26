@@ -1,0 +1,92 @@
+[
+  {
+    "title": "Your Love",
+    "artist": "Frankie Knuckles",
+    "youtube_video_id": "PLACEHOLDER01",
+    "genre_name": "Chicago Deep House"
+  },
+  {
+    "title": "Losing You",
+    "artist": "Solomun",
+    "youtube_video_id": "PLACEHOLDER02",
+    "genre_name": "Tech House"
+  },
+  {
+    "title": "Strings of Life",
+    "artist": "Derrick May",
+    "youtube_video_id": "PLACEHOLDER03",
+    "genre_name": "Detroit Techno"
+  },
+  {
+    "title": "Smells Like Teen Spirit",
+    "artist": "Nirvana",
+    "youtube_video_id": "PLACEHOLDER04",
+    "genre_name": "Indie Rock"
+  },
+  {
+    "title": "Master of Puppets",
+    "artist": "Metallica",
+    "youtube_video_id": "PLACEHOLDER05",
+    "genre_name": "Heavy Metal"
+  },
+  {
+    "title": "Blitzkrieg Bop",
+    "artist": "Ramones",
+    "youtube_video_id": "PLACEHOLDER06",
+    "genre_name": "Hardcore Punk"
+  },
+  {
+    "title": "Jolene",
+    "artist": "Dolly Parton",
+    "youtube_video_id": "PLACEHOLDER07",
+    "genre_name": "Traditional Country"
+  },
+  {
+    "title": "The Message",
+    "artist": "Grandmaster Flash and the Furious Five",
+    "youtube_video_id": "PLACEHOLDER08",
+    "genre_name": "Old School Hip Hop"
+  },
+  {
+    "title": "Sicko Mode",
+    "artist": "Travis Scott",
+    "youtube_video_id": "PLACEHOLDER09",
+    "genre_name": "Trap"
+  },
+  {
+    "title": "No Woman No Cry",
+    "artist": "Bob Marley and the Wailers",
+    "youtube_video_id": "PLACEHOLDER10",
+    "genre_name": "Roots Reggae"
+  },
+  {
+    "title": "Redemption Song",
+    "artist": "Bob Marley",
+    "youtube_video_id": "PLACEHOLDER11",
+    "genre_name": "Reggae"
+  },
+  {
+    "title": "So What",
+    "artist": "Miles Davis",
+    "youtube_video_id": "PLACEHOLDER12",
+    "genre_name": "Modern Jazz"
+  },
+  {
+    "title": "Take Five",
+    "artist": "Dave Brubeck",
+    "youtube_video_id": "PLACEHOLDER13",
+    "genre_name": "Jazz"
+  },
+  {
+    "title": "Le Freak",
+    "artist": "Chic",
+    "youtube_video_id": "PLACEHOLDER14",
+    "genre_name": "Disco"
+  },
+  {
+    "title": "Give Up the Funk",
+    "artist": "Parliament",
+    "youtube_video_id": "PLACEHOLDER15",
+    "genre_name": "Funk"
+  }
+]
