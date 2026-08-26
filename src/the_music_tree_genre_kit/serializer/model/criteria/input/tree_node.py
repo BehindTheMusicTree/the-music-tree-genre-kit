@@ -1,17 +1,19 @@
 from django.conf import settings
-from rest_framework.serializers import DictField
+from rest_framework.serializers import ChoiceField, DictField
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 from the_music_tree_api_kit.serializer.AppInputSerializer import AppInputSerializer
 from the_music_tree_api_kit.serializer.field.AppCharField import AppCharField
 from the_music_tree_api_kit.serializer.field.AppListField import AppListField
 
+from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields
 
 
 class CriteriaTreeNodeSerializer(AppInputSerializer):
     name = AppCharField(max_length=settings.CRITERIA_NAME_LEN_MAX, allow_blank=False, required=True)
     children = AppListField(child=DictField(), required=False, default=list, allow_null=True)
+    side = ChoiceField(choices=CriteriaSide.choices, required=False, allow_null=True)
 
     def __init__(self, structure_field_name: str, *args, **kwargs):
         super().__init__(*args, **kwargs)

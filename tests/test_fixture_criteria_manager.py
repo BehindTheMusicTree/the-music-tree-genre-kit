@@ -1,7 +1,9 @@
 import pytest
 from django.contrib.auth import get_user_model
+from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 
 from tests.fixture_app.models import Criteria, CriteriaPlaylist, Track, TrackPlaylistRel
+from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
 from the_music_tree_genre_kit.criteria.playlist.bootstrap_criterialess_playlists_for_user import (
     bootstrap_criterialess_playlists_for_user,
 )
@@ -55,3 +57,80 @@ def test_delete_instance_of_root_criteria_transfers_direct_tracks_and_clears_gen
 
     child_playlist = CriteriaPlaylist.objects.get(criteria=child_criteria)
     assert child_playlist.is_root
+
+
+@pytest.mark.django_db
+def test_import_and_export_round_trip_preserves_pop_side(user, genre_type):
+    tree_data = {
+        "tree": [
+            {
+                "name": "Electronic",
+                "children": [
+                    {"name": "Core Electronic", "children": []},
+                    {"name": "Pop Electronic", "side": "pop", "children": []},
+                ],
+            }
+        ]
+    }
+
+    Criteria.objects.import_criteria_tree(user, tree_data)
+
+    pop_child = Criteria.objects.get(user=user, _name="Pop Electronic")
+    assert pop_child.side == CriteriaSide.POP
+
+    core_child = Criteria.objects.get(user=user, _name="Core Electronic")
+    assert core_child.side is None
+
+    exported = Criteria.objects.build_criteria_tree(user)
+    root_node = exported[0]
+    exported_children_by_name = {child["name"]: child for child in root_node["children"]}
+
+    assert exported_children_by_name["Pop Electronic"]["side"] == CriteriaSide.POP
+    assert exported_children_by_name["Core Electronic"]["side"] is None
+
+
+@pytest.mark.django_db
+def test_import_root_with_only_core_child_keeps_side_null(user, genre_type):
+    tree_data = {"tree": [{"name": "Classical", "children": [{"name": "Baroque", "children": []}]}]}
+
+    Criteria.objects.import_criteria_tree(user, tree_data)
+
+    baroque = Criteria.objects.get(user=user, _name="Baroque")
+    assert baroque.side is None
+
+    exported = Criteria.objects.build_criteria_tree(user)
+    assert exported[0]["children"][0]["side"] is None
+
+
+@pytest.mark.django_db
+def test_pop_side_on_non_root_child_raises(user, genre_type):
+    root = Criteria(user=user, type=genre_type)
+    root._name = "root"
+    root.save()
+
+    child = Criteria(user=user, type=genre_type, parent=root)
+    child._name = "child"
+    child.save()
+
+    grandchild = Criteria(user=user, type=genre_type, parent=child, side=CriteriaSide.POP)
+    grandchild._name = "grandchild"
+
+    with pytest.raises(AppValidationException):
+        grandchild.save()
+
+
+@pytest.mark.django_db
+def test_second_pop_side_sibling_raises(user, genre_type):
+    root = Criteria(user=user, type=genre_type)
+    root._name = "root"
+    root.save()
+
+    first_pop_child = Criteria(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
+    first_pop_child._name = "first-pop"
+    first_pop_child.save()
+
+    second_pop_child = Criteria(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
+    second_pop_child._name = "second-pop"
+
+    with pytest.raises(AppValidationException):
+        second_pop_child.save()

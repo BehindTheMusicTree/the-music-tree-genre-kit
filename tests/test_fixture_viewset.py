@@ -35,7 +35,9 @@ def test_tree_returns_nested_structure(api_client, user, criteria_type):
     response = api_client.get("/criteria/tree/")
 
     assert response.status_code == 200
-    assert response.data == [{"name": "root", "children": [{"name": "child", "children": []}]}]
+    assert response.data == [
+        {"name": "root", "children": [{"name": "child", "children": [], "side": None}], "side": None}
+    ]
 
 
 def test_tree_excludes_other_users_criteria(api_client, user, criteria_type):

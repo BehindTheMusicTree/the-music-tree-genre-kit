@@ -65,3 +65,20 @@ def test_validate_children_raises_on_invalid_child_node():
     # ValidationError here, not AppValidationException -- validate_children doesn't translate it.
     with pytest.raises(ValidationError):
         _serializer().validate_children([{"name": ""}])
+
+
+def test_to_internal_value_accepts_optional_side_field():
+    validated = _serializer().to_internal_value({"name": "Pop Electronic", "side": "pop"})
+
+    assert validated["side"] == "pop"
+
+
+def test_to_internal_value_omits_side_when_not_provided():
+    validated = _serializer().to_internal_value({"name": "House"})
+
+    assert "side" not in validated
+
+
+def test_to_internal_value_rejects_invalid_side_value():
+    with pytest.raises(ValidationError):
+        _serializer().to_internal_value({"name": "House", "side": "invalid"})

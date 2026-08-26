@@ -11,3 +11,4 @@ class Fields(PrivateUniqueResourceFields):
     ROOT = "root"
     PARENT = "parent"
     CHILDREN = "children"
+    SIDE = "side"

@@ -22,6 +22,7 @@ def build_criteria_simple_serializer(
                 CriteriaOutputFieldKey.NAME.value,
                 CriteriaOutputFieldKey.PARENT.value,
                 CriteriaOutputFieldKey.CREATED_ON.value,
+                CriteriaOutputFieldKey.SIDE.value,
             ]
 
     return CriteriaSimpleSerializer
