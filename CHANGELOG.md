@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-08-27
+
 ### Changed
 
 - `AbstractTrackManager.import_example_songs` is now efficient at any input size, not just the small hand-curated fixture it was originally built for: the user's criteria are fetched once into an in-memory dict instead of one query per song, artist names are deduplicated across every entry before a single call to `get_artists_list_from_names_after_potential_creation` instead of one call per song, and every ancestor-genre `TrackPlaylistRel` is `bulk_create`d in one shot from ancestor chains walked in Python instead of one `.create()` per ancestor per track. The `Track` row itself still needs one `save()` per song (Django's `bulk_create` doesn't support multi-table inherited models, and every concrete `Track` subclass is one), but no longer pays per-row nested-transaction or immediate playlist-write overhead. Wipe-then-seed and skip-unmatched-genre semantics are unchanged; added coverage for a multi-level genre chain and a several-hundred-entry batch.
