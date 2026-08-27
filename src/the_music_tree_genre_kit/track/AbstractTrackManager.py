@@ -190,29 +190,102 @@ class AbstractTrackManager(StandardResourceManager[T]):
         same duck-typed convention this manager already relies on for
         `delete_instance_if_nothing_linked` - this kit has no abstract Artist
         model of its own, so the concrete app's manager must expose it.
+
+        Efficient at any input size (hand-curated fixtures of a handful of
+        entries, up to MusicBrainz-derived exports of thousands): the user's
+        criteria are fetched once into an in-memory dict (instead of one
+        `filter(...).first()` query per song), artist names are deduplicated
+        across every entry before a single call to
+        `get_artists_list_from_names_after_potential_creation` (instead of one
+        call per song), and every ancestor-genre `TrackPlaylistRel` is
+        `bulk_create`d in one shot from ancestor chains walked in Python off the
+        already-fetched criteria (instead of one `.create()` per ancestor per
+        track). The `Track` row itself still needs one `save()` per song -
+        Django's `bulk_create` refuses multi-table inherited models, and every
+        concrete `Track` subclass is one - but each save no longer pays for a
+        per-row nested transaction or immediate per-ancestor playlist writes.
         """
         criteria_model = apps.get_model(settings.CRITERIA_MODEL)
         artist_model = apps.get_model(settings.ARTIST_MODEL)
+        criteria_playlist_model = type(self).criteria_playlist_model
 
         for track in list(self.filter(user=user)):
             self.delete_instance_with_checking_album_and_artists_potential_deletion(track)
 
+        if not data:
+            return
+
+        criteria_by_pk: dict[Any, Any] = {}
+        criteria_by_lower_name: dict[str, Any] = {}
+        for criteria in criteria_model.objects.filter(user=user):
+            criteria_by_pk[criteria.pk] = criteria
+            criteria_by_lower_name.setdefault(criteria._name.lower(), criteria)
+
+        matched_entries: list[tuple[dict[str, Any], Any]] = []
         for entry in data:
-            genre = criteria_model.objects.filter(user=user, _name__iexact=entry[SongExampleFields.GENRE_NAME]).first()
-            if not genre:
-                continue
+            genre = criteria_by_lower_name.get(entry[SongExampleFields.GENRE_NAME].lower())
+            if genre is not None:
+                matched_entries.append((entry, genre))
 
-            artists = artist_model.objects.get_artists_list_from_names_after_potential_creation(
-                user, [entry[SongExampleFields.ARTIST]]
-            )
+        if not matched_entries:
+            return
 
-            self.create(
+        unique_artist_names = list(dict.fromkeys(entry[SongExampleFields.ARTIST] for entry, _ in matched_entries))
+        resolved_artists = artist_model.objects.get_artists_list_from_names_after_potential_creation(
+            user, unique_artist_names
+        )
+        artists_by_name = dict(zip(unique_artist_names, resolved_artists, strict=True))
+
+        playlist_by_criteria_pk = {
+            playlist.criteria_id: playlist
+            for playlist in criteria_playlist_model.objects.filter(user=user, criteria__isnull=False)
+        }
+
+        instances: list[T] = []
+        for entry, genre in matched_entries:
+            instance = self.model(
                 user=user,
                 title=entry[SongExampleFields.TITLE],
-                artists=artists,
                 genre=genre,
                 # `youtube_video_id` isn't a field on the abstract Track model, only on
                 # concrete video-linkable subclasses - valid only when settings.TRACK_MODEL
                 # is/extends such a subclass.
                 youtube_video_id=entry[SongExampleFields.YOUTUBE_VIDEO_ID],
             )
+            instance.save()
+            instances.append(instance)
+
+        for instance, (entry, _genre) in zip(instances, matched_entries, strict=True):
+            instance.artists.set([artists_by_name[entry[SongExampleFields.ARTIST]]])
+
+        ancestor_playlists_by_genre_pk: dict[Any, list] = {}
+
+        def _ancestor_playlists(genre) -> list:
+            if genre.pk not in ancestor_playlists_by_genre_pk:
+                playlists = []
+                genre_tree_item = genre
+                while genre_tree_item is not None:
+                    playlists.append(playlist_by_criteria_pk[genre_tree_item.pk])
+                    parent_pk = genre_tree_item.parent_id
+                    genre_tree_item = criteria_by_pk.get(parent_pk) if parent_pk else None
+                ancestor_playlists_by_genre_pk[genre.pk] = playlists
+            return ancestor_playlists_by_genre_pk[genre.pk]
+
+        playlist_rel_groups: dict[Any, list[TrackPlaylistRel]] = {}
+        for instance, (_entry, genre) in zip(instances, matched_entries, strict=True):
+            for playlist in _ancestor_playlists(genre):
+                playlist_rel_groups.setdefault(playlist.pk, []).append(
+                    TrackPlaylistRel(user=user, playlist=playlist, track=instance)
+                )
+
+        playlist_rels: list[TrackPlaylistRel] = []
+        for rels in playlist_rel_groups.values():
+            count = len(rels)
+            for index, rel in enumerate(rels):
+                # Mirrors `AbstractTrackPlaylistRel._perform_save`'s LIFO shift (each new
+                # row becomes position 1, bumping earlier rows up): the last-inserted
+                # entry for this playlist ends up at position 1, the first at `count`.
+                rel.position = count - index
+            playlist_rels.extend(rels)
+
+        TrackPlaylistRel.objects.bulk_create(playlist_rels)
