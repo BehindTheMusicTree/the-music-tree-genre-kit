@@ -13,6 +13,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-08-28
+
+### Changed
+
+- Repinned `the-music-tree-api-kit` to `v0.5.0`, which adds the shared `add_loopback_hosts`
+  helper. Because uv rejects two different git refs for the same package, consumers cannot
+  pin api-kit `v0.5.0` directly while this kit still pins `v0.4.0`; this bump unblocks
+  `hear-the-music-tree-api` and `grow-the-music-tree-api` adopting the helper. No genre-kit
+  behaviour changes.
+
 ## [0.11.0] - 2026-08-27
 
 ### Changed
