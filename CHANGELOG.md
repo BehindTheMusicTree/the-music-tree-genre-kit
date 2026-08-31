@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-08-31
+
 ### Changed
 
 - **Breaking:** `side` is no longer a column on `AbstractCriteria` — it has moved to a new
