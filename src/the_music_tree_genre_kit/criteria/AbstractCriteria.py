@@ -17,6 +17,7 @@ from .CriteriaSide import CriteriaSide
 from .Fields import Fields
 from .lineage_rel.Fields import Fields as CriteriaLineageRelFields
 from .type.CriteriaType import CriteriaType
+from .type.CriteriaTypePks import CriteriaTypePks
 
 if TYPE_CHECKING:
     from .lineage_rel.AbstractCriteriaLineageRel import AbstractCriteriaLineageRel
@@ -48,12 +49,14 @@ class AbstractCriteria(PrivateUniqueResource):
 
     type = AppForeignKey(CriteriaType, on_delete=models.CASCADE)
 
-    side = models.CharField(max_length=4, choices=CriteriaSide.choices, null=True, blank=True, db_column=Fields.SIDE)
+    side = AppCharField(max_length=4, choices=CriteriaSide.choices, null=True, blank=True, db_column=Fields.SIDE)
     """
-    Meaningful only for a root criteria's direct child (`parent_id == root_id`);
-    ignored elsewhere, same convention as `is_root` below. Null/unset means "core"
-    (the required, non-pop branch); `CriteriaSide.POP` marks the optional pop/crossover
-    branch. See `_validate_side` for the placement and uniqueness constraints enforced
+    Meaningful only for a genre criteria that is a root criteria's direct child
+    (`parent_id == root_id`); ignored elsewhere, same convention as `is_root` below.
+    Null/unset means "core" (the required, non-pop branch); `CriteriaSide.POP` marks
+    the optional pop/crossover branch. Only valid on genre-type criteria (see
+    `CriteriaTypePks.GENRE`); setting it on any other criteria type raises on save.
+    See `_validate_side` for the type, placement, and uniqueness constraints enforced
     on save.
     """
 
@@ -108,6 +111,13 @@ class AbstractCriteria(PrivateUniqueResource):
         return False
 
     def _validate_side(self) -> None:
+        if self.side is not None and self.type_id != int(CriteriaTypePks.GENRE):
+            raise AppValidationException(
+                field_name=Fields.SIDE,
+                message=_("side is only valid on genre criteria"),
+                field_validation_error_code=FieldValidationErrorCode.DEPENDENCY_MISSING,
+            )
+
         if self.side != CriteriaSide.POP:
             return
 
