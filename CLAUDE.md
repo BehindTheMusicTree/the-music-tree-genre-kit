@@ -87,7 +87,7 @@ classes; this package does not define full serializers that hit a concrete `Crit
 Two parallel "load example data for a user" mechanisms, both wiping the user's existing rows
 and reseeding from a bundled JSON fixture in `data/`:
 
-- `view/viewset/genre/GenreExampleTreeMixin.py` + `data/genre_example_tree.json` — loads an
+- `view/viewset/genre/GenreExampleTreeMixin.py` + `data/prototype_genre_tree.json` — loads an
   example criteria tree.
 - `view/viewset/track/SongExampleTreeMixin.py` + `AbstractTrackManager.import_example_songs` +
   `data/song_example.json` — loads example tracks, matching each entry's `genre_name`

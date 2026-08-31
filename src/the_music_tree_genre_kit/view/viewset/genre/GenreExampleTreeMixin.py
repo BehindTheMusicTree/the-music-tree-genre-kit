@@ -25,7 +25,7 @@ class GenreExampleTreeMixin[T: AbstractCriteria]:
     """
 
     model_class: type[T]
-    example_tree_filename: str = "genre_example_tree.json"
+    example_tree_filename: str = "prototype_genre_tree.json"
 
     def get_example_tree_data_path(self) -> Path:
         return settings.DATA_DIR / self.example_tree_filename
