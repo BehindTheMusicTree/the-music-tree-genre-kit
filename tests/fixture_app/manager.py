@@ -1,6 +1,7 @@
 from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
 
 from the_music_tree_genre_kit.criteria.AbstractCriteriaManager import AbstractCriteriaManager
+from the_music_tree_genre_kit.criteria.children.genre.AbstractGenreManager import AbstractGenreManager
 from the_music_tree_genre_kit.criteria.playlist.AbstractCriteriaPlaylistManager import AbstractCriteriaPlaylistManager
 from the_music_tree_genre_kit.criteria.type.CriteriaType import CriteriaType
 from the_music_tree_genre_kit.criteria.type.CriteriaTypePks import CriteriaTypePks
@@ -12,6 +13,10 @@ class CriteriaManager(AbstractCriteriaManager):
         return CriteriaType.objects.get_or_create(
             pk=int(CriteriaTypePks.GENRE), defaults={"label": "fixture-criteria-type"}
         )[0]
+
+
+class GenreManager(AbstractGenreManager, CriteriaManager):
+    pass
 
 
 class ArtistManager(StandardResourceManager):

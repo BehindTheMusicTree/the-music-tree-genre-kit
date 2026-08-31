@@ -13,6 +13,29 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `side` is no longer a column on `AbstractCriteria` — it has moved to a new
+  `AbstractGenreCriteria` abstract mixin, meant to be combined via real Django multi-table
+  inheritance with a consumer's concrete `Criteria` model to form its concrete `Genre` model
+  (`class Genre(AbstractGenreCriteria, Criteria): ...`, mixin listed first, same convention as
+  `AbstractCriteriaPlaylist`/`AbstractManualPlaylist`). "Side is genre-only" is now enforced by
+  the schema itself — `Tag`/plain `Criteria` rows simply have no `side` column — instead of the
+  old runtime `_validate_side()` type-check, which was bypassable via `.update()`,
+  `bulk_create()`, raw SQL, or fixtures. The mixin still re-validates the two rules MTI can't
+  express structurally: `side="pop"` is only valid on a root criteria's direct child, and only
+  one direct child of a root may have `side="pop"`. Consumers must define this `Genre` MTI
+  subclass themselves (out of scope for this package); their existing `Genre` proxy models will
+  need converting.
+- Repurposed the dead `GenreManager`/`TagManager` placeholders into `AbstractGenreManager` and
+  `AbstractTagManager` (`django.db.models.Manager` subclasses): `get_queryset()` scopes to the
+  matching `CriteriaType`, and `_get_criteria_type()` returns it for creation.
+- `AbstractCriteriaManager.build_criteria_tree`/`import_criteria_tree` now check whether the
+  manager's model actually declares a `side` field before reading/writing it, so they keep
+  working for non-`Genre` criteria managers (which no longer have `side` at all).
+- `build_criteria_simple_serializer` now only includes `side` in its output fields when the
+  given `criteria_model` declares it.
+
 ## [0.13.0] - 2026-08-31
 
 ### Changed

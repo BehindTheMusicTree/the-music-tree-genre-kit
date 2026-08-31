@@ -67,6 +67,14 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     def get_default_ordering(self) -> list[str]:
         return [Fields.NAME_INTERNAL]
 
+    def _model_has_side_field(self) -> bool:
+        """
+        Whether this manager's model declares a `side` column. Only a concrete `Genre`
+        subtype (via the `AbstractGenreCriteria` mixin) does -- `side` is no longer on
+        the shared `AbstractCriteria` table, so this can't be assumed generically.
+        """
+        return any(field.name == Fields.SIDE for field in self.model._meta.get_fields())
+
     def _on_created(self, instance: T) -> None:
         """Hook: react to a newly created criteria. No-op by default."""
 
@@ -218,6 +226,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         }
         """
         queryset = self.filter(user=user).select_related(Fields.PARENT)
+        model_has_side_field = self._model_has_side_field()
 
         criteria_by_parent = {}
         for criteria in queryset:
@@ -236,7 +245,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 node = {
                     InputFields.NAME_PUBLIC: criteria.name,
                     InputFields.CHILDREN: build_tree(child_id),
-                    InputFields.SIDE: criteria.side,
+                    InputFields.SIDE: criteria.side if model_has_side_field else None,
                 }
                 result.append(node)
 
@@ -274,10 +283,13 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         if not tree_data:
             return
 
+        model_has_side_field = self._model_has_side_field()
+
         def create_criteria_tree(nodes, parent=None):
             for node in nodes:
                 name = node.get(InputFields.NAME_PUBLIC)
-                criteria = self.create(name=name, parent=parent, user=user, side=node.get(InputFields.SIDE))
+                extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
+                criteria = self.create(name=name, parent=parent, user=user, **extra_kwargs)
 
                 children = node.get(InputFields.CHILDREN, [])
                 if children is None:

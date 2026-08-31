@@ -13,11 +13,9 @@ from the_music_tree_api_kit.field.foreign_key.PrivateForeignKey import PrivateFo
 from the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField import PrivateManyToManyField
 from the_music_tree_api_kit.private_unique_resource.PrivateUniqueResource import PrivateUniqueResource
 
-from .CriteriaSide import CriteriaSide
 from .Fields import Fields
 from .lineage_rel.Fields import Fields as CriteriaLineageRelFields
 from .type.CriteriaType import CriteriaType
-from .type.CriteriaTypePks import CriteriaTypePks
 
 if TYPE_CHECKING:
     from .lineage_rel.AbstractCriteriaLineageRel import AbstractCriteriaLineageRel
@@ -48,17 +46,6 @@ class AbstractCriteria(PrivateUniqueResource):
     root: AbstractCriteria = PrivateForeignKey("self", on_delete=models.DO_NOTHING, related_name=Fields.DESCENDANTS)  # type: ignore
 
     type = AppForeignKey(CriteriaType, on_delete=models.CASCADE)
-
-    side = AppCharField(max_length=4, choices=CriteriaSide.choices, null=True, blank=True, db_column=Fields.SIDE)
-    """
-    Meaningful only for a genre criteria that is a root criteria's direct child
-    (`parent_id == root_id`); ignored elsewhere, same convention as `is_root` below.
-    Null/unset means "core" (the required, non-pop branch); `CriteriaSide.POP` marks
-    the optional pop/crossover branch. Only valid on genre-type criteria (see
-    `CriteriaTypePks.GENRE`); setting it on any other criteria type raises on save.
-    See `_validate_side` for the type, placement, and uniqueness constraints enforced
-    on save.
-    """
 
     class Meta:
         abstract = True
@@ -110,44 +97,11 @@ class AbstractCriteria(PrivateUniqueResource):
             return True
         return False
 
-    def _validate_side(self) -> None:
-        if self.side is not None and self.type_id != int(CriteriaTypePks.GENRE):
-            raise AppValidationException(
-                field_name=Fields.SIDE,
-                message=_("side is only valid on genre criteria"),
-                field_validation_error_code=FieldValidationErrorCode.DEPENDENCY_MISSING,
-            )
-
-        if self.side != CriteriaSide.POP:
-            return
-
-        is_root_direct_child = bool(self.parent_id) and self.parent_id == self.root_id
-        if not is_root_direct_child:
-            raise AppValidationException(
-                field_name=Fields.SIDE,
-                message=_('side="pop" is only valid on a direct child of a root criteria'),
-                field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
-            )
-
-        duplicate_pop_sibling_exists = (
-            type(self)
-            .objects.filter(root_id=self.root_id, parent_id=self.parent_id, side=CriteriaSide.POP)
-            .exclude(pk=self.pk)
-            .exists()
-        )
-        if duplicate_pop_sibling_exists:
-            raise AppValidationException(
-                field_name=Fields.SIDE,
-                message=_('Only one direct child of a root criteria may have side="pop"'),
-                field_validation_error_code=FieldValidationErrorCode.DUPLICATE,
-            )
-
     def _prepare_save(self, ctx: SaveContext) -> dict:
         self._set_uuid_if_necessary()
         root_has_changed = self._set_root()
         if not self._state.adding and root_has_changed:
             ctx.add_modified_field(f"{Fields.ROOT}_id")
-        self._validate_side()
         return ctx.kwargs
 
     def save(self, *args: Any, **kwargs: Any) -> None:
