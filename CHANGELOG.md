@@ -13,6 +13,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Renamed the `test.yml` GitHub Actions workflow to `validate.yml`.
+- Configured the validation workflow to run on pushes to `main` and `develop`, in addition to pull requests targeting these branches.
+
 ## [0.14.0] - 2026-08-31
 
 ### Changed
