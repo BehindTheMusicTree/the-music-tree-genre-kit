@@ -17,6 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - `AbstractCriteria.side` now uses `AppCharField` (same params) instead of a raw `models.CharField`, matching the kit's other text columns. `_validate_side()` now also rejects setting `side` on a non-genre criteria (`self.type_id != CriteriaTypePks.GENRE`), raising `AppValidationException` with `field_validation_error_code=DEPENDENCY_MISSING` — previously only tree-position and pop-sibling-uniqueness were enforced, so a `Tag` could be given a `side` value through the manager/ORM.
 
+## [0.12.0] - 2026-08-28
+
+### Changed
+
+- Repinned `the-music-tree-api-kit` to `v0.5.0`, which adds the shared `add_loopback_hosts`
+  helper. Because uv rejects two different git refs for the same package, consumers cannot
+  pin api-kit `v0.5.0` directly while this kit still pins `v0.4.0`; this bump unblocks
+  `hear-the-music-tree-api` and `grow-the-music-tree-api` adopting the helper. No genre-kit
+  behaviour changes.
+
 ## [0.11.0] - 2026-08-27
 
 ### Changed
