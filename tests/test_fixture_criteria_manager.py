@@ -1,9 +1,8 @@
 import pytest
 from django.contrib.auth import get_user_model
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
-from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 
-from tests.fixture_app.models import Criteria, CriteriaPlaylist, Track, TrackPlaylistRel
+from tests.fixture_app.models import Criteria, CriteriaPlaylist, Genre, Track, TrackPlaylistRel
 from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
 from the_music_tree_genre_kit.criteria.playlist.bootstrap_criterialess_playlists_for_user import (
     bootstrap_criterialess_playlists_for_user,
@@ -61,6 +60,16 @@ def test_delete_instance_of_root_criteria_transfers_direct_tracks_and_clears_gen
 
 
 @pytest.mark.django_db
+def test_side_is_not_a_field_on_plain_criteria(user, tag_type):
+    tag = Criteria(user=user, type=tag_type)
+    tag._name = "some-tag"
+    tag.save()
+
+    assert not hasattr(tag, "side")
+    assert not any(field.name == "side" for field in Criteria._meta.get_fields())
+
+
+@pytest.mark.django_db
 def test_import_and_export_round_trip_preserves_pop_side(user, genre_type):
     tree_data = {
         "tree": [
@@ -74,15 +83,15 @@ def test_import_and_export_round_trip_preserves_pop_side(user, genre_type):
         ]
     }
 
-    Criteria.objects.import_criteria_tree(user, tree_data)
+    Genre.objects.import_criteria_tree(user, tree_data)
 
-    pop_child = Criteria.objects.get(user=user, _name="Pop Electronic")
+    pop_child = Genre.objects.get(user=user, _name="Pop Electronic")
     assert pop_child.side == CriteriaSide.POP
 
-    core_child = Criteria.objects.get(user=user, _name="Core Electronic")
+    core_child = Genre.objects.get(user=user, _name="Core Electronic")
     assert core_child.side is None
 
-    exported = Criteria.objects.build_criteria_tree(user)
+    exported = Genre.objects.build_criteria_tree(user)
     root_node = exported[0]
     exported_children_by_name = {child["name"]: child for child in root_node["children"]}
 
@@ -94,26 +103,26 @@ def test_import_and_export_round_trip_preserves_pop_side(user, genre_type):
 def test_import_root_with_only_core_child_keeps_side_null(user, genre_type):
     tree_data = {"tree": [{"name": "Classical", "children": [{"name": "Baroque", "children": []}]}]}
 
-    Criteria.objects.import_criteria_tree(user, tree_data)
+    Genre.objects.import_criteria_tree(user, tree_data)
 
-    baroque = Criteria.objects.get(user=user, _name="Baroque")
+    baroque = Genre.objects.get(user=user, _name="Baroque")
     assert baroque.side is None
 
-    exported = Criteria.objects.build_criteria_tree(user)
+    exported = Genre.objects.build_criteria_tree(user)
     assert exported[0]["children"][0]["side"] is None
 
 
 @pytest.mark.django_db
 def test_pop_side_on_non_root_child_raises(user, genre_type):
-    root = Criteria(user=user, type=genre_type)
+    root = Genre(user=user, type=genre_type)
     root._name = "root"
     root.save()
 
-    child = Criteria(user=user, type=genre_type, parent=root)
+    child = Genre(user=user, type=genre_type, parent=root)
     child._name = "child"
     child.save()
 
-    grandchild = Criteria(user=user, type=genre_type, parent=child, side=CriteriaSide.POP)
+    grandchild = Genre(user=user, type=genre_type, parent=child, side=CriteriaSide.POP)
     grandchild._name = "grandchild"
 
     with pytest.raises(AppValidationException):
@@ -121,27 +130,16 @@ def test_pop_side_on_non_root_child_raises(user, genre_type):
 
 
 @pytest.mark.django_db
-def test_side_on_tag_criteria_raises(user, tag_type):
-    tag = Criteria(user=user, type=tag_type, side=CriteriaSide.POP)
-    tag._name = "some-tag"
-
-    with pytest.raises(AppValidationException) as exc_info:
-        tag.save()
-
-    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.DEPENDENCY_MISSING
-
-
-@pytest.mark.django_db
 def test_second_pop_side_sibling_raises(user, genre_type):
-    root = Criteria(user=user, type=genre_type)
+    root = Genre(user=user, type=genre_type)
     root._name = "root"
     root.save()
 
-    first_pop_child = Criteria(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
+    first_pop_child = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
     first_pop_child._name = "first-pop"
     first_pop_child.save()
 
-    second_pop_child = Criteria(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
+    second_pop_child = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
     second_pop_child._name = "second-pop"
 
     with pytest.raises(AppValidationException):

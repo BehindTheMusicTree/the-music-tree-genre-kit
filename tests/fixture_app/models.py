@@ -10,9 +10,11 @@ from tests.fixture_app.manager import (
     ArtistManager,
     CriteriaManager,
     CriteriaPlaylistManager,
+    GenreManager,
     TrackManager,
 )
 from the_music_tree_genre_kit.criteria.AbstractCriteria import AbstractCriteria
+from the_music_tree_genre_kit.criteria.children.genre.AbstractGenreCriteria import AbstractGenreCriteria
 from the_music_tree_genre_kit.criteria.Fields import Fields as CriteriaFields
 from the_music_tree_genre_kit.criteria.lineage_rel.AbstractCriteriaLineageRel import AbstractCriteriaLineageRel
 from the_music_tree_genre_kit.criteria.playlist.AbstractCriteriaPlaylist import AbstractCriteriaPlaylist
@@ -46,6 +48,15 @@ class CriteriaLineageRel(AbstractCriteriaLineageRel):
 
 
 CriteriaManager.lineage_rel_model = CriteriaLineageRel
+
+
+class Genre(AbstractGenreCriteria, Criteria):  # type: ignore[django-manager-missing]
+    criteria_ptr = PrivateOneToOneField(Criteria, on_delete=models.CASCADE, parent_link=True, related_name="genre")
+
+    objects: GenreManager = GenreManager()
+
+    class Meta:
+        app_label = "fixture_app"
 
 
 class Artist(PrivateUniqueResource):
