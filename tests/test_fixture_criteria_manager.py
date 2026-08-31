@@ -1,6 +1,7 @@
 import pytest
 from django.contrib.auth import get_user_model
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
+from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 
 from tests.fixture_app.models import Criteria, CriteriaPlaylist, Track, TrackPlaylistRel
 from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
@@ -117,6 +118,17 @@ def test_pop_side_on_non_root_child_raises(user, genre_type):
 
     with pytest.raises(AppValidationException):
         grandchild.save()
+
+
+@pytest.mark.django_db
+def test_side_on_tag_criteria_raises(user, tag_type):
+    tag = Criteria(user=user, type=tag_type, side=CriteriaSide.POP)
+    tag._name = "some-tag"
+
+    with pytest.raises(AppValidationException) as exc_info:
+        tag.save()
+
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.DEPENDENCY_MISSING
 
 
 @pytest.mark.django_db
