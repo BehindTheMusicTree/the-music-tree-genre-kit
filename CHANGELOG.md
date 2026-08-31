@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Renamed the `test.yml` GitHub Actions workflow to `validate.yml`.
 - Configured the validation workflow to run on pushes to `main` and `develop`, in addition to pull requests targeting these branches.
+- Replaced the placeholder entries in `data/song_example.json` with 445 real songs (title, artist, YouTube video ID, genre name) derived from the `bronze_ingestion` MusicBrainz pipeline's silver-layer output.
+- Renamed `data/genre_example_tree.json` to `data/prototype_genre_tree.json` (and `GenreExampleTreeMixin.example_tree_filename` to match) to reflect its actual role as the prototype demo's genre tree fixture.
 
 ## [0.14.0] - 2026-08-31
 

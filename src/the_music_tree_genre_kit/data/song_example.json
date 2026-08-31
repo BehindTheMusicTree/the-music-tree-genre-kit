@@ -1,92 +1,2672 @@
 [
   {
-    "title": "Your Love",
-    "artist": "Frankie Knuckles",
-    "youtube_video_id": "PLACEHOLDER01",
-    "genre_name": "Chicago Deep House"
-  },
-  {
-    "title": "Losing You",
-    "artist": "Solomun",
-    "youtube_video_id": "PLACEHOLDER02",
-    "genre_name": "Tech House"
-  },
-  {
-    "title": "Strings of Life",
-    "artist": "Derrick May",
-    "youtube_video_id": "PLACEHOLDER03",
-    "genre_name": "Detroit Techno"
-  },
-  {
     "title": "Smells Like Teen Spirit",
     "artist": "Nirvana",
-    "youtube_video_id": "PLACEHOLDER04",
-    "genre_name": "Indie Rock"
+    "youtube_video_id": "hTWKbfoikeg",
+    "genre_name": "grunge"
   },
   {
-    "title": "Master of Puppets",
-    "artist": "Metallica",
-    "youtube_video_id": "PLACEHOLDER05",
-    "genre_name": "Heavy Metal"
+    "title": "Come as You Are",
+    "artist": "Nirvana",
+    "youtube_video_id": "vabnZ9-ex7o",
+    "genre_name": "grunge"
   },
   {
-    "title": "Blitzkrieg Bop",
-    "artist": "Ramones",
-    "youtube_video_id": "PLACEHOLDER06",
-    "genre_name": "Hardcore Punk"
+    "title": "Lithium",
+    "artist": "Nirvana",
+    "youtube_video_id": "pkcJEvMcnEg",
+    "genre_name": "grunge"
   },
   {
-    "title": "Jolene",
-    "artist": "Dolly Parton",
-    "youtube_video_id": "PLACEHOLDER07",
-    "genre_name": "Traditional Country"
+    "title": "In Bloom",
+    "artist": "Nirvana",
+    "youtube_video_id": "PbgKEjNBHqM",
+    "genre_name": "grunge"
   },
   {
-    "title": "The Message",
-    "artist": "Grandmaster Flash and the Furious Five",
-    "youtube_video_id": "PLACEHOLDER08",
-    "genre_name": "Old School Hip Hop"
+    "title": "Heart‐Shaped Box",
+    "artist": "Nirvana",
+    "youtube_video_id": "n6P0SitRwy8",
+    "genre_name": "grunge"
   },
   {
-    "title": "Sicko Mode",
-    "artist": "Travis Scott",
-    "youtube_video_id": "PLACEHOLDER09",
-    "genre_name": "Trap"
+    "title": "Take On Me",
+    "artist": "a‐ha",
+    "youtube_video_id": "HzdD8kbDzZA",
+    "genre_name": "pop"
   },
   {
-    "title": "No Woman No Cry",
-    "artist": "Bob Marley and the Wailers",
-    "youtube_video_id": "PLACEHOLDER10",
-    "genre_name": "Roots Reggae"
+    "title": "Lay All Your Love on Me",
+    "artist": "ABBA",
+    "youtube_video_id": "5mHzaIehRTE",
+    "genre_name": "pop"
   },
   {
-    "title": "Redemption Song",
-    "artist": "Bob Marley",
-    "youtube_video_id": "PLACEHOLDER11",
-    "genre_name": "Reggae"
+    "title": "Thriller",
+    "artist": "Michael Jackson",
+    "youtube_video_id": "4V90AmXnguw",
+    "genre_name": "pop"
   },
   {
-    "title": "So What",
-    "artist": "Miles Davis",
-    "youtube_video_id": "PLACEHOLDER12",
-    "genre_name": "Modern Jazz"
+    "title": "…Baby One More Time",
+    "artist": "Britney Spears",
+    "youtube_video_id": "C-u5WLJ9Yk4",
+    "genre_name": "pop"
+  },
+  {
+    "title": "Get the Party Started",
+    "artist": "P!nk",
+    "youtube_video_id": "1bfLou9Y2BU",
+    "genre_name": "pop"
+  },
+  {
+    "title": "Losing My Religion",
+    "artist": "R.E.M.",
+    "youtube_video_id": "Efa6BAWPm9o",
+    "genre_name": "alternative rock"
+  },
+  {
+    "title": "Zombie",
+    "artist": "The Cranberries",
+    "youtube_video_id": "yGxHDmHoqXc",
+    "genre_name": "alternative rock"
+  },
+  {
+    "title": "Bring Me to Life",
+    "artist": "Evanescence",
+    "youtube_video_id": "-eGM0IJc70Y",
+    "genre_name": "alternative rock"
+  },
+  {
+    "title": "Tonight, Tonight",
+    "artist": "The Smashing Pumpkins",
+    "youtube_video_id": "NOG3eus4ZSo",
+    "genre_name": "alternative rock"
+  },
+  {
+    "title": "Karma Police",
+    "artist": "Radiohead",
+    "youtube_video_id": "1uYWYWPc9HU",
+    "genre_name": "alternative rock"
+  },
+  {
+    "title": "You Give Love a Bad Name",
+    "artist": "Bon Jovi",
+    "youtube_video_id": "KrZHPOeOxQQ",
+    "genre_name": "hard rock"
+  },
+  {
+    "title": "Thunderstruck",
+    "artist": "AC/DC",
+    "youtube_video_id": "v2AC41dglnM",
+    "genre_name": "hard rock"
+  },
+  {
+    "title": "Livin’ on a Prayer",
+    "artist": "Bon Jovi",
+    "youtube_video_id": "YBdyc1WDlBQ",
+    "genre_name": "hard rock"
+  },
+  {
+    "title": "Dream On",
+    "artist": "Aerosmith",
+    "youtube_video_id": "9PpXu-2fPHc",
+    "genre_name": "hard rock"
+  },
+  {
+    "title": "Bed of Roses",
+    "artist": "Bon Jovi",
+    "youtube_video_id": "8OMyLM8KnVY",
+    "genre_name": "hard rock"
+  },
+  {
+    "title": "Come Together",
+    "artist": "The Beatles",
+    "youtube_video_id": "45cYwDMibGo",
+    "genre_name": "rock"
+  },
+  {
+    "title": "We Will Rock You",
+    "artist": "Queen",
+    "youtube_video_id": "-tJYN-eG1zk",
+    "genre_name": "rock"
+  },
+  {
+    "title": "Something",
+    "artist": "The Beatles",
+    "youtube_video_id": "UelDrZ1aFeY",
+    "genre_name": "rock"
+  },
+  {
+    "title": "Love Me Do",
+    "artist": "The Beatles",
+    "youtube_video_id": "0pGOFX1D_jg",
+    "genre_name": "rock"
+  },
+  {
+    "title": "Beautiful Day",
+    "artist": "U2",
+    "youtube_video_id": "vCqlrhnl68g",
+    "genre_name": "rock"
+  },
+  {
+    "title": "Stayin’ Alive",
+    "artist": "Bee Gees",
+    "youtube_video_id": "W_dDNNEdIJg",
+    "genre_name": "disco"
+  },
+  {
+    "title": "I Want Your Love",
+    "artist": "Chic",
+    "youtube_video_id": "Lgc2MUkY0iQ",
+    "genre_name": "disco"
+  },
+  {
+    "title": "Give Life Back to Music",
+    "artist": "Daft Punk",
+    "youtube_video_id": "IluRBvnYMoY",
+    "genre_name": "disco"
+  },
+  {
+    "title": "Get Lucky",
+    "artist": "Daft Punk",
+    "youtube_video_id": "5NV6Rdv1a3I",
+    "genre_name": "disco"
+  },
+  {
+    "title": "Treasure",
+    "artist": "Bruno Mars",
+    "youtube_video_id": "nPvuNsRccVw",
+    "genre_name": "disco"
+  },
+  {
+    "title": "Roxanne",
+    "artist": "The Police",
+    "youtube_video_id": "OSMldh7lTEw",
+    "genre_name": "new wave"
+  },
+  {
+    "title": "Every Breath You Take",
+    "artist": "The Police",
+    "youtube_video_id": "-SaUrDhp034",
+    "genre_name": "new wave"
+  },
+  {
+    "title": "Let’s Go to Bed",
+    "artist": "The Cure",
+    "youtube_video_id": "j6vVP91C3Iw",
+    "genre_name": "new wave"
+  },
+  {
+    "title": "Video Killed the Radio Star",
+    "artist": "The Buggles",
+    "youtube_video_id": "W8r-tXRLazs",
+    "genre_name": "new wave"
+  },
+  {
+    "title": "Down Under",
+    "artist": "Men at Work",
+    "youtube_video_id": "hfmxO-HQ5rU",
+    "genre_name": "new wave"
+  },
+  {
+    "title": "Glory Box",
+    "artist": "Portishead",
+    "youtube_video_id": "4qQyUi4zfDs",
+    "genre_name": "trip hop"
+  },
+  {
+    "title": "Numb",
+    "artist": "Portishead",
+    "youtube_video_id": "Z7If6GODLFc",
+    "genre_name": "trip hop"
+  },
+  {
+    "title": "Daydreaming",
+    "artist": "Massive Attack",
+    "youtube_video_id": "JG9CXQxhfL4",
+    "genre_name": "trip hop"
+  },
+  {
+    "title": "Clint Eastwood",
+    "artist": "Gorillaz",
+    "youtube_video_id": "1V_xRb0x9aw",
+    "genre_name": "trip hop"
+  },
+  {
+    "title": "Sly",
+    "artist": "Massive Attack",
+    "youtube_video_id": "Dsv21Qq3hOc",
+    "genre_name": "trip hop"
+  },
+  {
+    "title": "Wonderwall",
+    "artist": "Oasis",
+    "youtube_video_id": "vU05Eksc_iM",
+    "genre_name": "britpop"
+  },
+  {
+    "title": "Don’t Look Back in Anger",
+    "artist": "Oasis",
+    "youtube_video_id": "YZG7z4FOn0g",
+    "genre_name": "britpop"
+  },
+  {
+    "title": "Live Forever",
+    "artist": "Oasis",
+    "youtube_video_id": "TDe1DqxwJoc",
+    "genre_name": "britpop"
+  },
+  {
+    "title": "Shakermaker",
+    "artist": "Oasis",
+    "youtube_video_id": "3FpNw3286y8",
+    "genre_name": "britpop"
+  },
+  {
+    "title": "Cigarettes & Alcohol",
+    "artist": "Oasis",
+    "youtube_video_id": "SaeLKhRnkhQ",
+    "genre_name": "britpop"
+  },
+  {
+    "title": "Don’t Know Why",
+    "artist": "Norah Jones",
+    "youtube_video_id": "1LH4vnrM-Vs",
+    "genre_name": "jazz"
   },
   {
     "title": "Take Five",
-    "artist": "Dave Brubeck",
-    "youtube_video_id": "PLACEHOLDER13",
-    "genre_name": "Jazz"
+    "artist": "The Dave Brubeck Quartet",
+    "youtube_video_id": "ryA6eHZNnXY",
+    "genre_name": "jazz"
   },
   {
-    "title": "Le Freak",
-    "artist": "Chic",
-    "youtube_video_id": "PLACEHOLDER14",
-    "genre_name": "Disco"
+    "title": "Turn Me On",
+    "artist": "Norah Jones",
+    "youtube_video_id": "tgdiI5QB8Tk",
+    "genre_name": "jazz"
   },
   {
-    "title": "Give Up the Funk",
-    "artist": "Parliament",
-    "youtube_video_id": "PLACEHOLDER15",
-    "genre_name": "Funk"
+    "title": "Seven Years",
+    "artist": "Norah Jones",
+    "youtube_video_id": "O0I1x6Ze3IY",
+    "genre_name": "jazz"
+  },
+  {
+    "title": "Cold Cold Heart",
+    "artist": "Norah Jones",
+    "youtube_video_id": "0NiJ4_pPO8o",
+    "genre_name": "jazz"
+  },
+  {
+    "title": "Wild World",
+    "artist": "Cat Stevens",
+    "youtube_video_id": "4WLFWiF_vl4",
+    "genre_name": "folk rock"
+  },
+  {
+    "title": "King and Lionheart",
+    "artist": "Of Monsters and Men",
+    "youtube_video_id": "A76a_LNIYwE",
+    "genre_name": "folk rock"
+  },
+  {
+    "title": "Little Talks",
+    "artist": "Of Monsters and Men",
+    "youtube_video_id": "gSdjztTxYgk",
+    "genre_name": "folk rock"
+  },
+  {
+    "title": "The Ghost of Tom Joad",
+    "artist": "Bruce Springsteen",
+    "youtube_video_id": "CumZ9dugKKU",
+    "genre_name": "folk rock"
+  },
+  {
+    "title": "This Is the Life",
+    "artist": "Amy Macdonald",
+    "youtube_video_id": "sXA5OILKitY",
+    "genre_name": "folk rock"
+  },
+  {
+    "title": "Riders on the Storm",
+    "artist": "The Doors",
+    "youtube_video_id": "lJZTgynPGT8",
+    "genre_name": "psychedelic rock"
+  },
+  {
+    "title": "Me and Mrs. Jones",
+    "artist": "Billy Paul",
+    "youtube_video_id": "NYOQDnWFXYI",
+    "genre_name": "soul"
+  },
+  {
+    "title": "Easy",
+    "artist": "Commodores",
+    "youtube_video_id": "0XRrYgByp28",
+    "genre_name": "soul"
+  },
+  {
+    "title": "Chain of Fools",
+    "artist": "Aretha Franklin",
+    "youtube_video_id": "O-QzBeRFtUg",
+    "genre_name": "soul"
+  },
+  {
+    "title": "How ’Bout Us",
+    "artist": "Champaign",
+    "youtube_video_id": "-0n__cUU6nE",
+    "genre_name": "soul"
+  },
+  {
+    "title": "Prove It",
+    "artist": "Aretha Franklin",
+    "youtube_video_id": "MRWSOSeuO4w",
+    "genre_name": "soul"
+  },
+  {
+    "title": "Mama, I’m Coming Home",
+    "artist": "Ozzy Osbourne",
+    "youtube_video_id": "dvNXF7aGP2s",
+    "genre_name": "heavy metal"
+  },
+  {
+    "title": "Living After Midnight",
+    "artist": "Judas Priest",
+    "youtube_video_id": "PjTLOaD6fr4",
+    "genre_name": "heavy metal"
+  },
+  {
+    "title": "Hero of the Day",
+    "artist": "Metallica",
+    "youtube_video_id": "XkfO8c8MlKU",
+    "genre_name": "heavy metal"
+  },
+  {
+    "title": "Bible Black",
+    "artist": "Heaven & Hell",
+    "youtube_video_id": "CB6qhMsMsCE",
+    "genre_name": "heavy metal"
+  },
+  {
+    "title": "Eating the Cannibals",
+    "artist": "Heaven & Hell",
+    "youtube_video_id": "pDSdIld_O3Q",
+    "genre_name": "heavy metal"
+  },
+  {
+    "title": "Natural Blues",
+    "artist": "Moby",
+    "youtube_video_id": "z3YMxM1_S48",
+    "genre_name": "electronic"
+  },
+  {
+    "title": "Around the World",
+    "artist": "Daft Punk",
+    "youtube_video_id": "Jb6gcoR266U",
+    "genre_name": "electronic"
+  },
+  {
+    "title": "Safe From Harm",
+    "artist": "Massive Attack",
+    "youtube_video_id": "PKtTmZnVhhI",
+    "genre_name": "electronic"
+  },
+  {
+    "title": "Giorgio by Moroder",
+    "artist": "Daft Punk",
+    "youtube_video_id": "zhl-Cs1-sG4",
+    "genre_name": "electronic"
+  },
+  {
+    "title": "Teardrop",
+    "artist": "Massive Attack",
+    "youtube_video_id": "u7K72X4eo_s",
+    "genre_name": "electronic"
+  },
+  {
+    "title": "All I Need",
+    "artist": "Air",
+    "youtube_video_id": "kxWFyvTg6mc",
+    "genre_name": "downtempo"
+  },
+  {
+    "title": "Sexy Boy",
+    "artist": "Air",
+    "youtube_video_id": "wouKI_myXxk",
+    "genre_name": "downtempo"
+  },
+  {
+    "title": "Once Upon a Time",
+    "artist": "Air",
+    "youtube_video_id": "lFWGStDgBpo",
+    "genre_name": "downtempo"
+  },
+  {
+    "title": "I Have Seen",
+    "artist": "Zero 7",
+    "youtube_video_id": "rap9YCMq7iw",
+    "genre_name": "downtempo"
+  },
+  {
+    "title": "Mer du Japon",
+    "artist": "Air",
+    "youtube_video_id": "Sjq4_sHy06U",
+    "genre_name": "downtempo"
+  },
+  {
+    "title": "Fuck tha Police",
+    "artist": "N.W.A",
+    "youtube_video_id": "xB2DY1Q74oQ",
+    "genre_name": "gangsta rap"
+  },
+  {
+    "title": "In the Trunk",
+    "artist": "Too $hort",
+    "youtube_video_id": "mlt9Z5jt2Wc",
+    "genre_name": "gangsta rap"
+  },
+  {
+    "title": "Don’t Fight the Intro",
+    "artist": "Too $hort",
+    "youtube_video_id": "LCqwWJ9X8qQ",
+    "genre_name": "gangsta rap"
+  },
+  {
+    "title": "I’m a Player",
+    "artist": "Too $hort",
+    "youtube_video_id": "3VpeWSaD4B8",
+    "genre_name": "gangsta rap"
+  },
+  {
+    "title": "Just Another Day",
+    "artist": "Too $hort",
+    "youtube_video_id": "fw_58PPCMRI",
+    "genre_name": "gangsta rap"
+  },
+  {
+    "title": "Come Away With Me",
+    "artist": "Norah Jones",
+    "youtube_video_id": "9IZ_d6zadGw",
+    "genre_name": "contemporary jazz"
+  },
+  {
+    "title": "Feelin’ the Same Way",
+    "artist": "Norah Jones",
+    "youtube_video_id": "NLG5SWcY2JA",
+    "genre_name": "contemporary jazz"
+  },
+  {
+    "title": "Gonna Make You Sweat (Everybody Dance Now)",
+    "artist": "C+C Music Factory",
+    "youtube_video_id": "LaTGrV58wec",
+    "genre_name": "house"
+  },
+  {
+    "title": "Daftendirekt",
+    "artist": "Daft Punk",
+    "youtube_video_id": "yuoghR-5-Xs",
+    "genre_name": "house"
+  },
+  {
+    "title": "WDPK 83.7 FM",
+    "artist": "Daft Punk",
+    "youtube_video_id": "OzZAHvq_UqI",
+    "genre_name": "house"
+  },
+  {
+    "title": "Veridis Quo",
+    "artist": "Daft Punk",
+    "youtube_video_id": "qe8Q7mjxjig",
+    "genre_name": "house"
+  },
+  {
+    "title": "How Deep Is Your Love",
+    "artist": "Calvin Harris",
+    "youtube_video_id": "qWWSM3wCiKY",
+    "genre_name": "house"
+  },
+  {
+    "title": "Hurt",
+    "artist": "Johnny Cash",
+    "youtube_video_id": "8AHCfZTRGiI",
+    "genre_name": "country"
+  },
+  {
+    "title": "I’ve Got a Tiger by the Tail",
+    "artist": "Buck Owens",
+    "youtube_video_id": "guVE4cyIXvs",
+    "genre_name": "country"
+  },
+  {
+    "title": "Hey, Good Lookin’",
+    "artist": "Hank Williams",
+    "youtube_video_id": "bjCoKslQOEs",
+    "genre_name": "country"
+  },
+  {
+    "title": "Angel of the Morning",
+    "artist": "Juice Newton",
+    "youtube_video_id": "HTzGMEfbnAw",
+    "genre_name": "country"
+  },
+  {
+    "title": "Convoy",
+    "artist": "C.W. McCall",
+    "youtube_video_id": "C2DYOjdqT4Q",
+    "genre_name": "country"
+  },
+  {
+    "title": "Outside",
+    "artist": "Calvin Harris",
+    "youtube_video_id": "J9NQFACZYEU",
+    "genre_name": "electro house"
+  },
+  {
+    "title": "Blame",
+    "artist": "Calvin Harris",
+    "youtube_video_id": "6ACl8s_tBzE",
+    "genre_name": "electro house"
+  },
+  {
+    "title": "Under Control",
+    "artist": "Calvin Harris",
+    "youtube_video_id": "yZqmarGShxg",
+    "genre_name": "electro house"
+  },
+  {
+    "title": "Summer",
+    "artist": "Calvin Harris",
+    "youtube_video_id": "ebXbLfLACGM",
+    "genre_name": "electro house"
+  },
+  {
+    "title": "Bounce",
+    "artist": "Calvin Harris",
+    "youtube_video_id": "ooZwmeUfuXg",
+    "genre_name": "electro house"
+  },
+  {
+    "title": "Blackened",
+    "artist": "Metallica",
+    "youtube_video_id": "8G4xF_VGhEw",
+    "genre_name": "metal"
+  },
+  {
+    "title": "I’m Broken",
+    "artist": "Pantera",
+    "youtube_video_id": "2-V8kYT1pvE",
+    "genre_name": "metal"
+  },
+  {
+    "title": "Digital Bath",
+    "artist": "Deftones",
+    "youtube_video_id": "O_IIAYZL1R4",
+    "genre_name": "metal"
+  },
+  {
+    "title": "Hexagram",
+    "artist": "Deftones",
+    "youtube_video_id": "yP4dFHSd-iw",
+    "genre_name": "metal"
+  },
+  {
+    "title": "Stricken",
+    "artist": "Disturbed",
+    "youtube_video_id": "I77mjesUbkw",
+    "genre_name": "metal"
+  },
+  {
+    "title": "Carey",
+    "artist": "Joni Mitchell",
+    "youtube_video_id": "wfZJ6sHeA6k",
+    "genre_name": "folk"
+  },
+  {
+    "title": "Little Green",
+    "artist": "Joni Mitchell",
+    "youtube_video_id": "HTxUrDtoPP0",
+    "genre_name": "folk"
+  },
+  {
+    "title": "Blue",
+    "artist": "Joni Mitchell",
+    "youtube_video_id": "Nu7aOan-lds",
+    "genre_name": "folk"
+  },
+  {
+    "title": "This Flight Tonight",
+    "artist": "Joni Mitchell",
+    "youtube_video_id": "AD0dRjq4m20",
+    "genre_name": "folk"
+  },
+  {
+    "title": "River",
+    "artist": "Joni Mitchell",
+    "youtube_video_id": "OLHxxBTl71I",
+    "genre_name": "folk"
+  },
+  {
+    "title": "Dangerous",
+    "artist": "Busta Rhymes",
+    "youtube_video_id": "4b6P12eiLpo",
+    "genre_name": "hip hop"
+  },
+  {
+    "title": "Put Your Hands Where My Eyes Could See",
+    "artist": "Busta Rhymes",
+    "youtube_video_id": "GSoQDaXh144",
+    "genre_name": "hip hop"
+  },
+  {
+    "title": "Turn It Up",
+    "artist": "Busta Rhymes",
+    "youtube_video_id": "z1aTN01nO8Q",
+    "genre_name": "hip hop"
+  },
+  {
+    "title": "The Humpty Dance",
+    "artist": "Digital Underground",
+    "youtube_video_id": "SzCh70vadrY",
+    "genre_name": "hip hop"
+  },
+  {
+    "title": "Woo Haa!! Got You All in Check",
+    "artist": "Busta Rhymes",
+    "youtube_video_id": "DOZ6xQ4PlOM",
+    "genre_name": "hip hop"
+  },
+  {
+    "title": "Rockin’ Around the Christmas Tree",
+    "artist": "Brenda Lee",
+    "youtube_video_id": "is4NQkUN3AI",
+    "genre_name": "christmas music"
+  },
+  {
+    "title": "A Holly Jolly Christmas",
+    "artist": "Burl Ives",
+    "youtube_video_id": "P_dI6fVZwd0",
+    "genre_name": "christmas music"
+  },
+  {
+    "title": "Santa Claus Is Comin’ to Town",
+    "artist": "Burl Ives",
+    "youtube_video_id": "Y_xBVszYD7s",
+    "genre_name": "christmas music"
+  },
+  {
+    "title": "The Little Drummer Boy",
+    "artist": "Burl Ives",
+    "youtube_video_id": "bSAllO46OYc",
+    "genre_name": "christmas music"
+  },
+  {
+    "title": "Rudolph the Red‐Nosed Reindeer",
+    "artist": "Burl Ives",
+    "youtube_video_id": "5UqZi5OU6zM",
+    "genre_name": "christmas music"
+  },
+  {
+    "title": "Feuer frei",
+    "artist": "Rammstein",
+    "youtube_video_id": "ZkW-K5RQdzo",
+    "genre_name": "industrial metal"
+  },
+  {
+    "title": "Rosenrot",
+    "artist": "Rammstein",
+    "youtube_video_id": "af59U2BRRAU",
+    "genre_name": "industrial metal"
+  },
+  {
+    "title": "Mein Herz brennt",
+    "artist": "Rammstein",
+    "youtube_video_id": "WXv31OmnKqQ",
+    "genre_name": "industrial metal"
+  },
+  {
+    "title": "Sonne",
+    "artist": "Rammstein",
+    "youtube_video_id": "StZcUAPRRac",
+    "genre_name": "industrial metal"
+  },
+  {
+    "title": "Ich will",
+    "artist": "Rammstein",
+    "youtube_video_id": "EOnSh3QlpbQ",
+    "genre_name": "industrial metal"
+  },
+  {
+    "title": "Brianstorm",
+    "artist": "Arctic Monkeys",
+    "youtube_video_id": "khyduwR1Uyw",
+    "genre_name": "indie rock"
+  },
+  {
+    "title": "The View From the Afternoon",
+    "artist": "Arctic Monkeys",
+    "youtube_video_id": "PeQAZsyucbQ",
+    "genre_name": "indie rock"
+  },
+  {
+    "title": "Fake Tales of San Francisco",
+    "artist": "Arctic Monkeys",
+    "youtube_video_id": "ePg1tbia9Bg",
+    "genre_name": "indie rock"
+  },
+  {
+    "title": "I Wanna Be Adored",
+    "artist": "The Stone Roses",
+    "youtube_video_id": "4D2qcbu26gs",
+    "genre_name": "indie rock"
+  },
+  {
+    "title": "Ain’t No Rest for the Wicked",
+    "artist": "Cage the Elephant",
+    "youtube_video_id": "e2Z0sON2UPc",
+    "genre_name": "indie rock"
+  },
+  {
+    "title": "Self Esteem",
+    "artist": "The Offspring",
+    "youtube_video_id": "Abrn8aVQ76Q",
+    "genre_name": "punk rock"
+  },
+  {
+    "title": "Fireflies",
+    "artist": "Owl City",
+    "youtube_video_id": "KWLGyeg74es",
+    "genre_name": "electropop"
+  },
+  {
+    "title": "Last Goodbye",
+    "artist": "Clean Bandit",
+    "youtube_video_id": "CGucoFdJQew",
+    "genre_name": "electropop"
+  },
+  {
+    "title": "24 Hours",
+    "artist": "Clean Bandit",
+    "youtube_video_id": "dd6ploVZIIc",
+    "genre_name": "electropop"
+  },
+  {
+    "title": "Feel Good Inc.",
+    "artist": "Dorian Electra",
+    "youtube_video_id": "WtYGHlZGRAI",
+    "genre_name": "electropop"
+  },
+  {
+    "title": "Hollywood",
+    "artist": "Gorillaz",
+    "youtube_video_id": "Aodngd84g_0",
+    "genre_name": "electropop"
+  },
+  {
+    "title": "Faint",
+    "artist": "Linkin Park",
+    "youtube_video_id": "LYU-8IFcDPw",
+    "genre_name": "nu metal"
+  },
+  {
+    "title": "She Loves Me Not",
+    "artist": "Papa Roach",
+    "youtube_video_id": "aoZEtBQJN4c",
+    "genre_name": "nu metal"
+  },
+  {
+    "title": "Heavy Is the Crown",
+    "artist": "Linkin Park",
+    "youtube_video_id": "h0OK2oOG1no",
+    "genre_name": "nu metal"
+  },
+  {
+    "title": "Two Faced",
+    "artist": "Linkin Park",
+    "youtube_video_id": "ZQqW8622gV4",
+    "genre_name": "nu metal"
+  },
+  {
+    "title": "Papercut",
+    "artist": "Linkin Park",
+    "youtube_video_id": "NQM_9yjWNmw",
+    "genre_name": "nu metal"
+  },
+  {
+    "title": "We Didn’t Start the Fire",
+    "artist": "Billy Joel",
+    "youtube_video_id": "55q6jrfBDdk",
+    "genre_name": "pop rock"
+  },
+  {
+    "title": "Trouble",
+    "artist": "Coldplay",
+    "youtube_video_id": "oSBSpSOh6lQ",
+    "genre_name": "pop rock"
+  },
+  {
+    "title": "The Right Thing to Do",
+    "artist": "Carly Simon",
+    "youtube_video_id": "RwGyW17KE6s",
+    "genre_name": "pop rock"
+  },
+  {
+    "title": "Lemon Tree",
+    "artist": "Fools Garden",
+    "youtube_video_id": "enPg09IpUjU",
+    "genre_name": "pop rock"
+  },
+  {
+    "title": "New Town",
+    "artist": "Bryan Ferry",
+    "youtube_video_id": "F000HNvYk_M",
+    "genre_name": "pop rock"
+  },
+  {
+    "title": "Going Up the Country",
+    "artist": "Canned Heat",
+    "youtube_video_id": "La1J2Ze7vzc",
+    "genre_name": "blues rock"
+  },
+  {
+    "title": "Let’s Work Together",
+    "artist": "Canned Heat",
+    "youtube_video_id": "DAZby9KWO2Q",
+    "genre_name": "blues rock"
+  },
+  {
+    "title": "I Feel Free",
+    "artist": "Cream",
+    "youtube_video_id": "prnbF8Eagdg",
+    "genre_name": "blues rock"
+  },
+  {
+    "title": "Low Down (and High Up)",
+    "artist": "Canned Heat",
+    "youtube_video_id": "EMBQYEZ8tpI",
+    "genre_name": "blues rock"
+  },
+  {
+    "title": "On the Road Again (alternate take)",
+    "artist": "Canned Heat",
+    "youtube_video_id": "TBuVQguyPVY",
+    "genre_name": "blues rock"
+  },
+  {
+    "title": "Everyday",
+    "artist": "Buddy Holly",
+    "youtube_video_id": "SQ0rKFa9ZUU",
+    "genre_name": "rockabilly"
+  },
+  {
+    "title": "Little Baby",
+    "artist": "Buddy Holly",
+    "youtube_video_id": "6rNbfMrBv9c",
+    "genre_name": "rockabilly"
+  },
+  {
+    "title": "(You’re So Square) Baby I Don’t Care",
+    "artist": "Buddy Holly",
+    "youtube_video_id": "wxySJuouoP4",
+    "genre_name": "rockabilly"
+  },
+  {
+    "title": "Ready Teddy",
+    "artist": "Buddy Holly",
+    "youtube_video_id": "m7vKMbNF558",
+    "genre_name": "rockabilly"
+  },
+  {
+    "title": "Hallelujah I Love Him So",
+    "artist": "Brenda Lee",
+    "youtube_video_id": "cjv-dkPj81k",
+    "genre_name": "rockabilly"
+  },
+  {
+    "title": "The Train Is Coming",
+    "artist": "Shaggy",
+    "youtube_video_id": "WeGSnG39Sho",
+    "genre_name": "reggae"
+  },
+  {
+    "title": "Heartbreak Suzie",
+    "artist": "Shaggy",
+    "youtube_video_id": "Gs-Zt5gavD0",
+    "genre_name": "reggae"
+  },
+  {
+    "title": "Finger Smith",
+    "artist": "Shaggy",
+    "youtube_video_id": "W2Bnr4TA-p8",
+    "genre_name": "reggae"
+  },
+  {
+    "title": "Woman a Pressure Me",
+    "artist": "Shaggy",
+    "youtube_video_id": "35RTTiWf2_w",
+    "genre_name": "reggae"
+  },
+  {
+    "title": "Island Lover",
+    "artist": "Shaggy",
+    "youtube_video_id": "wBxDvrkQkdA",
+    "genre_name": "reggae"
+  },
+  {
+    "title": "Proud Mary",
+    "artist": "Creedence Clearwater Revival",
+    "youtube_video_id": "XfyEpmQM7bw",
+    "genre_name": "classic rock"
+  },
+  {
+    "title": "4th of July, Asbury Park (Sandy)",
+    "artist": "Bruce Springsteen",
+    "youtube_video_id": "EiGfB0QBTV4",
+    "genre_name": "classic rock"
+  },
+  {
+    "title": "The E Street Shuffle",
+    "artist": "Bruce Springsteen",
+    "youtube_video_id": "LWLMaZ7H3B0",
+    "genre_name": "classic rock"
+  },
+  {
+    "title": "Kitty’s Back",
+    "artist": "Bruce Springsteen",
+    "youtube_video_id": "bLulUBjiIIc",
+    "genre_name": "classic rock"
+  },
+  {
+    "title": "Incident on 57th Street",
+    "artist": "Bruce Springsteen",
+    "youtube_video_id": "ioQcvijom28",
+    "genre_name": "classic rock"
+  },
+  {
+    "title": "Donkey Rhubarb",
+    "artist": "Aphex Twin",
+    "youtube_video_id": "G0qV2t7JCAQ",
+    "genre_name": "idm"
+  },
+  {
+    "title": "Ventolin (video version)",
+    "artist": "Aphex Twin",
+    "youtube_video_id": "KFeUBOJgaLU",
+    "genre_name": "idm"
+  },
+  {
+    "title": "Windowlicker",
+    "artist": "Aphex Twin",
+    "youtube_video_id": "5ZT3gTu4Sjw",
+    "genre_name": "idm"
+  },
+  {
+    "title": "Nannou",
+    "artist": "Aphex Twin",
+    "youtube_video_id": "A-Pkx37kYf4",
+    "genre_name": "idm"
+  },
+  {
+    "title": "Creep",
+    "artist": "deadmau5",
+    "youtube_video_id": "eUi8BLm1bFo",
+    "genre_name": "idm"
+  },
+  {
+    "title": "Sandstorm (radio edit)",
+    "artist": "Darude",
+    "youtube_video_id": "XjvkxXblpz8",
+    "genre_name": "trance"
+  },
+  {
+    "title": "Something (radio edit)",
+    "artist": "Lasgo",
+    "youtube_video_id": "BF5bV6oWXJg",
+    "genre_name": "trance"
+  },
+  {
+    "title": "Everytime We Touch",
+    "artist": "Cascada",
+    "youtube_video_id": "84sHTvn6xf8",
+    "genre_name": "trance"
+  },
+  {
+    "title": "TiK ToK",
+    "artist": "Kesha",
+    "youtube_video_id": "u5uSlUKBEDc",
+    "genre_name": "dance-pop"
+  },
+  {
+    "title": "I Really Like You",
+    "artist": "Carly Rae Jepsen",
+    "youtube_video_id": "6mrBqUZBrW8",
+    "genre_name": "dance-pop"
+  },
+  {
+    "title": "The Nights",
+    "artist": "Avicii",
+    "youtube_video_id": "W4C-NEWrnSQ",
+    "genre_name": "dance-pop"
+  },
+  {
+    "title": "DARE",
+    "artist": "Gorillaz",
+    "youtube_video_id": "QRg-aDBaVdc",
+    "genre_name": "dance-pop"
+  },
+  {
+    "title": "Where Have You Been?",
+    "artist": "Rihanna",
+    "youtube_video_id": "HBxt_v0WF6Y",
+    "genre_name": "dance-pop"
+  },
+  {
+    "title": "Remedy",
+    "artist": "The Black Crowes",
+    "youtube_video_id": "BYyRLTveFJQ",
+    "genre_name": "southern rock"
+  },
+  {
+    "title": "Hold On Loosely",
+    "artist": "38 Special",
+    "youtube_video_id": "g3nn6WfFQ7o",
+    "genre_name": "southern rock"
+  },
+  {
+    "title": "Sting Me",
+    "artist": "The Black Crowes",
+    "youtube_video_id": "OaH9wIQDUwE",
+    "genre_name": "southern rock"
+  },
+  {
+    "title": "Twice as Hard",
+    "artist": "The Black Crowes",
+    "youtube_video_id": "XLg7aoGAkkk",
+    "genre_name": "southern rock"
+  },
+  {
+    "title": "Jealous Again",
+    "artist": "The Black Crowes",
+    "youtube_video_id": "8V38Qej-3Tw",
+    "genre_name": "southern rock"
+  },
+  {
+    "title": "Change (In the House of Flies)",
+    "artist": "Deftones",
+    "youtube_video_id": "WPpDyIJdasg",
+    "genre_name": "alternative metal"
+  },
+  {
+    "title": "Prison Sex",
+    "artist": "Tool",
+    "youtube_video_id": "cUPV4OfNlt0",
+    "genre_name": "alternative metal"
+  },
+  {
+    "title": "Stinkfist",
+    "artist": "Tool",
+    "youtube_video_id": "6zpvlMp04D0",
+    "genre_name": "alternative metal"
+  },
+  {
+    "title": "Heaven Beside You",
+    "artist": "Alice in Chains",
+    "youtube_video_id": "TEAylKJb-to",
+    "genre_name": "alternative metal"
+  },
+  {
+    "title": "Sober",
+    "artist": "Tool",
+    "youtube_video_id": "nspxAG12Cpc",
+    "genre_name": "alternative metal"
+  },
+  {
+    "title": "99 Luftballons",
+    "artist": "Nena",
+    "youtube_video_id": "JW00hp7KVzc",
+    "genre_name": "synth-pop"
+  },
+  {
+    "title": "Did You See Me Coming?",
+    "artist": "Pet Shop Boys",
+    "youtube_video_id": "2Hy4bT0ESfc",
+    "genre_name": "synth-pop"
+  },
+  {
+    "title": "Tranz",
+    "artist": "Gorillaz",
+    "youtube_video_id": "8bzcqRIhxLE",
+    "genre_name": "synth-pop"
+  },
+  {
+    "title": "You’re So Vain",
+    "artist": "Carly Simon",
+    "youtube_video_id": "j13oJajXx0M",
+    "genre_name": "soft rock"
+  },
+  {
+    "title": "I Can’t Go for That (No Can Do)",
+    "artist": "Daryl Hall & John Oates",
+    "youtube_video_id": "CjsiwW5rfk0",
+    "genre_name": "soft rock"
+  },
+  {
+    "title": "Something the Boy Said",
+    "artist": "Sting",
+    "youtube_video_id": "VULChpT7aAc",
+    "genre_name": "soft rock"
+  },
+  {
+    "title": "Heavy Traffic",
+    "artist": "Elton John",
+    "youtube_video_id": "-7lHjr7cNwM",
+    "genre_name": "soft rock"
+  },
+  {
+    "title": "The Last Duet",
+    "artist": "Barry Manilow",
+    "youtube_video_id": "cdQaC8CvnZs",
+    "genre_name": "soft rock"
+  },
+  {
+    "title": "Why You Treat Me So Bad",
+    "artist": "Shaggy",
+    "youtube_video_id": "fqbYClXKNac",
+    "genre_name": "dancehall"
+  },
+  {
+    "title": "In the Summertime",
+    "artist": "Shaggy",
+    "youtube_video_id": "1z2XAR4ZHPA",
+    "genre_name": "dancehall"
+  },
+  {
+    "title": "Light It Up (remix)",
+    "artist": "Major Lazer",
+    "youtube_video_id": "91cPOfKh5Rs",
+    "genre_name": "dancehall"
+  },
+  {
+    "title": "Night Riders",
+    "artist": "Major Lazer",
+    "youtube_video_id": "SA_uTf9wCG0",
+    "genre_name": "dancehall"
+  },
+  {
+    "title": "Finesse (remix)",
+    "artist": "Bruno Mars",
+    "youtube_video_id": "2w__ZCtnEFY",
+    "genre_name": "dancehall"
+  },
+  {
+    "title": "Boadicea",
+    "artist": "Enya",
+    "youtube_video_id": "x_TqRLw0b8A",
+    "genre_name": "new age"
+  },
+  {
+    "title": "Gangnam Style (강남스타일)",
+    "artist": "PSY",
+    "youtube_video_id": "CVxMTl6cUSE",
+    "genre_name": "k-pop"
+  },
+  {
+    "title": "We Found Love",
+    "artist": "Rihanna",
+    "youtube_video_id": "tg00YEETFzg",
+    "genre_name": "contemporary r&b"
+  },
+  {
+    "title": "Escapade",
+    "artist": "Janet Jackson",
+    "youtube_video_id": "S4XkTvfGlXs",
+    "genre_name": "contemporary r&b"
+  },
+  {
+    "title": "Want to Want Me",
+    "artist": "Jason Derulo",
+    "youtube_video_id": "yO_w_2n2Pm4",
+    "genre_name": "contemporary r&b"
+  },
+  {
+    "title": "False Alarm",
+    "artist": "The Weeknd",
+    "youtube_video_id": "CW5oGRx9CLM",
+    "genre_name": "contemporary r&b"
+  },
+  {
+    "title": "Save Your Tears",
+    "artist": "The Weeknd",
+    "youtube_video_id": "RmYCOm4ehKs",
+    "genre_name": "contemporary r&b"
+  },
+  {
+    "title": "Somebody That I Used to Know",
+    "artist": "Gotye",
+    "youtube_video_id": "8UVNT4wvIGY",
+    "genre_name": "indie pop"
+  },
+  {
+    "title": "Lust for Life",
+    "artist": "Lana Del Rey",
+    "youtube_video_id": "eP4eqhWc7sI",
+    "genre_name": "indie pop"
+  },
+  {
+    "title": "Ladyflash",
+    "artist": "The Go! Team",
+    "youtube_video_id": "33kHw3v23CY",
+    "genre_name": "indie pop"
+  },
+  {
+    "title": "I’d Rather Dance With You",
+    "artist": "Kings of Convenience",
+    "youtube_video_id": "OczRpuGKTfY",
+    "genre_name": "indie pop"
+  },
+  {
+    "title": "Geronimo",
+    "artist": "Sheppard",
+    "youtube_video_id": "ozsmSlvGHv4",
+    "genre_name": "indie pop"
+  },
+  {
+    "title": "The Veldt (8 minute edit)",
+    "artist": "deadmau5",
+    "youtube_video_id": "uiUAq4aVTjY",
+    "genre_name": "progressive house"
+  },
+  {
+    "title": "Don’t You Worry Child (radio edit)",
+    "artist": "Swedish House Mafia",
+    "youtube_video_id": "3mWbRB3Y4R8",
+    "genre_name": "progressive house"
+  },
+  {
+    "title": "That Old Pair of Jeans",
+    "artist": "Fatboy Slim",
+    "youtube_video_id": "vWyfxWD-hlc",
+    "genre_name": "big beat"
+  },
+  {
+    "title": "Rave On",
+    "artist": "Buddy Holly",
+    "youtube_video_id": "TEzsrbxjyQU",
+    "genre_name": "rock and roll"
+  },
+  {
+    "title": "Peggy Sue",
+    "artist": "Buddy Holly",
+    "youtube_video_id": "Zpni8tmIzaM",
+    "genre_name": "rock and roll"
+  },
+  {
+    "title": "Heartbeat",
+    "artist": "Buddy Holly",
+    "youtube_video_id": "PzMUgF-bCuc",
+    "genre_name": "rock and roll"
+  },
+  {
+    "title": "Words of Love",
+    "artist": "Buddy Holly",
+    "youtube_video_id": "_pG1Qywrceg",
+    "genre_name": "rock and roll"
+  },
+  {
+    "title": "Well… All Right",
+    "artist": "Buddy Holly",
+    "youtube_video_id": "OufaNsQhvh0",
+    "genre_name": "rock and roll"
+  },
+  {
+    "title": "On the Road Again",
+    "artist": "Canned Heat",
+    "youtube_video_id": "_b9kSFADP3w",
+    "genre_name": "blues"
+  },
+  {
+    "title": "Amphetamine Annie",
+    "artist": "Canned Heat",
+    "youtube_video_id": "lqATvL2_Fh4",
+    "genre_name": "blues"
+  },
+  {
+    "title": "Cut You Loose",
+    "artist": "Buddy Guy",
+    "youtube_video_id": "iwh9Slh_laI",
+    "genre_name": "blues"
+  },
+  {
+    "title": "Fried Hockey Boogie",
+    "artist": "Canned Heat",
+    "youtube_video_id": "NY6pBUk-Ppc",
+    "genre_name": "blues"
+  },
+  {
+    "title": "My Crime",
+    "artist": "Canned Heat",
+    "youtube_video_id": "TNiANjg0WYs",
+    "genre_name": "blues"
+  },
+  {
+    "title": "Got the Time",
+    "artist": "Anthrax",
+    "youtube_video_id": "be7iNHw8QoQ",
+    "genre_name": "thrash metal"
+  },
+  {
+    "title": "Madhouse",
+    "artist": "Anthrax",
+    "youtube_video_id": "uGHsxMqpL0c",
+    "genre_name": "thrash metal"
+  },
+  {
+    "title": "Deathrider",
+    "artist": "Anthrax",
+    "youtube_video_id": "WCN3uGx--Yg",
+    "genre_name": "thrash metal"
+  },
+  {
+    "title": "Shattered Like Glass",
+    "artist": "Warbringer",
+    "youtube_video_id": "-5wqtSFuGLc",
+    "genre_name": "thrash metal"
+  },
+  {
+    "title": "Polka Power!",
+    "artist": "“Weird Al” Yankovic",
+    "youtube_video_id": "yugldxpRDMo",
+    "genre_name": "comedy"
+  },
+  {
+    "title": "Your Horoscope for Today",
+    "artist": "“Weird Al” Yankovic",
+    "youtube_video_id": "sPvyrWYutDQ",
+    "genre_name": "comedy"
+  },
+  {
+    "title": "[Weird Al’s actual home movies]",
+    "artist": "“Weird Al” Yankovic",
+    "youtube_video_id": "zytJs7tvbEw",
+    "genre_name": "comedy"
+  },
+  {
+    "title": "apple bottom jeans, boots with the",
+    "artist": "Xarlable",
+    "youtube_video_id": "fCmvXCgZr74",
+    "genre_name": "comedy"
+  },
+  {
+    "title": "Midnight",
+    "artist": "Coldplay",
+    "youtube_video_id": "L5uqSeA_bps",
+    "genre_name": "ambient"
+  },
+  {
+    "title": "Holograms",
+    "artist": "M83",
+    "youtube_video_id": "t_rG47vgGTE",
+    "genre_name": "ambient"
+  },
+  {
+    "title": "Stay",
+    "artist": "Hans Zimmer",
+    "youtube_video_id": "MU3EOO4fWQo",
+    "genre_name": "ambient"
+  },
+  {
+    "title": "Ave Maria",
+    "artist": "Paul Schwartz",
+    "youtube_video_id": "2LOxvgD0KEo",
+    "genre_name": "ambient"
+  },
+  {
+    "title": "Beautiful Ghosts",
+    "artist": "Taylor Swift",
+    "youtube_video_id": "trIjpVH8h88",
+    "genre_name": "ambient"
+  },
+  {
+    "title": "Axel F",
+    "artist": "Crazy Frog",
+    "youtube_video_id": "_M1iPYsHZvU",
+    "genre_name": "techno"
+  },
+  {
+    "title": "Sexx Laws",
+    "artist": "Beck",
+    "youtube_video_id": "IQfwgzoiq4c",
+    "genre_name": "alternative dance"
+  },
+  {
+    "title": "Keine Lust",
+    "artist": "Rammstein",
+    "youtube_video_id": "1M4ADcMn3dA",
+    "genre_name": "industrial"
+  },
+  {
+    "title": "The Perfect Drug",
+    "artist": "Nine Inch Nails",
+    "youtube_video_id": "dn3j6-yQKWQ",
+    "genre_name": "industrial"
+  },
+  {
+    "title": "Discipline",
+    "artist": "Nine Inch Nails",
+    "youtube_video_id": "8Lqsx2Jn4hE",
+    "genre_name": "industrial"
+  },
+  {
+    "title": "Replica",
+    "artist": "Fear Factory",
+    "youtube_video_id": "7RJsRQOneMY",
+    "genre_name": "industrial"
+  },
+  {
+    "title": "Parasitic",
+    "artist": "Psyclon Nine",
+    "youtube_video_id": "52xoRLh2dWw",
+    "genre_name": "industrial"
+  },
+  {
+    "title": "The Tempest",
+    "artist": "Pendulum",
+    "youtube_video_id": "bwX_zWjaFtE",
+    "genre_name": "drum and bass"
+  },
+  {
+    "title": "Hold Your Colour",
+    "artist": "Pendulum",
+    "youtube_video_id": "k-Xv0sKBMA8",
+    "genre_name": "drum and bass"
+  },
+  {
+    "title": "Nobody to Love",
+    "artist": "Sigma",
+    "youtube_video_id": "HZyXuxrzABE",
+    "genre_name": "drum and bass"
+  },
+  {
+    "title": "Breathe (Mefjus & Camo & Krooked remix)",
+    "artist": "The Prodigy",
+    "youtube_video_id": "q1NYiZ21U3c",
+    "genre_name": "drum and bass"
+  },
+  {
+    "title": "Accusations",
+    "artist": "Fishcracks",
+    "youtube_video_id": "62z8S-OWWJk",
+    "genre_name": "drum and bass"
+  },
+  {
+    "title": "Feel So Close",
+    "artist": "Calvin Harris",
+    "youtube_video_id": "dGghkjpNCQ8",
+    "genre_name": "dance"
+  },
+  {
+    "title": "Right Round",
+    "artist": "Flo Rida",
+    "youtube_video_id": "CcCw1ggftuQ",
+    "genre_name": "dance"
+  },
+  {
+    "title": "Feels Like Heaven (Maximum edit)",
+    "artist": "Urban Cookie Collective",
+    "youtube_video_id": "g3mYPjs-UcI",
+    "genre_name": "dance"
+  },
+  {
+    "title": "Waiting for Love",
+    "artist": "Avicii",
+    "youtube_video_id": "iR1sAex__VA",
+    "genre_name": "dance"
+  },
+  {
+    "title": "Touch It (radio edit)",
+    "artist": "Monifah",
+    "youtube_video_id": "-CL89fxfGZI",
+    "genre_name": "dance"
+  },
+  {
+    "title": "Alors on danse",
+    "artist": "Stromae",
+    "youtube_video_id": "gUbeQ7eb3nc",
+    "genre_name": "tech house"
+  },
+  {
+    "title": "Black Cow",
+    "artist": "Steely Dan",
+    "youtube_video_id": "JzrDs_Vaho4",
+    "genre_name": "jazz rock"
+  },
+  {
+    "title": "To Here Knows When",
+    "artist": "My Bloody Valentine",
+    "youtube_video_id": "xdHS1sbV5xw",
+    "genre_name": "shoegaze"
+  },
+  {
+    "title": "Soon",
+    "artist": "My Bloody Valentine",
+    "youtube_video_id": "ft56il9bGMk",
+    "genre_name": "shoegaze"
+  },
+  {
+    "title": "Only Shallow",
+    "artist": "My Bloody Valentine",
+    "youtube_video_id": "FyYMzEplnfU",
+    "genre_name": "shoegaze"
+  },
+  {
+    "title": "Stay",
+    "artist": "Brian McKnight",
+    "youtube_video_id": "MKHGdRbJ3IA",
+    "genre_name": "r&b"
+  },
+  {
+    "title": "Stay or Let It Go",
+    "artist": "Brian McKnight",
+    "youtube_video_id": "dbzG144K-64",
+    "genre_name": "r&b"
+  },
+  {
+    "title": "6, 8, 12",
+    "artist": "Brian McKnight",
+    "youtube_video_id": "DFOM1Vnbl7E",
+    "genre_name": "r&b"
+  },
+  {
+    "title": "You Could Be the One",
+    "artist": "Brian McKnight",
+    "youtube_video_id": "u61dqKfX7Hk",
+    "genre_name": "r&b"
+  },
+  {
+    "title": "Lonely",
+    "artist": "Brian McKnight",
+    "youtube_video_id": "OldEarpMWu4",
+    "genre_name": "r&b"
+  },
+  {
+    "title": "Let’s Stick Together",
+    "artist": "Bryan Ferry",
+    "youtube_video_id": "Z9EbR0ckb40",
+    "genre_name": "glam rock"
+  },
+  {
+    "title": "The Price of Love",
+    "artist": "Bryan Ferry",
+    "youtube_video_id": "TWMNnVI8Wcg",
+    "genre_name": "glam rock"
+  },
+  {
+    "title": "A Spoonful of Sugar",
+    "artist": "Julie Andrews",
+    "youtube_video_id": "hNb_3onMJsc",
+    "genre_name": "musical"
+  },
+  {
+    "title": "Under the Sea",
+    "artist": "Samuel E. Wright",
+    "youtube_video_id": "3evAxqF4NCs",
+    "genre_name": "musical"
+  },
+  {
+    "title": "Little April Shower",
+    "artist": "Amy Lou Barnes",
+    "youtube_video_id": "HUSHz9rn9xE",
+    "genre_name": "musical"
+  },
+  {
+    "title": "When You Wish Upon a Star",
+    "artist": "Cliff Edwards",
+    "youtube_video_id": "v5Zqi1Me7zY",
+    "genre_name": "musical"
+  },
+  {
+    "title": "Be Our Guest",
+    "artist": "Jerry Orbach",
+    "youtube_video_id": "7bE63G6zZtA",
+    "genre_name": "musical"
+  },
+  {
+    "title": "Miseria Cantare: The Beginning",
+    "artist": "AFI",
+    "youtube_video_id": "9EcMH1FTOx0",
+    "genre_name": "punk"
+  },
+  {
+    "title": "Bleed Black",
+    "artist": "AFI",
+    "youtube_video_id": "mYyNe5HfqVI",
+    "genre_name": "punk"
+  },
+  {
+    "title": "Silver and Cold",
+    "artist": "AFI",
+    "youtube_video_id": "BguZZ3rGKe0",
+    "genre_name": "punk"
+  },
+  {
+    "title": "Dancing Through Sunday",
+    "artist": "AFI",
+    "youtube_video_id": "jc7d1gWfM1A",
+    "genre_name": "punk"
+  },
+  {
+    "title": "Girl’s Not Grey",
+    "artist": "AFI",
+    "youtube_video_id": "1Yzu-4kJg6g",
+    "genre_name": "punk"
+  },
+  {
+    "title": "If I Were Your Woman",
+    "artist": "Gladys Knight & the Pips",
+    "youtube_video_id": "74uktZ63qo4",
+    "genre_name": "motown"
+  },
+  {
+    "title": "Hot Hot Hot",
+    "artist": "Buster Poindexter",
+    "youtube_video_id": "bKP18BpvX_o",
+    "genre_name": "latin"
+  },
+  {
+    "title": "You’re No Good",
+    "artist": "José Feliciano",
+    "youtube_video_id": "5aOV5QZsgZo",
+    "genre_name": "latin"
+  },
+  {
+    "title": "Hard Times in El Barrio",
+    "artist": "José Feliciano",
+    "youtube_video_id": "ANqXxVlHNE8",
+    "genre_name": "latin"
+  },
+  {
+    "title": "I’ve Got to Convince Myself",
+    "artist": "José Feliciano",
+    "youtube_video_id": "nfPpU4QMZ_E",
+    "genre_name": "latin"
+  },
+  {
+    "title": "Differently",
+    "artist": "José Feliciano",
+    "youtube_video_id": "WThfOfHeGsQ",
+    "genre_name": "latin"
+  },
+  {
+    "title": "The Four Seasons: Concerto no. 3 in F, RV 271 \"Autumn\": II. Adagio",
+    "artist": "Anne‐Sophie Mutter",
+    "youtube_video_id": "iQ-lmP5u9n0",
+    "genre_name": "classical"
+  },
+  {
+    "title": "Violin Concerto in E major “The Four Seasons: Spring”, op. 8 no. 1: I. Allegro",
+    "artist": "Anne‐Sophie Mutter",
+    "youtube_video_id": "nWmyIWwRI8g",
+    "genre_name": "classical"
+  },
+  {
+    "title": "The Four Seasons: Concerto no. 1 in E, RV 269 \"Spring\": II. Largo e pianissimo",
+    "artist": "Anne‐Sophie Mutter",
+    "youtube_video_id": "61Bj0lr4bPA",
+    "genre_name": "classical"
+  },
+  {
+    "title": "The Four Seasons: Concerto no. 1 in E, RV 269 \"Spring\": III. Danza pastorale: Allegro",
+    "artist": "Anne‐Sophie Mutter",
+    "youtube_video_id": "DCu0x536pOs",
+    "genre_name": "classical"
+  },
+  {
+    "title": "The Four Seasons: Concerto no. 2 in G minor, RV 270 \"Summer\": I. Allegro non molto",
+    "artist": "Anne‐Sophie Mutter",
+    "youtube_video_id": "j4fh53Q2gRY",
+    "genre_name": "classical"
+  },
+  {
+    "title": "Somewhere Only We Know",
+    "artist": "Keane",
+    "youtube_video_id": "xFGE8BuOn0g",
+    "genre_name": "piano rock"
+  },
+  {
+    "title": "Bend and Break",
+    "artist": "Keane",
+    "youtube_video_id": "6OTon4R19lM",
+    "genre_name": "piano rock"
+  },
+  {
+    "title": "Don’t Be Lonely",
+    "artist": "Cameo",
+    "youtube_video_id": "bzz7seyoFXw",
+    "genre_name": "funk"
+  },
+  {
+    "title": "She’s Mine",
+    "artist": "Cameo",
+    "youtube_video_id": "dVlO1T01l4s",
+    "genre_name": "funk"
+  },
+  {
+    "title": "Fast, Fierce & Funny",
+    "artist": "Cameo",
+    "youtube_video_id": "AiBuCq8lDrA",
+    "genre_name": "funk"
+  },
+  {
+    "title": "You Can Have the World",
+    "artist": "Cameo",
+    "youtube_video_id": "ZExfDwF9TKc",
+    "genre_name": "funk"
+  },
+  {
+    "title": "Word Up",
+    "artist": "Cameo",
+    "youtube_video_id": "lYOSdI_91WM",
+    "genre_name": "funk"
+  },
+  {
+    "title": "The Wolf Is Loose",
+    "artist": "Mastodon",
+    "youtube_video_id": "Z61jwgp7oPE",
+    "genre_name": "progressive metal"
+  },
+  {
+    "title": "Freedom of Speech",
+    "artist": "Liquid Tension Experiment",
+    "youtube_video_id": "EC7qodM5rdA",
+    "genre_name": "progressive metal"
+  },
+  {
+    "title": "Paradigm Shift",
+    "artist": "Liquid Tension Experiment",
+    "youtube_video_id": "8tnAlPBWr0Q",
+    "genre_name": "progressive metal"
+  },
+  {
+    "title": "Kindred Spirits",
+    "artist": "Liquid Tension Experiment",
+    "youtube_video_id": "L22mdgiVK7s",
+    "genre_name": "progressive metal"
+  },
+  {
+    "title": "Chris and Kevin’s Excellent Adventure",
+    "artist": "Liquid Tension Experiment",
+    "youtube_video_id": "YswuDEWtpwM",
+    "genre_name": "progressive metal"
+  },
+  {
+    "title": "Yesterday Is Dead and Gone",
+    "artist": "Arch Enemy",
+    "youtube_video_id": "rRkc08_dR-0",
+    "genre_name": "death metal"
+  },
+  {
+    "title": "Cruelty Without Beauty",
+    "artist": "Arch Enemy",
+    "youtube_video_id": "eTUTs_UzmzA",
+    "genre_name": "death metal"
+  },
+  {
+    "title": "Under Black Flags We March",
+    "artist": "Arch Enemy",
+    "youtube_video_id": "p1SlcO0Fikc",
+    "genre_name": "death metal"
+  },
+  {
+    "title": "This Calling",
+    "artist": "All That Remains",
+    "youtube_video_id": "36u9NzbDvCs",
+    "genre_name": "death metal"
+  },
+  {
+    "title": "Bombtrack",
+    "artist": "Rage Against the Machine",
+    "youtube_video_id": "MUaL1FnotRQ",
+    "genre_name": "funk metal"
+  },
+  {
+    "title": "Telemiscommunications",
+    "artist": "deadmau5",
+    "youtube_video_id": "m2LFI6abQI4",
+    "genre_name": "ambient pop"
+  },
+  {
+    "title": "Summer Dying Fast",
+    "artist": "Cradle of Filth",
+    "youtube_video_id": "fCeTlxEt4A0",
+    "genre_name": "black metal"
+  },
+  {
+    "title": "The Principle of Evil Made Flesh",
+    "artist": "Cradle of Filth",
+    "youtube_video_id": "Bowl9l8A6Do",
+    "genre_name": "black metal"
+  },
+  {
+    "title": "Darkness Our Bride (Jugular Wedding)",
+    "artist": "Cradle of Filth",
+    "youtube_video_id": "ePPLQmy_cak",
+    "genre_name": "black metal"
+  },
+  {
+    "title": "The Forest Whispers My Name",
+    "artist": "Cradle of Filth",
+    "youtube_video_id": "DJKNhiZlKX0",
+    "genre_name": "black metal"
+  },
+  {
+    "title": "Iscariot",
+    "artist": "Cradle of Filth",
+    "youtube_video_id": "traRzg2_9vg",
+    "genre_name": "black metal"
+  },
+  {
+    "title": "Lone Digger",
+    "artist": "Caravan Palace",
+    "youtube_video_id": "TbsBEb1ZxWA",
+    "genre_name": "electro swing"
+  },
+  {
+    "title": "Comics",
+    "artist": "Caravan Palace",
+    "youtube_video_id": "w6Qn_JB9I_8",
+    "genre_name": "electro swing"
+  },
+  {
+    "title": "Tattoos",
+    "artist": "Caravan Palace",
+    "youtube_video_id": "qQ-Pyx4joKM",
+    "genre_name": "electro swing"
+  },
+  {
+    "title": "Russian",
+    "artist": "Caravan Palace",
+    "youtube_video_id": "VRwD9JL2sO0",
+    "genre_name": "electro swing"
+  },
+  {
+    "title": "Wonda",
+    "artist": "Caravan Palace",
+    "youtube_video_id": "e0YCcNYrNgI",
+    "genre_name": "electro swing"
+  },
+  {
+    "title": "Human Behaviour",
+    "artist": "Björk",
+    "youtube_video_id": "p0mRIhK9seg",
+    "genre_name": "art pop"
+  },
+  {
+    "title": "Runaway",
+    "artist": "AURORA",
+    "youtube_video_id": "BRpS93I8_Jk",
+    "genre_name": "art pop"
+  },
+  {
+    "title": "Blissing Me",
+    "artist": "Björk",
+    "youtube_video_id": "PHWAZNkqwN4",
+    "genre_name": "art pop"
+  },
+  {
+    "title": "Arisen My Senses",
+    "artist": "Björk",
+    "youtube_video_id": "6VrqR_GfvzE",
+    "genre_name": "art pop"
+  },
+  {
+    "title": "Utopia",
+    "artist": "Björk",
+    "youtube_video_id": "Sqbv7cCM5AI",
+    "genre_name": "art pop"
+  },
+  {
+    "title": "I Will Be Heard",
+    "artist": "Hatebreed",
+    "youtube_video_id": "HB3tmC2f3t0",
+    "genre_name": "metalcore"
+  },
+  {
+    "title": "Cellar Door",
+    "artist": "Spiritbox",
+    "youtube_video_id": "pZwKjaRHJqo",
+    "genre_name": "metalcore"
+  },
+  {
+    "title": "Turbo Killer",
+    "artist": "Carpenter Brut",
+    "youtube_video_id": "YWIviF4rYcc",
+    "genre_name": "synthwave"
+  },
+  {
+    "title": "Fireworks",
+    "artist": "Animal Collective",
+    "youtube_video_id": "ztvr09J7KK4",
+    "genre_name": "art rock"
+  },
+  {
+    "title": "A Dream of Wolves in the Snow",
+    "artist": "Cradle of Filth",
+    "youtube_video_id": "OA03bm3ojFQ",
+    "genre_name": "gothic metal"
+  },
+  {
+    "title": "No Hope in Sight",
+    "artist": "Paradise Lost",
+    "youtube_video_id": "F7O1z-Vw9Vc",
+    "genre_name": "gothic metal"
+  },
+  {
+    "title": "Heaven’s a Lie",
+    "artist": "Lacuna Coil",
+    "youtube_video_id": "4wfRHPsRGkk",
+    "genre_name": "gothic metal"
+  },
+  {
+    "title": "Osmosis",
+    "artist": "Liquid Tension Experiment",
+    "youtube_video_id": "Oo0T0gaxiLA",
+    "genre_name": "progressive rock"
+  },
+  {
+    "title": "The Stretch",
+    "artist": "Liquid Tension Experiment",
+    "youtube_video_id": "v4g9rlIgo9Q",
+    "genre_name": "progressive rock"
+  },
+  {
+    "title": "State of Grace",
+    "artist": "Liquid Tension Experiment",
+    "youtube_video_id": "ye0rIC6GqKM",
+    "genre_name": "progressive rock"
+  },
+  {
+    "title": "Acid Rain",
+    "artist": "Liquid Tension Experiment",
+    "youtube_video_id": "YLQnSULW2zI",
+    "genre_name": "progressive rock"
+  },
+  {
+    "title": "Spread Thy Wings",
+    "artist": "Foxes and Peppers",
+    "youtube_video_id": "S5U9dTleb0o",
+    "genre_name": "progressive rock"
+  },
+  {
+    "title": "hot milk",
+    "artist": "Snail’s House",
+    "youtube_video_id": "N8nGig78lNs",
+    "genre_name": "kawaii future bass"
+  },
+  {
+    "title": "you should see me in a crown",
+    "artist": "Billie Eilish",
+    "youtube_video_id": "za8Ki4CCXgg",
+    "genre_name": "alternative pop"
+  },
+  {
+    "title": "lovely",
+    "artist": "Billie Eilish",
+    "youtube_video_id": "MMfpp0-lnw4",
+    "genre_name": "alternative pop"
+  },
+  {
+    "title": "Two Weeks",
+    "artist": "FKA twigs",
+    "youtube_video_id": "3yDP9MKVhZc",
+    "genre_name": "alternative pop"
+  },
+  {
+    "title": "Humility",
+    "artist": "Gorillaz",
+    "youtube_video_id": "1PWdTellsEM",
+    "genre_name": "alternative pop"
+  },
+  {
+    "title": "Who Could Win a Rabbit",
+    "artist": "Animal Collective",
+    "youtube_video_id": "UTbd0Ncsyus",
+    "genre_name": "experimental"
+  },
+  {
+    "title": "My (Fucking) Deer Hunter",
+    "artist": "Fear Before",
+    "youtube_video_id": "gfDywvYmcs4",
+    "genre_name": "experimental"
+  },
+  {
+    "title": "Grass",
+    "artist": "Animal Collective",
+    "youtube_video_id": "gqvBoFpgXQA",
+    "genre_name": "experimental"
+  },
+  {
+    "title": "The Waiting Makes Me Curious",
+    "artist": "Fear Before",
+    "youtube_video_id": "vsNvsURlyvY",
+    "genre_name": "experimental"
+  },
+  {
+    "title": "Murder",
+    "artist": "HORSE the band",
+    "youtube_video_id": "am-B71jww9o",
+    "genre_name": "experimental"
+  },
+  {
+    "title": "ISN’T EVERYONE",
+    "artist": "HEALTH",
+    "youtube_video_id": "6W2E6jNXzBE",
+    "genre_name": "industrial rock"
+  },
+  {
+    "title": "The Perfect Drug",
+    "artist": "Nine Inch Nails",
+    "youtube_video_id": "YhBALTmneqQ",
+    "genre_name": "industrial rock"
+  },
+  {
+    "title": "Less Than",
+    "artist": "Nine Inch Nails",
+    "youtube_video_id": "gDV-dOvqKzQ",
+    "genre_name": "industrial rock"
+  },
+  {
+    "title": "Hawaiian Roller Coaster Ride",
+    "artist": "Mark Kealiʻi Hoʻomalu",
+    "youtube_video_id": "PuPe-0SoY5Q",
+    "genre_name": "children's music"
+  },
+  {
+    "title": "The Ugly Bug Ball",
+    "artist": "Burl Ives",
+    "youtube_video_id": "HyirMCPjgYM",
+    "genre_name": "children's music"
+  },
+  {
+    "title": "Zip‐a‐Dee‐Doo‐Dah",
+    "artist": "James Baskett",
+    "youtube_video_id": "ZroAzeJySso",
+    "genre_name": "children's music"
+  },
+  {
+    "title": "I See the Light",
+    "artist": "Mandy Moore",
+    "youtube_video_id": "CZWDjwyBRSU",
+    "genre_name": "children's music"
+  },
+  {
+    "title": "If I Didn’t Have You",
+    "artist": "Billy Crystal",
+    "youtube_video_id": "ev3L2lZpYaE",
+    "genre_name": "children's music"
+  },
+  {
+    "title": "Feels Good",
+    "artist": "Tony! Toni! Toné!",
+    "youtube_video_id": "PnzyszvitL8",
+    "genre_name": "new jack swing"
+  },
+  {
+    "title": "Colors of the Wind",
+    "artist": "Judy Kuhn",
+    "youtube_video_id": "E9z28VmtWfA",
+    "genre_name": "ballad"
+  },
+  {
+    "title": "Stone Cold",
+    "artist": "Demi Lovato",
+    "youtube_video_id": "2dGBQMuk31I",
+    "genre_name": "ballad"
+  },
+  {
+    "title": "The Air That I Breathe",
+    "artist": "Olivia Newton‐John",
+    "youtube_video_id": "Efkqsc2CVjA",
+    "genre_name": "ballad"
+  },
+  {
+    "title": "Indian Summer",
+    "artist": "Frank Sinatra",
+    "youtube_video_id": "b0QABbot9sU",
+    "genre_name": "ballad"
+  },
+  {
+    "title": "Wish You the Best",
+    "artist": "Lewis Capaldi",
+    "youtube_video_id": "bz_dm_0AQ7E",
+    "genre_name": "ballad"
+  },
+  {
+    "title": "8th and 10",
+    "artist": "Kenny Mehler",
+    "youtube_video_id": "8-YGkkQDjbw",
+    "genre_name": "acoustic rock"
+  },
+  {
+    "title": "Crazy",
+    "artist": "Kenny Mehler",
+    "youtube_video_id": "ToTMq8TLkak",
+    "genre_name": "acoustic rock"
+  },
+  {
+    "title": "Disappear",
+    "artist": "Kenny Mehler",
+    "youtube_video_id": "jLo0lJMqNMw",
+    "genre_name": "acoustic rock"
+  },
+  {
+    "title": "Drive",
+    "artist": "Kenny Mehler",
+    "youtube_video_id": "O1PyR65EmZs",
+    "genre_name": "acoustic rock"
+  },
+  {
+    "title": "Tea 4 Two",
+    "artist": "Kenny Mehler",
+    "youtube_video_id": "XIDlgyV0M34",
+    "genre_name": "acoustic rock"
+  },
+  {
+    "title": "A Maker of My Time",
+    "artist": "The Paper Kites",
+    "youtube_video_id": "Y8A_8rbakgg",
+    "genre_name": "singer-songwriter"
+  },
+  {
+    "title": "The Only One I Know",
+    "artist": "The Charlatans",
+    "youtube_video_id": "0RJwW77Lsj8",
+    "genre_name": "neo-psychedelia"
+  },
+  {
+    "title": "Indian Summer",
+    "artist": "Beat Happening",
+    "youtube_video_id": "gDJrrcx8Nbs",
+    "genre_name": "lo-fi"
+  },
+  {
+    "title": "Old Town Road",
+    "artist": "Lil Nas X",
+    "youtube_video_id": "5ho88VXJTBg",
+    "genre_name": "alternative hip hop"
+  },
+  {
+    "title": "Ether (Eprom old school deconstruction)",
+    "artist": "Zeds Dead",
+    "youtube_video_id": "JkRTaB2u81k",
+    "genre_name": "deconstructed club"
+  },
+  {
+    "title": "インフェルノ",
+    "artist": "Mrs. GREEN APPLE",
+    "youtube_video_id": "4u4muFfkbJQ",
+    "genre_name": "j-rock"
+  },
+  {
+    "title": "Man’s Not Hot",
+    "artist": "Big Shaq",
+    "youtube_video_id": "3M_5oYU-IsU",
+    "genre_name": "electronica"
+  },
+  {
+    "title": "Bad",
+    "artist": "Billie Eilish",
+    "youtube_video_id": "Pv6Rt2x6kPg",
+    "genre_name": "electronica"
+  },
+  {
+    "title": "瞬間センチメンタル",
+    "artist": "SCANDAL",
+    "youtube_video_id": "HEkerSi5Fig",
+    "genre_name": "j-pop"
+  },
+  {
+    "title": "Black and Yellow Sketch",
+    "artist": "阿澄佳奈",
+    "youtube_video_id": "duWTfl4MJ1c",
+    "genre_name": "j-pop"
+  },
+  {
+    "title": "ミスターフィクサー",
+    "artist": "Sou",
+    "youtube_video_id": "citH7jl6qmY",
+    "genre_name": "j-pop"
+  },
+  {
+    "title": "NIGHT DANCER",
+    "artist": "imase",
+    "youtube_video_id": "0t0HtFYjcU8",
+    "genre_name": "j-pop"
+  },
+  {
+    "title": "The Monkey’s Uncle",
+    "artist": "Annette Funicello",
+    "youtube_video_id": "p6xcj6rJEu0",
+    "genre_name": "swing"
+  },
+  {
+    "title": "When My Dreamboat Comes Home",
+    "artist": "Brenda Lee",
+    "youtube_video_id": "OGgUvwk2NE0",
+    "genre_name": "country rock"
+  },
+  {
+    "title": "Real Big",
+    "artist": "Mannie Fresh",
+    "youtube_video_id": "ASe5qP2_Ets",
+    "genre_name": "pop rap"
+  },
+  {
+    "title": "Mickey Mouse March",
+    "artist": "The Mouseketeers",
+    "youtube_video_id": "X5BjBg7YNK0",
+    "genre_name": "instrumental"
+  },
+  {
+    "title": "Black Magic Woman",
+    "artist": "Percy Faith",
+    "youtube_video_id": "g4nngvBhR6Y",
+    "genre_name": "instrumental"
+  },
+  {
+    "title": "Sun King",
+    "artist": "Percy Faith",
+    "youtube_video_id": "g7vTypf5PSA",
+    "genre_name": "instrumental"
+  },
+  {
+    "title": "Big Yellow Taxi",
+    "artist": "Percy Faith",
+    "youtube_video_id": "u9m9y9GbQIg",
+    "genre_name": "instrumental"
+  },
+  {
+    "title": "Oye Como Va",
+    "artist": "Percy Faith",
+    "youtube_video_id": "kNzvR7iDiv0",
+    "genre_name": "instrumental"
+  },
+  {
+    "title": "You Might Think He Loves You for Your Money but I Know What He Really Loves You for It’s Your Brand New Leopard Skin Pillbox Hat",
+    "artist": "Death Grips",
+    "youtube_video_id": "y2cQvZPX3OY",
+    "genre_name": "hardcore hip hop"
+  },
+  {
+    "title": "Anne Bonny",
+    "artist": "Death Grips",
+    "youtube_video_id": "n4CpypI7SOo",
+    "genre_name": "industrial hip hop"
+  },
+  {
+    "title": "Two Heavens",
+    "artist": "Death Grips",
+    "youtube_video_id": "lUmIkVMdjVY",
+    "genre_name": "industrial hip hop"
+  },
+  {
+    "title": "Feels Like a Wheel",
+    "artist": "Death Grips",
+    "youtube_video_id": "PaYEOxO0fAY",
+    "genre_name": "industrial hip hop"
+  },
+  {
+    "title": "I’m Overflow",
+    "artist": "Death Grips",
+    "youtube_video_id": "UPakuj9sAKQ",
+    "genre_name": "industrial hip hop"
+  },
+  {
+    "title": "Whatever I Want (Fuck Who’s Watching)",
+    "artist": "Death Grips",
+    "youtube_video_id": "Eltn_nyOPh8",
+    "genre_name": "industrial hip hop"
+  },
+  {
+    "title": "This Is Violence Now (Don’t Get Me Wrong)",
+    "artist": "Death Grips",
+    "youtube_video_id": "_XIrniuy-Y4",
+    "genre_name": "electro-industrial"
+  },
+  {
+    "title": "Birds",
+    "artist": "Death Grips",
+    "youtube_video_id": "XX5wk-6Mn5s",
+    "genre_name": "experimental hip hop"
+  },
+  {
+    "title": "Big House",
+    "artist": "Death Grips",
+    "youtube_video_id": "YH0j8mGeMes",
+    "genre_name": "glitch hop"
+  },
+  {
+    "title": "Bootleg (Don’t Need Your Help)",
+    "artist": "Death Grips",
+    "youtube_video_id": "GpwSJCmSUFE",
+    "genre_name": "glitch hop"
+  },
+  {
+    "title": "Government Plates",
+    "artist": "Death Grips",
+    "youtube_video_id": "AXnxCnarZGs",
+    "genre_name": "juke"
+  },
+  {
+    "title": "Epilogue",
+    "artist": "Sonja Norwood",
+    "youtube_video_id": "KF95QT5Ph1w",
+    "genre_name": "spoken word"
+  },
+  {
+    "title": "Hitch Hikin’",
+    "artist": "Bruce Springsteen",
+    "youtube_video_id": "pCs8U5wwPJ8",
+    "genre_name": "country pop"
+  },
+  {
+    "title": "The Wayfarer",
+    "artist": "Bruce Springsteen",
+    "youtube_video_id": "8kMpeF12xTk",
+    "genre_name": "country pop"
+  },
+  {
+    "title": "Tucson Train",
+    "artist": "Bruce Springsteen",
+    "youtube_video_id": "bsH4URIWNRE",
+    "genre_name": "country pop"
+  },
+  {
+    "title": "Western Stars",
+    "artist": "Bruce Springsteen",
+    "youtube_video_id": "_IXzAAKrsFE",
+    "genre_name": "country pop"
+  },
+  {
+    "title": "Sleepy Joe’s Café",
+    "artist": "Bruce Springsteen",
+    "youtube_video_id": "Hwbdhz_zoBc",
+    "genre_name": "country pop"
+  },
+  {
+    "title": "Pohjola's Daughter, op. 49",
+    "artist": "Symfonický orchester Slovenského rozhlasu",
+    "youtube_video_id": "lL74MWFXG5E",
+    "genre_name": "orchestral"
+  },
+  {
+    "title": "Valse triste, op. 44 no. 1",
+    "artist": "Symfonický orchester Slovenského rozhlasu",
+    "youtube_video_id": "IuHh5JbTZFo",
+    "genre_name": "orchestral"
+  },
+  {
+    "title": "Finlandia, op. 26 no. 7",
+    "artist": "Symfonický orchester Slovenského rozhlasu",
+    "youtube_video_id": "gqW5qXhyXyE",
+    "genre_name": "orchestral"
+  },
+  {
+    "title": "Karelia Suite, op. 11: I. Intermezzo",
+    "artist": "Symfonický orchester Slovenského rozhlasu",
+    "youtube_video_id": "BMwMN9dogz8",
+    "genre_name": "orchestral"
+  },
+  {
+    "title": "Karelia Suite, op. 11: II. Ballade",
+    "artist": "Symfonický orchester Slovenského rozhlasu",
+    "youtube_video_id": "6w-P808ddQs",
+    "genre_name": "orchestral"
+  },
+  {
+    "title": "The Everlasting (Deadly Avenger’s Psalm 315)",
+    "artist": "Manic Street Preachers",
+    "youtube_video_id": "xLsH2cwgU-w",
+    "genre_name": "breaks"
+  },
+  {
+    "title": "Cell Mates",
+    "artist": "Mariachi El Bronx",
+    "youtube_video_id": "OWe_UiWhoWE",
+    "genre_name": "garage rock"
+  },
+  {
+    "title": "Brown Sugar",
+    "artist": "D’Angelo",
+    "youtube_video_id": "BBeqKg9hVsk",
+    "genre_name": "neo soul"
+  },
+  {
+    "title": "All I Want Is You",
+    "artist": "Miguel",
+    "youtube_video_id": "n7PVhQPaFNY",
+    "genre_name": "neo soul"
+  },
+  {
+    "title": "Girl With the Tattoo Enter.Lewd",
+    "artist": "Miguel",
+    "youtube_video_id": "XDOaT7nqqvI",
+    "genre_name": "neo soul"
+  },
+  {
+    "title": "Quickie",
+    "artist": "Miguel",
+    "youtube_video_id": "gt3QLI3XYtk",
+    "genre_name": "neo soul"
+  },
+  {
+    "title": "Girls Like You",
+    "artist": "Miguel",
+    "youtube_video_id": "AtqmE-tVibE",
+    "genre_name": "neo soul"
+  },
+  {
+    "title": "Sonata in E-flat major for Clarinet and Piano, op. 120 no. 2: Allegro, molto appassionato",
+    "artist": "Kálmán Berkes",
+    "youtube_video_id": "JmMfmFmdmj8",
+    "genre_name": "romantic classical"
+  },
+  {
+    "title": "Klavierkonzert",
+    "artist": "Khatia Buniatishvili",
+    "youtube_video_id": "3jbHbDena_U",
+    "genre_name": "romantic classical"
+  },
+  {
+    "title": "SEONG-JIN CHO – Piano Concerto in E minor, Op. 11 (final stage of the Chopin Competition 2015)",
+    "artist": "Seong‐Jin Cho",
+    "youtube_video_id": "614oSsDS734",
+    "genre_name": "romantic classical"
+  },
+  {
+    "title": "Kate Liu – Piano Concerto in E minor Op. 11 (final stage of the Chopin Competition 2015)",
+    "artist": "Kate Liu",
+    "youtube_video_id": "rs8rrW4s_rs",
+    "genre_name": "romantic classical"
+  },
+  {
+    "title": "Aimi Kobayashi – Piano Concerto in E minor Op. 11 (final stage of the Chopin Competition 2015)",
+    "artist": "小林愛実",
+    "youtube_video_id": "u3pwP8eZCmI",
+    "genre_name": "romantic classical"
+  },
+  {
+    "title": "Touch It (remix)",
+    "artist": "Busta Rhymes",
+    "youtube_video_id": "CDVo2MzXYrA",
+    "genre_name": "east coast hip hop"
+  },
+  {
+    "title": "Touch It – Remix (explicit)",
+    "artist": "Busta Rhymes",
+    "youtube_video_id": "xYqTrnyUqTs",
+    "genre_name": "east coast hip hop"
+  },
+  {
+    "title": "Wild for the Night",
+    "artist": "A$AP Rocky",
+    "youtube_video_id": "1eWdbMBYlH4",
+    "genre_name": "east coast hip hop"
+  },
+  {
+    "title": "All About Tonight",
+    "artist": "Pixie Lott",
+    "youtube_video_id": "swcULf1ATyU",
+    "genre_name": "bubblegum pop"
+  },
+  {
+    "title": "The Widow Maker",
+    "artist": "Carpenter Brut",
+    "youtube_video_id": "WVYuWYsheFs",
+    "genre_name": "darksynth"
+  },
+  {
+    "title": "The Whole Town Knows",
+    "artist": "Poor Creature",
+    "youtube_video_id": "HcocfGSgqd4",
+    "genre_name": "celtic"
+  },
+  {
+    "title": "Butterfly",
+    "artist": "Natalie Merchant",
+    "youtube_video_id": "g4EeD-dvQS8",
+    "genre_name": "folk pop"
+  },
+  {
+    "title": "Giving Up Everything",
+    "artist": "Natalie Merchant",
+    "youtube_video_id": "Mx5Iq0LTYw0",
+    "genre_name": "alternative folk"
+  },
+  {
+    "title": "Frozen Charlotte",
+    "artist": "Natalie Merchant",
+    "youtube_video_id": "LoIzARomAjk",
+    "genre_name": "alternative folk"
+  },
+  {
+    "title": "Star Wars: Throne Room & End Title",
+    "artist": "Cincinnati Pops Orchestra",
+    "youtube_video_id": "c_hx5uj1r-M",
+    "genre_name": "classical crossover"
+  },
+  {
+    "title": "Destination Honnouji (Alex Gaudino vs. Hiroyuki Sawano)",
+    "artist": "Triple‐Q",
+    "youtube_video_id": "9u2gHSNrhgA",
+    "genre_name": "funky house"
+  },
+  {
+    "title": "School",
+    "artist": "Calvin Harris",
+    "youtube_video_id": "lXZGQHITY2M",
+    "genre_name": "electro"
+  },
+  {
+    "title": "Only One",
+    "artist": "John Butler Trio",
+    "youtube_video_id": "XmTnOhmWuAg",
+    "genre_name": "bluegrass"
+  },
+  {
+    "title": "Creep v2",
+    "artist": "deadmau5",
+    "youtube_video_id": "5rw-3Cu9BxE",
+    "genre_name": "modern classical"
+  },
+  {
+    "title": "Mahler: 5. Sinfonie",
+    "artist": "hr‐Sinfonieorchester",
+    "youtube_video_id": "fEGNNuEM3Fc",
+    "genre_name": "symphony"
+  },
+  {
+    "title": "HATEFUL",
+    "artist": "HEALTH",
+    "youtube_video_id": "QywKQkFge78",
+    "genre_name": "ebm"
+  },
+  {
+    "title": "Lake Zurich",
+    "artist": "Gorillaz",
+    "youtube_video_id": "5nNtH7u0DSE",
+    "genre_name": "synth funk"
+  },
+  {
+    "title": "ENERGY",
+    "artist": "Disclosure",
+    "youtube_video_id": "xftmMPMZaU0",
+    "genre_name": "tribal house"
+  },
+  {
+    "title": "Fester Skank",
+    "artist": "Lethal Bizzle",
+    "youtube_video_id": "gQBYWFyX5ug",
+    "genre_name": "grime"
+  },
+  {
+    "title": "I Don’t Like Who I Was Then",
+    "artist": "The Wonder Years",
+    "youtube_video_id": "HEemt0qxryw",
+    "genre_name": "pop punk"
+  },
+  {
+    "title": "45 Charles Street",
+    "artist": "Roots Architects",
+    "youtube_video_id": "STgUKV5y3VQ",
+    "genre_name": "dub"
+  },
+  {
+    "title": "1000 Light Years",
+    "artist": "Roots Architects",
+    "youtube_video_id": "W8ViYkU5exw",
+    "genre_name": "dub"
+  },
+  {
+    "title": "In the Shadow",
+    "artist": "Roots Architects",
+    "youtube_video_id": "th_tYn7HHqA",
+    "genre_name": "dub"
+  },
+  {
+    "title": "Whitewater",
+    "artist": "Roots Architects",
+    "youtube_video_id": "acdPujUOUec",
+    "genre_name": "dub"
+  },
+  {
+    "title": "Memories of Old",
+    "artist": "Roots Architects",
+    "youtube_video_id": "of8fachk-5I",
+    "genre_name": "dub"
+  },
+  {
+    "title": "#FleKKsinonem",
+    "artist": "Pionieris",
+    "youtube_video_id": "ozmtNs6-6yw",
+    "genre_name": "trap"
+  },
+  {
+    "title": "STILL BREATHING",
+    "artist": "HEALTH",
+    "youtube_video_id": "_TKgeRnuoS0",
+    "genre_name": "dream pop"
+  },
+  {
+    "title": "Différent",
+    "artist": "Orelsan",
+    "youtube_video_id": "haIsl5COu_k",
+    "genre_name": "boom bap"
+  },
+  {
+    "title": "La buena",
+    "artist": "Carin León",
+    "youtube_video_id": "BSPTbtF3IuU",
+    "genre_name": "alternative country"
   }
 ]
