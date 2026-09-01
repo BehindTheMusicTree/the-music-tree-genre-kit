@@ -2,7 +2,8 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from tests.fixture_app.models import Criteria, CriteriaLineageRel, CriteriaPlaylist, Track, TrackPlaylistRel
+from tests.fixture_app.models import Criteria, CriteriaLineageRel, CriteriaPlaylist, Genre, Track, TrackPlaylistRel
+from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
 from the_music_tree_genre_kit.criteria.playlist.bootstrap_criterialess_playlists_for_user import (
     bootstrap_criterialess_playlists_for_user,
 )
@@ -65,6 +66,32 @@ def test_criteria_simple_serializer(criteria_tree):
     assert data["name"] == "child"
     assert data["parent"]["uuid"] == str(root.uuid)
     assert data["parent"]["name"] == "root"
+
+
+def test_criteria_simple_serializer_resolves_side_from_genre_mti_subtype(db):
+    user = get_user_model().objects.create(username="fixture-user")
+    genre_type = CriteriaType.objects.create(label="genre")
+
+    root = Genre(user=user, type=genre_type)
+    root._name = "root"
+    root.save()
+    genre = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
+    genre._name = "child"
+    genre.save()
+
+    serializer_class = build_criteria_simple_serializer(Criteria)
+    data = serializer_class(genre.criteria_ptr).data
+
+    assert data["side"] == CriteriaSide.POP
+
+
+def test_criteria_simple_serializer_side_is_none_for_non_genre_criteria(criteria_tree):
+    root, _child, _lineage_rel = criteria_tree
+
+    serializer_class = build_criteria_simple_serializer(Criteria)
+    data = serializer_class(root).data
+
+    assert data["side"] is None
 
 
 def test_criteria_lineage_rel_detailed_serializer(criteria_tree):
