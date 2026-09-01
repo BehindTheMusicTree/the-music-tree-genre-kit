@@ -13,6 +13,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.14.2] - 2026-09-01
+
+### Fixed
+
+- `AbstractCriteria.is_descendant_of` now compares ascendants by `pk` instead of `==`. Django's `Model.__eq__` also requires `_meta.concrete_model` to match, so when the serializer's bound instance is a concrete MTI subtype (e.g. `Genre`) but the `.parent` FK chain walk yields base `Criteria` rows, the equality check silently returned `False` even on matching primary keys — letting `DescendantAwareField` accept a cyclic `parent` reference it should reject.
+- `AbstractCriteriaManager._refresh_ascendants_of_instance` now detects and raises on a cyclic `parent` chain instead of looping forever, as defense-in-depth if a cycle is ever persisted despite the validation fix above.
+
 ## [0.14.1] - 2026-09-01
 
 ### Fixed
