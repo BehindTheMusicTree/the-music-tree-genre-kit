@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.14.1] - 2026-09-01
+
 ### Fixed
 
 - `build_criteria_simple_serializer` now resolves `side` for base-`Criteria`-model
