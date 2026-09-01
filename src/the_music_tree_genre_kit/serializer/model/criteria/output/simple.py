@@ -3,6 +3,7 @@ from the_music_tree_api_kit.serializer.AppInputSerializer import AppInputSeriali
 
 from the_music_tree_genre_kit.criteria.AbstractCriteria import AbstractCriteria
 from the_music_tree_genre_kit.serializer.model.criteria.output.minimum import build_criteria_minimum_serializer
+from the_music_tree_genre_kit.serializer.model.criteria.output.side import CriteriaSideSerializerMixin
 
 from .CriteriaOutputFieldKey import CriteriaOutputFieldKey
 
@@ -17,13 +18,22 @@ def build_criteria_simple_serializer(
         CriteriaOutputFieldKey.NAME.value,
         CriteriaOutputFieldKey.PARENT.value,
         CriteriaOutputFieldKey.CREATED_ON.value,
+        CriteriaOutputFieldKey.SIDE.value,
     ]
-    # `side` only exists on a concrete Genre subtype (see `AbstractGenreCriteria`), not
-    # on the shared `AbstractCriteria` table -- only expose it when the model has it.
-    if any(field.name == CriteriaOutputFieldKey.SIDE.value for field in criteria_model._meta.get_fields()):
-        serializer_fields.append(CriteriaOutputFieldKey.SIDE.value)
 
-    class CriteriaSimpleSerializer(AppInputSerializer, serializers.ModelSerializer):
+    # `side` is a real column only on the concrete Genre subtype (see
+    # `AbstractGenreCriteria`), not on the shared `AbstractCriteria` table -- when the
+    # model doesn't have it natively, mix in the reverse-accessor resolver instead.
+    has_own_side_field = any(
+        field.name == CriteriaOutputFieldKey.SIDE.value for field in criteria_model._meta.get_fields()
+    )
+    bases = (
+        (AppInputSerializer, serializers.ModelSerializer)
+        if has_own_side_field
+        else (CriteriaSideSerializerMixin, AppInputSerializer, serializers.ModelSerializer)
+    )
+
+    class CriteriaSimpleSerializer(*bases):
         parent = minimum_serializer_class()
 
         class Meta:

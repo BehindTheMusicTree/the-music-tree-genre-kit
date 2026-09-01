@@ -13,6 +13,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `build_criteria_simple_serializer` now resolves `side` for base-`Criteria`-model
+  callers (the common case in consumer apps, since `side` moved off `Criteria` in
+  0.14.0) via the concrete `Genre` MTI subtype's reverse `genre` accessor, instead of
+  omitting it — previously each consumer had to hand-roll this resolution itself, and
+  more than one did so with a bug (reading `side` directly off the base `Criteria`
+  instance, which doesn't have that attribute). Added `CriteriaSideSerializerMixin`
+  (`the_music_tree_genre_kit.serializer.model.criteria.output.side`) so consumers'
+  other hand-written criteria serializers (e.g. a detailed serializer) can reuse the
+  same resolution instead of duplicating it.
+
 ### Changed
 
 - Renamed the `test.yml` GitHub Actions workflow to `validate.yml`.
