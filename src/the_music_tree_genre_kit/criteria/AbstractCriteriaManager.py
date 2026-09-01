@@ -47,8 +47,12 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         instance.ascendants_rels.all().delete()
         current_degree = 1
         current_parent = instance.parent
+        visited_ascendant_ids = {instance.pk}
 
         while current_parent:
+            if current_parent.pk in visited_ascendant_ids:
+                raise ValueError(f"Cycle detected in criteria parent chain at {instance.pk!r}")
+            visited_ascendant_ids.add(current_parent.pk)
             self._create_lineage_rel(
                 user=instance.user, descendant=instance, ascendant=current_parent, degree=current_degree
             )

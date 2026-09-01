@@ -125,7 +125,11 @@ class AbstractCriteria(PrivateUniqueResource):
             raise
 
     def is_descendant_of(self, other_criteria: AbstractCriteria) -> bool:
-        if self.parent == other_criteria:
+        # Compare by pk, not `==`: Django's Model.__eq__ also requires
+        # `_meta.concrete_model` to match, which fails across MTI subtypes
+        # (e.g. a Genre instance vs. the base Criteria rows returned while
+        # walking `.parent`), silently defeating this cycle check.
+        if self.parent_id == other_criteria.pk:
             return True
         if self.parent:
             return self.parent.is_descendant_of(other_criteria)
