@@ -19,6 +19,7 @@ def build_criteria_simple_serializer(
         CriteriaOutputFieldKey.PARENT.value,
         CriteriaOutputFieldKey.CREATED_ON.value,
         CriteriaOutputFieldKey.SIDE.value,
+        CriteriaOutputFieldKey.SUMMARY.value,
     ]
 
     # `side` is a real column only on the concrete Genre subtype (see

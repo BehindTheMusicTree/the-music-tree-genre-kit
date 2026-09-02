@@ -13,6 +13,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `AbstractCriteria` gains an optional `summary` `TextField` (`null=True, blank=True`), shared by
+  every criteria type (genre and tag alike) — a short standalone blurb, distinct from any future
+  detailed genre content. Exposed through `build_criteria_simple_serializer` and settable via
+  `CriteriaTreeNodeSerializer` tree import input.
+
 ## [0.14.2] - 2026-09-01
 
 ### Fixed

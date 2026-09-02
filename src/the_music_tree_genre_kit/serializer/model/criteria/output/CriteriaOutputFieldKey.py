@@ -13,3 +13,4 @@ class CriteriaOutputFieldKey(StrEnum):
     DESCENDANTS = "descendants"
     CHILDREN = "children"
     SIDE = "side"
+    SUMMARY = "summary"

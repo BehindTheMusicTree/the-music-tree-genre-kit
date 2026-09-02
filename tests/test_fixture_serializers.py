@@ -94,6 +94,40 @@ def test_criteria_simple_serializer_side_is_none_for_non_genre_criteria(criteria
     assert data["side"] is None
 
 
+def test_criteria_simple_serializer_summary_defaults_to_none(criteria_tree):
+    root, _child, _lineage_rel = criteria_tree
+
+    serializer_class = build_criteria_simple_serializer(Criteria)
+    data = serializer_class(root).data
+
+    assert data["summary"] is None
+
+
+def test_criteria_simple_serializer_summary_round_trips_for_non_genre_criteria(criteria_tree):
+    root, _child, _lineage_rel = criteria_tree
+    root.summary = "A short blurb"
+    root.save()
+
+    serializer_class = build_criteria_simple_serializer(Criteria)
+    data = serializer_class(root).data
+
+    assert data["summary"] == "A short blurb"
+
+
+def test_criteria_simple_serializer_summary_round_trips_for_genre(db):
+    user = get_user_model().objects.create(username="fixture-user")
+    genre_type = CriteriaType.objects.create(label="genre")
+
+    genre = Genre(user=user, type=genre_type, summary="A short blurb")
+    genre._name = "root"
+    genre.save()
+
+    serializer_class = build_criteria_simple_serializer(Criteria)
+    data = serializer_class(genre.criteria_ptr).data
+
+    assert data["summary"] == "A short blurb"
+
+
 def test_criteria_lineage_rel_detailed_serializer(criteria_tree):
     root, child, lineage_rel = criteria_tree
 

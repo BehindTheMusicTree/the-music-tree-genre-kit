@@ -12,3 +12,4 @@ class Fields(PrivateUniqueResourceFields):
     PARENT = "parent"
     CHILDREN = "children"
     SIDE = "side"
+    SUMMARY = "summary"

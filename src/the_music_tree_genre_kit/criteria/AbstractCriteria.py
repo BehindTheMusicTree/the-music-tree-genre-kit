@@ -47,6 +47,8 @@ class AbstractCriteria(PrivateUniqueResource):
 
     type = AppForeignKey(CriteriaType, on_delete=models.CASCADE)
 
+    summary = models.TextField(null=True, blank=True, db_column=Fields.SUMMARY)
+
     class Meta:
         abstract = True
 
