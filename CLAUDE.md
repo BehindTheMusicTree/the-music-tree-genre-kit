@@ -98,8 +98,11 @@ Both are opt-in mixins for a consumer's viewset, not automatically wired up.
 
 ## Contributing conventions (see CONTRIBUTING.md for full detail)
 
-- No direct commits to `main` — everything goes through a PR from a `feature/`, `fix/`, or
-  `chore/` branch.
+- Strict Gitflow. No direct commits to `main` or `develop` — everything goes through a PR.
+  `feature/`, `fix/`, and `chore/` branches are cut from `develop` and merged back into
+  `develop`. `release/x.y.z` branches from `develop` and merges into `main` (tagged) and back
+  into `develop`. `hotfix/x.y.z` branches from `main` and merges into `main` (tagged) and back
+  into `develop`.
 - Commit/PR title format: `<type>(<scope>): <summary>` (Conventional-Commits-inspired; types:
   `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `perf`, `ci`).
 - Update `CHANGELOG.md` under `[Unreleased]` for any notable change, and `README.md` if the
