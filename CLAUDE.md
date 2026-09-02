@@ -107,6 +107,6 @@ Both are opt-in mixins for a consumer's viewset, not automatically wired up.
   `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `perf`, `ci`).
 - Update `CHANGELOG.md` under `[Unreleased]` for any notable change, and `README.md` if the
   package's scope or usage changes.
-- Releases are plain git tags on `main` (no release branch); `the-music-tree-api-kit` must
-  always be pinned by tag, never a raw commit SHA (see pyproject.toml comment and changelog for
-  why — `uv`'s git-ref resolution conflicts across repos otherwise).
+- Releases are tagged on `main` via a `release/x.y.z` branch (see above); `the-music-tree-api-kit`
+  must always be pinned by tag, never a raw commit SHA (see pyproject.toml comment and changelog
+  for why — `uv`'s git-ref resolution conflicts across repos otherwise).
