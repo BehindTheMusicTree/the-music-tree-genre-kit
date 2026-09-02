@@ -13,6 +13,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Adopted strict Gitflow: `develop` is now the default branch and integration point for
+  `feature/*`, `fix/*`, and `chore/*` branches; `main` only receives merges from `release/*` and
+  `hotfix/*` branches, each tagged on merge. See `CONTRIBUTING.md`.
+
 ### Added
 
 - `AbstractCriteria` gains an optional `summary` `TextField` (`null=True, blank=True`), shared by

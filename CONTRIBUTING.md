@@ -20,7 +20,7 @@ Thank you for your interest in contributing! This project is currently maintaine
 
 **Maintainers** review and merge Pull Requests, manage repository configuration, and are responsible for project direction.
 
-**Important:** No direct commits to `main` — all changes, including from maintainers, go through Pull Requests.
+**Important:** No direct commits to `main` or `develop` — all changes, including from maintainers, go through Pull Requests.
 
 Currently this project has a solo maintainer, but the role may expand as the project grows.
 
@@ -45,10 +45,20 @@ This is an installable Python package (shared genre/tag/criteria/tree Django abs
 
 ### 2. Branching
 
-- **`main`** — the only long-lived branch. No direct commits — only merges from PRs.
-- **`feature/<name>`** — new features, branched from `main`, merged back via PR.
-- **`fix/<name>`** — bug fixes, branched from `main`, merged back via PR.
-- **`chore/<name>`** — maintenance, tooling, CI/CD, dependency updates, branched from `main`, merged back via PR.
+This project follows strict [Gitflow](https://nvie.com/posts/a-successful-git-branching-model/).
+
+- **`main`** — production-ready code only. No direct commits — only merges from `release/*` and
+  `hotfix/*` branches. Every merge to `main` is tagged.
+- **`develop`** — integration branch, the default branch and PR target for day-to-day work. No
+  direct commits — only merges from PRs.
+- **`feature/<name>`** — new features, branched from `develop`, merged back into `develop` via PR.
+- **`fix/<name>`** — bug fixes, branched from `develop`, merged back into `develop` via PR.
+- **`chore/<name>`** — maintenance, tooling, CI/CD, dependency updates, branched from `develop`,
+  merged back into `develop` via PR.
+- **`release/<x.y.z>`** — release stabilization, branched from `develop`. Merged into `main`
+  (then tagged) and back into `develop` when ready. Only fixes belong here, no new features.
+- **`hotfix/<x.y.z>`** — urgent production fixes, branched from `main`. Merged into `main` (then
+  tagged) and back into `develop`.
 
 There is no automated branch-name enforcement — these prefixes are a convention, not a CI-checked rule.
 
@@ -96,17 +106,18 @@ Before opening a PR:
 - ✅ `CHANGELOG.md` updated under `[Unreleased]`
 - ✅ `README.md` updated if the package's scope or usage changed
 - ✅ No secrets, large files, or accidental commits
-- ✅ Branch targets `main`
+- ✅ Branch targets `develop` (or `main`, for a `release/*`/`hotfix/*` branch only)
 
 **PR title** follows the same `<type>(<scope>): <summary>` format as commits, e.g. `feat(criteria-playlist): hoist AbstractCriteriaPlaylist from grow/hear`.
 
 ### 6. Releasing (For Maintainers)
 
-Releases are plain tags on `main` — there is no release branch or automated bump tool:
+Releases follow Gitflow, tagged on `main`:
 
-1. Merge the PR(s) for the release into `main`.
-2. Bump `version` in `pyproject.toml` (typically as part of the last merged PR).
-3. Tag and push:
+1. Branch `release/x.y.z` from `develop`.
+2. Bump `version` in `pyproject.toml` and finalize the `[Unreleased]` section of `CHANGELOG.md` on
+   that branch. Only bugfixes belong here — no new features.
+3. Open a PR from `release/x.y.z` into `main`; once merged, tag and push:
 
    ```bash
    git checkout main
@@ -115,8 +126,13 @@ Releases are plain tags on `main` — there is no release branch or automated bu
    git push origin vX.Y.Z
    ```
 
-4. Pin the dependency on `the-music-tree-api-kit` to a tag, never a raw commit SHA — see the `[Unreleased]`/`v0.2.1` changelog entries below for why.
-5. Consumers (`grow-the-music-tree-api`, `hear-the-music-tree-api`) re-pin their dependency on this package to the new tag.
+4. Merge `release/x.y.z` back into `develop` (PR) so the version bump and changelog land there
+   too, then delete the release branch.
+5. Pin the dependency on `the-music-tree-api-kit` to a tag, never a raw commit SHA — see the `[Unreleased]`/`v0.2.1` changelog entries below for why.
+6. Consumers (`grow-the-music-tree-api`, `hear-the-music-tree-api`) re-pin their dependency on this package to the new tag.
+
+An urgent fix to production code goes through `hotfix/x.y.z` instead: branch from `main`, fix,
+PR into `main`, tag, then PR the same fix back into `develop`.
 
 ## License & Attribution
 
