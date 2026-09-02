@@ -82,3 +82,15 @@ def test_to_internal_value_omits_side_when_not_provided():
 def test_to_internal_value_rejects_invalid_side_value():
     with pytest.raises(ValidationError):
         _serializer().to_internal_value({"name": "House", "side": "invalid"})
+
+
+def test_to_internal_value_accepts_optional_summary_field():
+    validated = _serializer().to_internal_value({"name": "Pop Electronic", "summary": "A short blurb"})
+
+    assert validated["summary"] == "A short blurb"
+
+
+def test_to_internal_value_omits_summary_when_not_provided():
+    validated = _serializer().to_internal_value({"name": "House"})
+
+    assert "summary" not in validated
