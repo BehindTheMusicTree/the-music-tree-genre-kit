@@ -70,3 +70,41 @@ def test_load_example_songs_calls_on_loaded_hook(api_client, user, genres, monke
 
     assert response.status_code == 201
     assert calls == [user]
+
+
+def test_import_songs_creates_tracks_from_payload(api_client, user, genres):
+    payload = [
+        {
+            "title": "Strings of Life",
+            "artist": "Derrick May",
+            "youtube_video_id": "abc12345678",
+            "genre_name": "Techno",
+        },
+        {"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "xyz98765432", "genre_name": "House"},
+    ]
+
+    response = api_client.post("/tracks/songs/import/", data=payload, format="json")
+
+    assert response.status_code == 201
+    titles = set(Track.objects.filter(user=user).values_list("title", flat=True))
+    assert titles == {"Strings of Life", "Your Love"}
+
+
+def test_import_songs_replaces_existing_tracks(api_client, user, genres):
+    stale = Track.objects.create(user=user, title="Stale Track", genre=genres["House"])
+    payload = [
+        {"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "xyz98765432", "genre_name": "House"}
+    ]
+
+    response = api_client.post("/tracks/songs/import/", data=payload, format="json")
+
+    assert response.status_code == 201
+    assert not Track.objects.filter(pk=stale.pk).exists()
+
+
+def test_import_songs_rejects_invalid_payload(api_client, genres):
+    payload = [{"title": "Missing Fields"}]
+
+    response = api_client.post("/tracks/songs/import/", data=payload, format="json")
+
+    assert response.status_code == 400
