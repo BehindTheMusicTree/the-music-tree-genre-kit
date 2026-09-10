@@ -13,6 +13,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-09-11
+
+### Added
+
+- `SongsImportMixin` (`songs/import`, `POST`): accepts an arbitrary flat list of
+  `{"title", "artist", "youtube_video_id", "genre_name"}` entries and replaces the current user's
+  tracks, delegating to `AbstractTrackManager.import_example_songs` — the same manager method
+  `SongExampleTreeMixin`'s fixture-based `songs/load-example` already uses, just fed from the
+  request body instead of a bundled fixture file. The two mixins coexist on a track viewset.
+
 ## [0.15.0] - 2026-09-02
 
 ### Changed
