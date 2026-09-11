@@ -37,36 +37,36 @@ def genres(user, genre_type):
     return created
 
 
-def test_load_example_songs_creates_tracks_from_fixture(api_client, user, genres):
-    response = api_client.post("/tracks/songs/load-example/")
+def test_load_seed_songs_creates_tracks_from_fixture(api_client, user, genres):
+    response = api_client.post("/tracks/songs/load-seed/")
 
     assert response.status_code == 201
     titles = set(Track.objects.filter(user=user).values_list("title", flat=True))
     assert titles == {"Strings of Life", "Your Love"}
 
 
-def test_load_example_songs_replaces_existing_tracks(api_client, user, genres):
+def test_load_seed_songs_replaces_existing_tracks(api_client, user, genres):
     stale = Track.objects.create(user=user, title="Stale Track", genre=genres["House"])
 
-    response = api_client.post("/tracks/songs/load-example/")
+    response = api_client.post("/tracks/songs/load-seed/")
 
     assert response.status_code == 201
     assert not Track.objects.filter(pk=stale.pk).exists()
 
 
-def test_load_example_songs_missing_file_raises(api_client, genres, settings, tmp_path):
+def test_load_seed_songs_missing_file_raises(api_client, genres, settings, tmp_path):
     settings.DATA_DIR = tmp_path
 
     with pytest.raises(FileNotFoundError):
-        api_client.post("/tracks/songs/load-example/")
+        api_client.post("/tracks/songs/load-seed/")
 
 
-def test_load_example_songs_calls_on_loaded_hook(api_client, user, genres, monkeypatch):
+def test_load_seed_songs_calls_on_loaded_hook(api_client, user, genres, monkeypatch):
     calls = []
 
-    monkeypatch.setattr(TrackViewSet, "on_example_songs_loaded", lambda self, request: calls.append(request.user))
+    monkeypatch.setattr(TrackViewSet, "on_seed_songs_loaded", lambda self, request: calls.append(request.user))
 
-    response = api_client.post("/tracks/songs/load-example/")
+    response = api_client.post("/tracks/songs/load-seed/")
 
     assert response.status_code == 201
     assert calls == [user]

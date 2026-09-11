@@ -8,8 +8,8 @@ from django.db.models import F
 from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
 
 from the_music_tree_genre_kit.criteria.track_playlist_rel.TrackPlaylistRel import TrackPlaylistRel
-from the_music_tree_genre_kit.serializer.model.track.input.song_example.Fields import (
-    Fields as SongExampleFields,
+from the_music_tree_genre_kit.serializer.model.track.input.song_seed.Fields import (
+    Fields as SongSeedFields,
 )
 
 from .Fields import Fields
@@ -177,9 +177,9 @@ class AbstractTrackManager(StandardResourceManager[T]):
             artist_model.objects.delete_instance_if_nothing_linked(artist)
 
     @transaction.atomic
-    def import_example_songs(self, user: User, data: list[dict[str, Any]]) -> None:
+    def import_seed_songs(self, user: User, data: list[dict[str, Any]]) -> None:
         """
-        Imports a flat list of example songs, replacing all of the user's existing
+        Imports a flat list of seed songs, replacing all of the user's existing
         tracks first (mirrors `AbstractCriteriaManager.import_criteria_tree`'s
         wipe-then-seed semantics). An entry whose `genre_name` has no
         case-insensitive match among the user's criteria is skipped rather than
@@ -223,14 +223,14 @@ class AbstractTrackManager(StandardResourceManager[T]):
 
         matched_entries: list[tuple[dict[str, Any], Any]] = []
         for entry in data:
-            genre = criteria_by_lower_name.get(entry[SongExampleFields.GENRE_NAME].lower())
+            genre = criteria_by_lower_name.get(entry[SongSeedFields.GENRE_NAME].lower())
             if genre is not None:
                 matched_entries.append((entry, genre))
 
         if not matched_entries:
             return
 
-        unique_artist_names = list(dict.fromkeys(entry[SongExampleFields.ARTIST] for entry, _ in matched_entries))
+        unique_artist_names = list(dict.fromkeys(entry[SongSeedFields.ARTIST] for entry, _ in matched_entries))
         resolved_artists = artist_model.objects.get_artists_list_from_names_after_potential_creation(
             user, unique_artist_names
         )
@@ -245,18 +245,18 @@ class AbstractTrackManager(StandardResourceManager[T]):
         for entry, genre in matched_entries:
             instance = self.model(
                 user=user,
-                title=entry[SongExampleFields.TITLE],
+                title=entry[SongSeedFields.TITLE],
                 genre=genre,
                 # `youtube_video_id` isn't a field on the abstract Track model, only on
                 # concrete video-linkable subclasses - valid only when settings.TRACK_MODEL
                 # is/extends such a subclass.
-                youtube_video_id=entry[SongExampleFields.YOUTUBE_VIDEO_ID],
+                youtube_video_id=entry[SongSeedFields.YOUTUBE_VIDEO_ID],
             )
             instance.save()
             instances.append(instance)
 
         for instance, (entry, _genre) in zip(instances, matched_entries, strict=True):
-            instance.artists.set([artists_by_name[entry[SongExampleFields.ARTIST]]])
+            instance.artists.set([artists_by_name[entry[SongSeedFields.ARTIST]]])
 
         ancestor_playlists_by_genre_pk: dict[Any, list] = {}
 
