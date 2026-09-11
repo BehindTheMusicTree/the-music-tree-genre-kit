@@ -10,7 +10,7 @@ class CriteriaSide(models.TextChoices):
     meant to be combined via multi-table inheritance with a consumer's concrete
     `Genre` model, so setting it on any other criteria type is now schema-enforced
     rather than validated (see `AbstractGenreCriteria._validate_side` for the
-    placement/uniqueness constraints still enforced on save).
+    placement constraint still enforced on save).
     """
 
     CORE = "core"

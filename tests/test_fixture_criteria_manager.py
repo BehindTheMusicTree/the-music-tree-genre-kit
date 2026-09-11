@@ -130,7 +130,7 @@ def test_pop_side_on_non_root_child_raises(user, genre_type):
 
 
 @pytest.mark.django_db
-def test_second_pop_side_sibling_raises(user, genre_type):
+def test_multiple_pop_side_siblings_allowed(user, genre_type):
     root = Genre(user=user, type=genre_type)
     root._name = "root"
     root.save()
@@ -141,6 +141,6 @@ def test_second_pop_side_sibling_raises(user, genre_type):
 
     second_pop_child = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
     second_pop_child._name = "second-pop"
+    second_pop_child.save()
 
-    with pytest.raises(AppValidationException):
-        second_pop_child.save()
+    assert Genre.objects.filter(root=root, side=CriteriaSide.POP).count() == 2
