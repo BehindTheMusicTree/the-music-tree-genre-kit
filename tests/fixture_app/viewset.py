@@ -3,8 +3,8 @@ from the_music_tree_api_kit.view.viewset.model.AppModelViewSet import AppModelVi
 from tests.fixture_app.models import Criteria, Track
 from the_music_tree_genre_kit.serializer.model.criteria.output.simple import build_criteria_simple_serializer
 from the_music_tree_genre_kit.view.viewset.AbstractCriteriaViewSet import AbstractCriteriaViewSet
-from the_music_tree_genre_kit.view.viewset.genre.GenreExampleTreeMixin import GenreExampleTreeMixin
-from the_music_tree_genre_kit.view.viewset.track.SongExampleTreeMixin import SongExampleTreeMixin
+from the_music_tree_genre_kit.view.viewset.genre.GenreSeedTreeMixin import GenreSeedTreeMixin
+from the_music_tree_genre_kit.view.viewset.track.SongSeedTreeMixin import SongSeedTreeMixin
 from the_music_tree_genre_kit.view.viewset.track.SongsImportMixin import SongsImportMixin
 
 
@@ -17,7 +17,7 @@ class CriteriaViewSet(AbstractCriteriaViewSet[Criteria]):
         )
 
 
-class GenreCriteriaViewSet(GenreExampleTreeMixin[Criteria], AbstractCriteriaViewSet[Criteria]):
+class GenreCriteriaViewSet(GenreSeedTreeMixin[Criteria], AbstractCriteriaViewSet[Criteria]):
     def __init__(self, **kwargs):
         super().__init__(
             model_class=Criteria,
@@ -26,6 +26,6 @@ class GenreCriteriaViewSet(GenreExampleTreeMixin[Criteria], AbstractCriteriaView
         )
 
 
-class TrackViewSet(SongExampleTreeMixin[Track], SongsImportMixin[Track], AppModelViewSet[Track]):
+class TrackViewSet(SongSeedTreeMixin[Track], SongsImportMixin[Track], AppModelViewSet[Track]):
     def __init__(self, **kwargs):
         super().__init__(model_class=Track, **kwargs)

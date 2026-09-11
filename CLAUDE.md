@@ -82,15 +82,15 @@ that always requires an explicit `queryset` — see its docstring for why),
 `detailed_tracks.py` / `minimum.py`. These are assembled by consumers into their own serializer
 classes; this package does not define full serializers that hit a concrete `Criteria` table.
 
-### Example-data loading mechanisms
+### Seed-data loading mechanisms
 
-Two parallel "load example data for a user" mechanisms, both wiping the user's existing rows
+Two parallel "load seed data for a user" mechanisms, both wiping the user's existing rows
 and reseeding from a bundled JSON fixture in `data/`:
 
-- `view/viewset/genre/GenreExampleTreeMixin.py` + `data/prototype_genre_tree.json` — loads an
-  example criteria tree.
-- `view/viewset/track/SongExampleTreeMixin.py` + `AbstractTrackManager.import_example_songs` +
-  `data/song_example.json` — loads example tracks, matching each entry's `genre_name`
+- `view/viewset/genre/GenreSeedTreeMixin.py` + `data/prototype_genre_tree.json` — loads a
+  seed criteria tree.
+- `view/viewset/track/SongSeedTreeMixin.py` + `AbstractTrackManager.import_seed_songs` +
+  `data/song_seed.json` — loads seed tracks, matching each entry's `genre_name`
   case-insensitively against the user's own criteria (unmatched entries are skipped rather than
   creating a genre-less track).
 
