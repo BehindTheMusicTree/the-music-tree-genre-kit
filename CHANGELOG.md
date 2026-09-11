@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-09-11
+
 ### Changed
 
 - **Breaking:** renamed the "example" seed-tree/seed-songs demo feature to "seed" terminology, since loading it replaces a user's *entire* criteria tree or song set rather than merely adding examples. Affects public URL paths and Python identifiers consuming apps import directly:
