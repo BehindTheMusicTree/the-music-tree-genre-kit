@@ -30,8 +30,9 @@ class AbstractGenreCriteria(models.Model):
     `side` column on the shared `Criteria` table at all -- so "side is genre-only" is
     now guaranteed by the schema, not by a runtime type check like the old
     `AbstractCriteria._validate_side` used to enforce. This mixin only re-validates
-    the two rules that MTI cannot express structurally: placement (pop only on a
-    root's direct child) and sibling uniqueness (at most one pop child per root).
+    the one rule MTI cannot express structurally: placement (pop only on a root's
+    direct child). A root may have zero, one, or several pop children -- sibling
+    uniqueness is no longer enforced.
 
     This class has no `parent`/`root`/`pk` fields of its own -- it relies entirely on
     the concrete class's inherited `AbstractCriteria` fields being present at runtime.
@@ -41,9 +42,9 @@ class AbstractGenreCriteria(models.Model):
     """
     Meaningful only when this criteria is a root criteria's direct child
     (`parent_id == root_id`); ignored elsewhere. Null/unset means "core" (the
-    required, non-pop branch); `CriteriaSide.POP` marks the optional pop/crossover
-    branch. See `_validate_side` for the placement and uniqueness constraints
-    enforced on save.
+    required, non-pop branch); `CriteriaSide.POP` marks a pop/crossover branch --
+    a root may have zero, one, or several pop children. See `_validate_side` for
+    the placement constraint enforced on save.
     """
 
     class Meta:
@@ -66,19 +67,6 @@ class AbstractGenreCriteria(models.Model):
                 field_name=Fields.SIDE,
                 message=_('side="pop" is only valid on a direct child of a root criteria'),
                 field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
-            )
-
-        duplicate_pop_sibling_exists = (
-            type(self)
-            .objects.filter(root_id=self.root_id, parent_id=self.parent_id, side=CriteriaSide.POP)
-            .exclude(pk=self.pk)
-            .exists()
-        )
-        if duplicate_pop_sibling_exists:
-            raise AppValidationException(
-                field_name=Fields.SIDE,
-                message=_('Only one direct child of a root criteria may have side="pop"'),
-                field_validation_error_code=FieldValidationErrorCode.DUPLICATE,
             )
 
     def _prepare_save(self, ctx: SaveContext) -> dict:

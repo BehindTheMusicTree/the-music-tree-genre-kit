@@ -13,6 +13,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-09-11
+
+### Changed
+
+- `AbstractGenreCriteria` no longer enforces that at most one direct child of a root may have
+  `side="pop"` — a root may now have zero, one, or several pop children on save. Placement
+  (`side="pop"` only valid on a root's direct child) is still validated.
+
 ## [0.16.0] - 2026-09-11
 
 ### Added
