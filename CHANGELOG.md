@@ -13,6 +13,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** renamed the "example" seed-tree/seed-songs demo feature to "seed" terminology, since loading it replaces a user's *entire* criteria tree or song set rather than merely adding examples. Affects public URL paths and Python identifiers consuming apps import directly:
+  - `GenreExampleTreeMixin` → `GenreSeedTreeMixin` (`view/viewset/genre/GenreExampleTreeMixin.py` → `GenreSeedTreeMixin.py`), action route `tree/load-example` → `tree/load-seed`.
+  - `SongExampleTreeMixin` → `SongSeedTreeMixin` (`view/viewset/track/SongExampleTreeMixin.py` → `SongSeedTreeMixin.py`), action route `songs/load-example` → `songs/load-seed`.
+  - `AbstractTrackManager.import_example_songs` → `import_seed_songs`.
+  - `SongExampleFields` → `SongSeedFields`; `SongExampleImportSerializer` → `SongSeedImportSerializer` and `SongExampleEntrySerializer` → `SongSeedEntrySerializer`, module path `serializer/model/track/input/song_example/` → `.../song_seed/`.
+  - Bundled fixture `data/song_example.json` → `data/song_seed.json`.
+  - JSON payload field names (`songs`, `title`, `artist`, `youtube_video_id`, `genre_name`) are unchanged — this is a pure identifier/path rename, not a wire-format change.
+
 ## [0.17.0] - 2026-09-11
 
 ### Changed

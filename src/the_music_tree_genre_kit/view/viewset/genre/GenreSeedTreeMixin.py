@@ -12,12 +12,12 @@ from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.serial
 )
 
 
-class GenreExampleTreeMixin[T: AbstractCriteria]:
+class GenreSeedTreeMixin[T: AbstractCriteria]:
     """
-    Adds a `tree/load-example` action, seeding the current user's genre tree from a
+    Adds a `tree/load-seed` action, seeding the current user's genre tree from a
     JSON fixture the consuming app ships under `settings.DATA_DIR`. Mix into an
     `AbstractCriteriaViewSet[T]` subclass for a genre viewset (not every criteria
-    type has an example tree, so this isn't folded into `AbstractCriteriaViewSet`
+    type has a seed tree, so this isn't folded into `AbstractCriteriaViewSet`
     itself).
 
     To use the shared taxonomy bundled with this package instead of an app-local
@@ -25,20 +25,20 @@ class GenreExampleTreeMixin[T: AbstractCriteria]:
     """
 
     model_class: type[T]
-    example_tree_filename: str = "prototype_genre_tree.json"
+    seed_tree_filename: str = "prototype_genre_tree.json"
 
-    def get_example_tree_data_path(self) -> Path:
-        return settings.DATA_DIR / self.example_tree_filename
+    def get_seed_tree_data_path(self) -> Path:
+        return settings.DATA_DIR / self.seed_tree_filename
 
-    def on_example_tree_loaded(self, request) -> None:
-        """Hook for app-specific side effects after the example tree is imported."""
+    def on_seed_tree_loaded(self, request) -> None:
+        """Hook for app-specific side effects after the seed tree is imported."""
 
-    @action(detail=False, methods=["post"], url_path="tree/load-example")
-    def load_example_tree(self, request):
-        data_path = self.get_example_tree_data_path()
+    @action(detail=False, methods=["post"], url_path="tree/load-seed")
+    def load_seed_tree(self, request):
+        data_path = self.get_seed_tree_data_path()
 
         if not data_path.exists():
-            raise FileNotFoundError(f"Example genre tree file not found at {data_path}")
+            raise FileNotFoundError(f"Seed genre tree file not found at {data_path}")
 
         with open(data_path) as f:
             data = json.load(f)
@@ -47,6 +47,6 @@ class GenreExampleTreeMixin[T: AbstractCriteria]:
         serializer.is_valid(raise_exception=True)
 
         self.model_class.objects.import_criteria_tree(request.user, serializer.validated_data)
-        self.on_example_tree_loaded(request)
+        self.on_seed_tree_loaded(request)
 
-        return Response({"message": "Example genre tree loaded successfully"}, status=status.HTTP_201_CREATED)
+        return Response({"message": "Seed genre tree loaded successfully"}, status=status.HTTP_201_CREATED)

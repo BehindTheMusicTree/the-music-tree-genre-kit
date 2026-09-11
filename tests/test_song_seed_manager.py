@@ -36,8 +36,8 @@ def house(user, genre_type, tag_type):
 
 
 @pytest.mark.django_db
-def test_import_example_songs_creates_track_for_matching_genre(user, house):
-    Track.objects.import_example_songs(
+def test_import_seed_songs_creates_track_for_matching_genre(user, house):
+    Track.objects.import_seed_songs(
         user,
         [{"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "abc123", "genre_name": "house"}],
     )
@@ -49,8 +49,8 @@ def test_import_example_songs_creates_track_for_matching_genre(user, house):
 
 
 @pytest.mark.django_db
-def test_import_example_songs_skips_entry_with_no_matching_genre(user, house):
-    Track.objects.import_example_songs(
+def test_import_seed_songs_skips_entry_with_no_matching_genre(user, house):
+    Track.objects.import_seed_songs(
         user,
         [
             {
@@ -66,10 +66,10 @@ def test_import_example_songs_skips_entry_with_no_matching_genre(user, house):
 
 
 @pytest.mark.django_db
-def test_import_example_songs_reuses_existing_artist(user, house):
+def test_import_seed_songs_reuses_existing_artist(user, house):
     existing_artist = Artist.objects.create(user=user, name="Frankie Knuckles")
 
-    Track.objects.import_example_songs(
+    Track.objects.import_seed_songs(
         user,
         [{"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "abc123", "genre_name": "House"}],
     )
@@ -80,10 +80,10 @@ def test_import_example_songs_reuses_existing_artist(user, house):
 
 
 @pytest.mark.django_db
-def test_import_example_songs_replaces_existing_tracks(user, house):
+def test_import_seed_songs_replaces_existing_tracks(user, house):
     stale = Track.objects.create(user=user, title="Stale Track")
 
-    Track.objects.import_example_songs(
+    Track.objects.import_seed_songs(
         user,
         [{"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "abc123", "genre_name": "House"}],
     )
@@ -115,10 +115,10 @@ def deep_house(user, genre_type, tag_type):
 
 
 @pytest.mark.django_db
-def test_import_example_songs_adds_multi_level_ancestor_playlist_rels(user, deep_house):
+def test_import_seed_songs_adds_multi_level_ancestor_playlist_rels(user, deep_house):
     electronic, house, deep_house_genre = deep_house
 
-    Track.objects.import_example_songs(
+    Track.objects.import_seed_songs(
         user,
         [
             {
@@ -138,10 +138,10 @@ def test_import_example_songs_adds_multi_level_ancestor_playlist_rels(user, deep
 
 
 @pytest.mark.django_db
-def test_import_example_songs_orders_playlist_rels_most_recent_first(user, deep_house):
+def test_import_seed_songs_orders_playlist_rels_most_recent_first(user, deep_house):
     _electronic, house, deep_house_genre = deep_house
 
-    Track.objects.import_example_songs(
+    Track.objects.import_seed_songs(
         user,
         [
             {"title": "First", "artist": "Artist A", "youtube_video_id": "id1", "genre_name": "House"},
@@ -161,7 +161,7 @@ def test_import_example_songs_orders_playlist_rels_most_recent_first(user, deep_
 
 
 @pytest.mark.django_db
-def test_import_example_songs_large_batch(user, deep_house):
+def test_import_seed_songs_large_batch(user, deep_house):
     electronic, house, deep_house_genre = deep_house
 
     entry_count = 300
@@ -179,7 +179,7 @@ def test_import_example_songs_large_batch(user, deep_house):
         {"title": "Unmatched", "artist": "Nobody", "youtube_video_id": "novid", "genre_name": "Not A Real Genre"}
     )
 
-    Track.objects.import_example_songs(user, data)
+    Track.objects.import_seed_songs(user, data)
 
     assert Track.objects.filter(user=user).count() == entry_count
     assert not Track.objects.filter(user=user, title="Unmatched").exists()
