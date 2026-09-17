@@ -37,26 +37,12 @@ class CriteriaTreeNodeSerializer(AppInputSerializer):
         if not isinstance(value, list):
             raise ValueError(f"{Fields.CHILDREN} must be an array")
 
-        # Handle empty list case
-        if not value:
-            return []
-
-        from the_music_tree_genre_kit.serializer.model.criteria.input.tree_node import CriteriaTreeNodeSerializer
-
-        validated_children = []
-
+        # Structural check only -- each child's full validation (including its own
+        # descendants) is performed by TreeField.run_validation's explicit recursion,
+        # not here. Fully validating descendants in this field validator too would
+        # mean every subtree gets re-validated once per ancestor level.
         for child in value:
-            # Create a serializer for this child node
-            serializer = CriteriaTreeNodeSerializer(structure_field_name=self.structure_field_name, data=child)
-            serializer.is_valid(raise_exception=True)
+            if not isinstance(child, dict):
+                raise ValueError(f"{Fields.CHILDREN} must be an array of objects")
 
-            # Get validated data for this child
-            validated_child = serializer.validated_data
-
-            # Make sure children field exists and is preserved
-            if Fields.CHILDREN not in validated_child or validated_child[Fields.CHILDREN] is None:
-                validated_child[Fields.CHILDREN] = []
-
-            validated_children.append(validated_child)
-
-        return validated_children
+        return value
