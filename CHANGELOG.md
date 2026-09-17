@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.21.0] - 2026-09-17
+
 ### Improved
 
 - `TreeField.run_validation`'s explicit recursive descent into each node's children is now the only pass that fully validates a node's descendants: `CriteriaTreeNodeSerializer.validate_children` no longer independently re-validates every descendant subtree too, which previously made tree-import validation cost compound with tree depth (every subtree was fully validated once per ancestor level). Also removed a dead `copy.deepcopy` of the remaining subtree at every recursion level in `TreeField.run_validation`, which compounded the same cost and could exhaust Python's recursion limit on deep trees.
