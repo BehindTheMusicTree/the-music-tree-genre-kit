@@ -4,6 +4,7 @@ from rest_framework.test import APIClient
 
 from tests.fixture_app.models import Criteria
 from the_music_tree_genre_kit.criteria.type.CriteriaType import CriteriaType
+from the_music_tree_genre_kit.serializer.model.criteria.input.tree_node import CriteriaTreeNodeSerializer
 
 
 @pytest.fixture
@@ -81,3 +82,51 @@ def test_import_tree_rejects_empty_tree(api_client, criteria_type):
     response = api_client.post("/criteria/tree/import/", {"tree": []}, format="json")
 
     assert response.status_code == 400
+
+
+def test_import_tree_rejects_invalid_node_deep_in_tree(api_client, criteria_type):
+    # Regression guard: validate_children on CriteriaTreeNodeSerializer no longer does a full
+    # nested validation pass itself -- TreeField.run_validation's own recursion must still be
+    # the one that catches an invalid node several levels down.
+    payload = {
+        "tree": [
+            {
+                "name": "root",
+                "children": [{"name": "child", "children": [{"name": "", "children": []}]}],
+            }
+        ]
+    }
+
+    response = api_client.post("/criteria/tree/import/", payload, format="json")
+
+    assert response.status_code == 400
+    assert not Criteria.objects.filter(_name="root").exists()
+
+
+def test_import_tree_validates_each_node_exactly_once(api_client, criteria_type, monkeypatch):
+    # Regression guard for the double-recursion bug where validate_children fully re-validated
+    # every descendant subtree in addition to TreeField.run_validation's own explicit recursion,
+    # making validation cost blow up with tree depth. Without the fix, instantiation_count would
+    # be quadratic in depth; with it, it's linear (one CriteriaTreeNodeSerializer per node, plus a
+    # bounded constant of incidental instantiations from field binding/children_field plumbing).
+    instantiation_count = 0
+    original_init = CriteriaTreeNodeSerializer.__init__
+
+    def counting_init(self, *args, **kwargs):
+        nonlocal instantiation_count
+        instantiation_count += 1
+        original_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(CriteriaTreeNodeSerializer, "__init__", counting_init)
+
+    depth = 50
+    node = {"name": "leaf-0", "children": []}
+    for level in range(1, depth):
+        node = {"name": f"leaf-{level}", "children": [node]}
+
+    response = api_client.post("/criteria/tree/import/", {"tree": [node]}, format="json")
+
+    assert response.status_code == 201
+    # Linear bound (2x depth) rather than exact equality: proves no depth-driven blowup without
+    # pinning the exact count of incidental serializer instantiations from field binding plumbing.
+    assert instantiation_count <= depth * 2
