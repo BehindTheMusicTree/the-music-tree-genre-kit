@@ -1,8 +1,11 @@
+import uuid
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from django.db import models
 from django.db.models import QuerySet
 from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
+
+from the_music_tree_genre_kit.base.bulk_mti import bulk_create_mti
 
 from .AbstractCriteriaPlaylist import AbstractCriteriaPlaylist
 from .CriterialessPlaylistNames import CriterialessPlaylistNames
@@ -33,6 +36,39 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
     model: type[T]
     track_playlist_rel_model: type[models.Model]
     track_model: type[models.Model]
+
+    def bulk_create_for_criteria(self, criteria_instances: list[AbstractCriteria]) -> None:
+        """
+        Bulk-creates one playlist per given criteria, mirroring the criteria
+        tree's parent/root structure. `criteria_instances` must be in
+        pre-order (a criteria's parent already present before it), which is
+        how `AbstractCriteriaManager.import_criteria_tree` builds its list --
+        meant to be called from a consumer's `_on_bulk_created` override.
+
+        Parent/root are resolved from the in-memory criteria tree instead of
+        the per-instance DB lookups `AbstractCriteriaPlaylist._set_parent`/
+        `_set_root` normally do.
+        """
+        if not criteria_instances:
+            return
+
+        playlists: list[T] = []
+        playlist_by_criteria_pk: dict[Any, T] = {}
+
+        for criteria in criteria_instances:
+            playlist: T = self.model(user=criteria.user, criteria=criteria, type=criteria.type)
+
+            pk = uuid.uuid4()
+            playlist.uuid = pk
+            playlist.pk = pk
+
+            playlist.parent = playlist_by_criteria_pk.get(criteria.parent_id) if criteria.parent_id else None
+            playlist.root = playlist if criteria.is_root else playlist_by_criteria_pk[criteria.root_id]
+
+            playlist_by_criteria_pk[criteria.pk] = playlist
+            playlists.append(playlist)
+
+        bulk_create_mti(playlists, using=self.db)
 
     def get_direct_tracks(self, instance: T) -> QuerySet:
         track_ids = self.track_playlist_rel_model.objects.filter(playlist=instance).values_list("track_id", flat=True)
