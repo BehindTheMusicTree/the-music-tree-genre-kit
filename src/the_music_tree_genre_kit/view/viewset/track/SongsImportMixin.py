@@ -23,5 +23,5 @@ class SongsImportMixin[T: Track]:
     def import_songs(self, request):
         serializer = SongSeedEntrySerializer(data=request.data, many=True)
         serializer.is_valid(raise_exception=True)
-        self.model_class.objects.import_seed_songs(request.user, serializer.validated_data)
-        return Response(status=status.HTTP_201_CREATED)
+        counts = self.model_class.objects.import_seed_songs(request.user, serializer.validated_data)
+        return Response(counts, status=status.HTTP_201_CREATED)

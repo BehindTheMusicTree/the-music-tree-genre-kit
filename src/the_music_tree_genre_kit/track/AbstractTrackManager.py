@@ -177,13 +177,14 @@ class AbstractTrackManager(StandardResourceManager[T]):
             artist_model.objects.delete_instance_if_nothing_linked(artist)
 
     @transaction.atomic
-    def import_seed_songs(self, user: User, data: list[dict[str, Any]]) -> None:
+    def import_seed_songs(self, user: User, data: list[dict[str, Any]]) -> dict[str, int]:
         """
         Imports a flat list of seed songs, replacing all of the user's existing
         tracks first (mirrors `AbstractCriteriaManager.import_criteria_tree`'s
         wipe-then-seed semantics). An entry whose `genre_name` has no
         case-insensitive match among the user's criteria is skipped rather than
-        creating a genre-less track.
+        creating a genre-less track. Returns `{"imported": <created count>,
+        "skipped": <skipped-for-unmatched-genre count>}`.
 
         Resolving/creating the artist is delegated to `settings.ARTIST_MODEL`'s
         manager via `get_artists_list_from_names_after_potential_creation`, the
@@ -213,7 +214,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
             self.delete_instance_with_checking_album_and_artists_potential_deletion(track)
 
         if not data:
-            return
+            return {"imported": 0, "skipped": 0}
 
         criteria_by_pk: dict[Any, Any] = {}
         criteria_by_lower_name: dict[str, Any] = {}
@@ -228,7 +229,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 matched_entries.append((entry, genre))
 
         if not matched_entries:
-            return
+            return {"imported": 0, "skipped": len(data)}
 
         unique_artist_names = list(dict.fromkeys(entry[SongSeedFields.ARTIST] for entry, _ in matched_entries))
         resolved_artists = artist_model.objects.get_artists_list_from_names_after_potential_creation(
@@ -289,3 +290,5 @@ class AbstractTrackManager(StandardResourceManager[T]):
             playlist_rels.extend(rels)
 
         TrackPlaylistRel.objects.bulk_create(playlist_rels)
+
+        return {"imported": len(matched_entries), "skipped": len(data) - len(matched_entries)}
