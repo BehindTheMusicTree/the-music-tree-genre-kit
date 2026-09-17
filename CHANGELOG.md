@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-09-17
+
 ### Improved
 
 - `import_criteria_tree` now bulk-inserts `Criteria`/`Genre` node rows via raw SQL instead of creating them one-by-one, working around Django's `bulk_create` refusing multi-table inherited models. Node rows are built in memory (client-generated UUID PKs kept consistent across each MTI table level) and inserted in one statement per table level, cutting node creation down from O(N) queries to O(levels) for a tree of N nodes.
