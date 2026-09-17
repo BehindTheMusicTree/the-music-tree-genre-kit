@@ -2,6 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 
+from tests.fixture_app.manager import GenreManager
 from tests.fixture_app.models import Criteria, CriteriaPlaylist, Genre, Track, TrackPlaylistRel
 from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
 from the_music_tree_genre_kit.criteria.playlist.bootstrap_criterialess_playlists_for_user import (
@@ -170,3 +171,65 @@ def test_multiple_pop_side_siblings_allowed(user, genre_type):
     second_pop_child.save()
 
     assert Genre.objects.filter(root=root, side=CriteriaSide.POP).count() == 2
+
+
+@pytest.mark.django_db
+def test_import_criteria_tree_calls_on_bulk_created_once_with_full_tree(user, genre_type, monkeypatch):
+    tree_data = {
+        "tree": [
+            {"name": "Electronic", "children": [{"name": "House", "children": []}]},
+        ]
+    }
+
+    captured: list = []
+    monkeypatch.setattr(GenreManager, "_on_bulk_created", lambda self, instances: captured.append(instances))
+
+    Genre.objects.import_criteria_tree(user, tree_data)
+
+    assert len(captured) == 1
+    assert {instance._name for instance in captured[0]} == {"Electronic", "House"}
+
+
+@pytest.mark.django_db
+def test_bulk_create_for_criteria_creates_playlists_matching_criteria_tree(user, genre_type, monkeypatch):
+    tree_data = {
+        "tree": [
+            {
+                "name": "Electronic",
+                "children": [{"name": "House", "children": [{"name": "Deep House", "children": []}]}],
+            }
+        ]
+    }
+
+    monkeypatch.setattr(
+        GenreManager,
+        "_on_bulk_created",
+        lambda self, instances: CriteriaPlaylist.objects.bulk_create_for_criteria(instances),
+    )
+
+    Genre.objects.import_criteria_tree(user, tree_data)
+
+    root = Genre.objects.get(user=user, _name="Electronic")
+    child = Genre.objects.get(user=user, _name="House")
+    grandchild = Genre.objects.get(user=user, _name="Deep House")
+
+    root_playlist = CriteriaPlaylist.objects.get(criteria=root)
+    child_playlist = CriteriaPlaylist.objects.get(criteria=child)
+    grandchild_playlist = CriteriaPlaylist.objects.get(criteria=grandchild)
+
+    assert root_playlist.parent is None
+    assert root_playlist.root_id == root_playlist.pk
+
+    assert child_playlist.parent_id == root_playlist.pk
+    assert child_playlist.root_id == root_playlist.pk
+
+    assert grandchild_playlist.parent_id == child_playlist.pk
+    assert grandchild_playlist.root_id == root_playlist.pk
+
+
+@pytest.mark.django_db
+def test_import_criteria_tree_with_empty_name_raises_app_validation_exception(user, genre_type):
+    tree_data = {"tree": [{"name": "", "children": []}]}
+
+    with pytest.raises(AppValidationException):
+        Genre.objects.import_criteria_tree(user, tree_data)
