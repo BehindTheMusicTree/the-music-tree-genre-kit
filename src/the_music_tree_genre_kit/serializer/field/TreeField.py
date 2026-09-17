@@ -122,10 +122,7 @@ class TreeField(AppListField):
         # Check for duplicate values before detailed validation
         self._check_for_duplicate_names(data)
 
-        # Create a deep copy of the data to preserve child structure
         import copy
-
-        data_copy = copy.deepcopy(data)
 
         # Validate each node with CriteriaTreeNodeSerializer
         validated_data = []

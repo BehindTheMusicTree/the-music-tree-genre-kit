@@ -37,18 +37,28 @@ def _base_first_concrete_chain(model: type[models.Model]) -> list[type[models.Mo
     return list(reversed(chain))
 
 
+POSTGRES_MAX_BOUND_PARAMS = 65535
+
+
 def _raw_insert_level(level_model: type[models.Model], instances: list[models.Model], *, using: str) -> None:
     connection = connections[using]
     fields = level_model._meta.local_fields
     quote = connection.ops.quote_name
     columns = ", ".join(quote(field.column) for field in fields)
-    placeholders = ", ".join(["%s"] * len(fields))
-    sql = f"INSERT INTO {quote(level_model._meta.db_table)} ({columns}) VALUES ({placeholders})"
+    row_placeholder = "(" + ", ".join(["%s"] * len(fields)) + ")"
+    table = quote(level_model._meta.db_table)
 
     rows = [
         tuple(field.get_db_prep_save(field.pre_save(instance, True), connection) for field in fields)
         for instance in instances
     ]
 
+    # Real multi-row INSERT instead of executemany (which issues one round-trip per row by
+    # default), chunked to stay under Postgres's bound-parameter limit.
+    chunk_size = max(1, POSTGRES_MAX_BOUND_PARAMS // len(fields))
     with connection.cursor() as cursor:
-        cursor.executemany(sql, rows)
+        for chunk_start in range(0, len(rows), chunk_size):
+            chunk = rows[chunk_start : chunk_start + chunk_size]
+            sql = f"INSERT INTO {table} ({columns}) VALUES {', '.join([row_placeholder] * len(chunk))}"
+            params = [value for row in chunk for value in row]
+            cursor.execute(sql, params)

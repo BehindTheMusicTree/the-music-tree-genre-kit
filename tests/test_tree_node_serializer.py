@@ -54,17 +54,18 @@ def test_validate_children_raises_value_error_when_not_a_list():
         _serializer().validate_children("not-a-list")
 
 
-def test_validate_children_normalizes_missing_children_key_on_each_child():
+def test_validate_children_passes_through_child_dicts_unvalidated():
+    # Full per-child validation (including "children" key normalization) is performed by
+    # TreeField.run_validation's own explicit recursion, not here -- see TreeField.py. Doing it
+    # here too would mean every subtree gets fully re-validated once per ancestor level.
     validated = _serializer().validate_children([{"name": "House"}])
 
-    assert validated[0]["children"] == []
+    assert "children" not in validated[0]
 
 
-def test_validate_children_raises_on_invalid_child_node():
-    # The nested child serializer's own is_valid(raise_exception=True) surfaces DRF's plain
-    # ValidationError here, not AppValidationException -- validate_children doesn't translate it.
-    with pytest.raises(ValidationError):
-        _serializer().validate_children([{"name": ""}])
+def test_validate_children_raises_on_non_dict_child_node():
+    with pytest.raises(ValueError, match="children must be an array of objects"):
+        _serializer().validate_children(["not-a-dict"])
 
 
 def test_to_internal_value_accepts_optional_side_field():
