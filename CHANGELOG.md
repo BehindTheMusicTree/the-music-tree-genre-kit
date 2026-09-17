@@ -13,6 +13,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-09-17
+
+### Improved
+
+- `import_criteria_tree` now batches all ascendant `CriteriaLineageRel` rows into a single `bulk_create` call instead of inserting them one-by-one per ancestor per node, cutting O(N·D) lineage inserts down to O(1) queries for a tree of N nodes at depth D. Node (`Criteria`/`Genre`) rows are still created individually, since Django's `bulk_create` doesn't support multi-table inherited models.
+
 ## [0.18.0] - 2026-09-11
 
 ### Changed
