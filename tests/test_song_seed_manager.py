@@ -37,7 +37,7 @@ def house(user, genre_type, tag_type):
 
 @pytest.mark.django_db
 def test_import_seed_songs_creates_track_for_matching_genre(user, house):
-    Track.objects.import_seed_songs(
+    result = Track.objects.import_seed_songs(
         user,
         [{"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "abc123", "genre_name": "house"}],
     )
@@ -46,11 +46,12 @@ def test_import_seed_songs_creates_track_for_matching_genre(user, house):
     assert track.genre_id == house.pk
     assert track.youtube_video_id == "abc123"
     assert list(track.artists.values_list("name", flat=True)) == ["Frankie Knuckles"]
+    assert result == {"imported": 1, "skipped": 0}
 
 
 @pytest.mark.django_db
 def test_import_seed_songs_skips_entry_with_no_matching_genre(user, house):
-    Track.objects.import_seed_songs(
+    result = Track.objects.import_seed_songs(
         user,
         [
             {
@@ -63,6 +64,7 @@ def test_import_seed_songs_skips_entry_with_no_matching_genre(user, house):
     )
 
     assert not Track.objects.filter(user=user, title="No Genre Song").exists()
+    assert result == {"imported": 0, "skipped": 1}
 
 
 @pytest.mark.django_db

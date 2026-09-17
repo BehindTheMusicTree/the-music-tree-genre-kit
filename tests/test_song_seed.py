@@ -86,8 +86,21 @@ def test_import_songs_creates_tracks_from_payload(api_client, user, genres):
     response = api_client.post("/tracks/songs/import/", data=payload, format="json")
 
     assert response.status_code == 201
+    assert response.data == {"imported": 2, "skipped": 0}
     titles = set(Track.objects.filter(user=user).values_list("title", flat=True))
     assert titles == {"Strings of Life", "Your Love"}
+
+
+def test_import_songs_reports_skipped_entries(api_client, user, genres):
+    payload = [
+        {"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "xyz98765432", "genre_name": "House"},
+        {"title": "No Genre", "artist": "Nobody", "youtube_video_id": "novideoid1", "genre_name": "Nonexistent"},
+    ]
+
+    response = api_client.post("/tracks/songs/import/", data=payload, format="json")
+
+    assert response.status_code == 201
+    assert response.data == {"imported": 1, "skipped": 1}
 
 
 def test_import_songs_replaces_existing_tracks(api_client, user, genres):
