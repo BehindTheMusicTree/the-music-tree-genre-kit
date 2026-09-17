@@ -1,9 +1,14 @@
+import uuid
 from typing import Any, TypeVar
 
-from django.db import models, transaction
+from django.db import IntegrityError, models, transaction
 from django.db.models import QuerySet
+from django.utils.translation import gettext as _
+from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
+from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
 
+from the_music_tree_genre_kit.base.bulk_mti import bulk_create_mti
 from the_music_tree_genre_kit.serializer.model.criteria.input.Fields import Fields as InputFields
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields as TreeImportFields
 
@@ -81,6 +86,9 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
     def _on_created(self, instance: T) -> None:
         """Hook: react to a newly created criteria. No-op by default."""
+
+    def _on_bulk_created(self, instances: list[T]) -> None:
+        """Hook: react to a batch of criteria created by `import_criteria_tree`. No-op by default."""
 
     def _on_parent_changed(self, instance: T, *, old_parent: T | None, old_root: T, root_changed: bool) -> None:
         """Hook: react to a criteria being reparented (and possibly re-rooted). No-op by default."""
@@ -291,28 +299,66 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         if not tree_data:
             return
 
+        criteria_type = self._get_criteria_type()
         model_has_side_field = self._model_has_side_field()
+
+        instances: list[T] = []
         lineage_rels: list[models.Model] = []
 
-        def create_criteria_tree(nodes, parent=None, ancestors: tuple = ()):
+        def build_criteria_tree(nodes, parent: T | None, root: T | None, ancestors: tuple):
             for node in nodes:
-                name = node.get(InputFields.NAME_PUBLIC)
                 extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
-                criteria = self._create_without_ascendant_refresh(name=name, parent=parent, user=user, **extra_kwargs)
+                criteria: T = self.model(user=user, type=criteria_type, parent=parent, **extra_kwargs)
+
+                # Pre-generate the PK ourselves (rather than relying on the field's
+                # `default=uuid.uuid4`): for an MTI model the PK and the inherited
+                # base-table `uuid` are two distinct Python attributes and must be
+                # forced to the same value, since plain construction defaults each
+                # independently.
+                pk = uuid.uuid4()
+                criteria.uuid = pk
+                criteria.pk = pk
+                criteria._name = node.get(InputFields.NAME_PUBLIC)
+                criteria.root = root if root is not None else criteria
+
+                if hasattr(criteria, "_validate_side"):
+                    criteria._validate_side()
+
+                instances.append(criteria)
 
                 for degree, ascendant in enumerate(ancestors, start=1):
                     lineage_rels.append(
                         self.lineage_rel_model(user=user, descendant=criteria, ascendant=ascendant, degree=degree)
                     )
 
-                children = node.get(InputFields.CHILDREN, [])
-                if children is None:
-                    children = []
-
+                children = node.get(InputFields.CHILDREN) or []
                 if children:
-                    create_criteria_tree(children, criteria, (criteria, *ancestors))
+                    build_criteria_tree(
+                        children, criteria, root if root is not None else criteria, (criteria, *ancestors)
+                    )
 
-        create_criteria_tree(tree_data)
+        build_criteria_tree(tree_data, None, None, ())
+
+        try:
+            bulk_create_mti(instances, using=self.db)
+        except IntegrityError as e:
+            error_message = str(e)
+            if "non_empty_name" in error_message:
+                raise AppValidationException(
+                    field_name=Fields.NAME_PUBLIC,
+                    message=_("Name cannot be empty"),
+                    field_validation_error_code=FieldValidationErrorCode.NAME_EMPTY,
+                )
+            if "unique_name_per_user" in error_message:
+                raise AppValidationException(
+                    field_name=Fields.NAME_PUBLIC,
+                    message=_("A criteria name is already used"),
+                    field_validation_error_code=FieldValidationErrorCode.NAME_DUPLICATE,
+                )
+            # Let other database integrity errors propagate to be handled as system errors
+            raise
+
+        self._on_bulk_created(instances)
 
         if lineage_rels:
             self.lineage_rel_model.objects.bulk_create(lineage_rels)
