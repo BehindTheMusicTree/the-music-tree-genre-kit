@@ -128,11 +128,15 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 if not instance.parent:
                     playlist_manager.make_playlist_root(child_playlist)
 
-    @transaction.atomic
-    def create(self, **kwargs) -> T:
+    def _create_without_ascendant_refresh(self, **kwargs) -> T:
         criteria_type = self._get_criteria_type()
         instance: T = super().create(type=criteria_type, **kwargs)
         self._on_created(instance)
+        return instance
+
+    @transaction.atomic
+    def create(self, **kwargs) -> T:
+        instance = self._create_without_ascendant_refresh(**kwargs)
         self._refresh_ascendants_of_instance(instance)
         return instance
 
@@ -288,18 +292,27 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             return
 
         model_has_side_field = self._model_has_side_field()
+        lineage_rels: list[models.Model] = []
 
-        def create_criteria_tree(nodes, parent=None):
+        def create_criteria_tree(nodes, parent=None, ancestors: tuple = ()):
             for node in nodes:
                 name = node.get(InputFields.NAME_PUBLIC)
                 extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
-                criteria = self.create(name=name, parent=parent, user=user, **extra_kwargs)
+                criteria = self._create_without_ascendant_refresh(name=name, parent=parent, user=user, **extra_kwargs)
+
+                for degree, ascendant in enumerate(ancestors, start=1):
+                    lineage_rels.append(
+                        self.lineage_rel_model(user=user, descendant=criteria, ascendant=ascendant, degree=degree)
+                    )
 
                 children = node.get(InputFields.CHILDREN, [])
                 if children is None:
                     children = []
 
                 if children:
-                    create_criteria_tree(children, criteria)
+                    create_criteria_tree(children, criteria, (criteria, *ancestors))
 
         create_criteria_tree(tree_data)
+
+        if lineage_rels:
+            self.lineage_rel_model.objects.bulk_create(lineage_rels)

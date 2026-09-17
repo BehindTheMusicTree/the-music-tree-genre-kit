@@ -113,6 +113,32 @@ def test_import_root_with_only_core_child_keeps_side_null(user, genre_type):
 
 
 @pytest.mark.django_db
+def test_import_criteria_tree_sets_ascendant_lineage_with_correct_degrees(user, genre_type):
+    tree_data = {
+        "tree": [
+            {
+                "name": "Electronic",
+                "children": [
+                    {"name": "House", "children": [{"name": "Deep House", "children": []}]},
+                ],
+            }
+        ]
+    }
+
+    Genre.objects.import_criteria_tree(user, tree_data)
+
+    root = Genre.objects.get(user=user, _name="Electronic")
+    child = Genre.objects.get(user=user, _name="House")
+    grandchild = Genre.objects.get(user=user, _name="Deep House")
+
+    assert {c.pk for c in child.ascendants.all()} == {root.pk}
+    assert {c.pk for c in grandchild.ascendants.all()} == {root.pk, child.pk}
+
+    grandchild_rels_by_ascendant = {rel.ascendant_id: rel.degree for rel in grandchild.ascendants_rels.all()}
+    assert grandchild_rels_by_ascendant == {child.pk: 1, root.pk: 2}
+
+
+@pytest.mark.django_db
 def test_pop_side_on_non_root_child_raises(user, genre_type):
     root = Genre(user=user, type=genre_type)
     root._name = "root"
