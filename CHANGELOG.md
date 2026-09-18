@@ -13,6 +13,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.23.1] - 2026-09-18
+
+### Fixed
+
+- `import_criteria_tree`: a node with no `id` now falls back to matching an existing row by
+  name (unique per user regardless of parent) instead of always inserting fresh, so repeat
+  imports of an id-less tree (no `wikidataId`s at all, e.g. a consumer's bundled seed tree)
+  stay idempotent instead of hitting `unique_name_per_user` on every reimport.
+- The `IntegrityError` → `AppValidationException` translation in `AbstractCriteria.save()` and
+  `import_criteria_tree` no longer depends on the raised error's text containing the
+  constraint's own name -- that only holds on Postgres. SQLite's `UNIQUE constraint failed`
+  message lists column names instead, which previously let a genuine duplicate-name collision
+  propagate as a raw `IntegrityError` (a 500 for API consumers) rather than the intended 400.
+
 ## [0.23.0] - 2026-09-18
 
 ### Added
