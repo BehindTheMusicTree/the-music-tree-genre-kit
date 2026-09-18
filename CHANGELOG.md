@@ -13,6 +13,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-18
+
 ### Added
 
 - Optional `id` (wikidata QID, e.g. `"Q9759"`) field on genre tree-import nodes. Malformed QIDs are rejected; a duplicate `id` anywhere in the tree (not just among siblings) raises the same `TREE_VALUE_DUPLICATE` error as a duplicate name.
