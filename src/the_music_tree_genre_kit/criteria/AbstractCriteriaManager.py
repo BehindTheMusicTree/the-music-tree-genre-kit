@@ -84,6 +84,15 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         """
         return any(field.name == Fields.SIDE for field in self.model._meta.get_fields())
 
+    def _model_has_wikidata_id_field(self) -> bool:
+        """
+        Whether this manager's model declares a `wikidata_id` column. Only a concrete
+        `Genre` subtype (via the `AbstractGenreCriteria` mixin) does -- tag-type criteria
+        have no such notion of identity, so `import_criteria_tree`/`build_criteria_tree`
+        fall back to the plain delete-and-recreate behavior for them.
+        """
+        return any(field.name == Fields.WIKIDATA_ID for field in self.model._meta.get_fields())
+
     def _on_created(self, instance: T) -> None:
         """Hook: react to a newly created criteria. No-op by default."""
 
@@ -243,6 +252,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         """
         queryset = self.filter(user=user).select_related(Fields.PARENT)
         model_has_side_field = self._model_has_side_field()
+        model_has_wikidata_id_field = self._model_has_wikidata_id_field()
 
         criteria_by_parent = {}
         for criteria in queryset:
@@ -263,6 +273,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     InputFields.CHILDREN: build_tree(child_id),
                     InputFields.SIDE: criteria.side if model_has_side_field else None,
                 }
+                if model_has_wikidata_id_field:
+                    node[InputFields.ID] = criteria.wikidata_id
                 result.append(node)
 
             return result
@@ -287,7 +299,15 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         if not data:
             return
 
-        self.filter(user=user).delete()
+        model_has_wikidata_id_field = self._model_has_wikidata_id_field()
+
+        if not model_has_wikidata_id_field:
+            self.filter(user=user).delete()
+            existing_by_wikidata_id: dict[str, T] = {}
+        else:
+            existing_by_wikidata_id = {
+                criteria.wikidata_id: criteria for criteria in self.filter(user=user, wikidata_id__isnull=False)
+            }
 
         if isinstance(data, dict) and TreeImportFields.TREE in data:
             tree_data = data[TreeImportFields.TREE]
@@ -297,50 +317,76 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             tree_data = []
 
         if not tree_data:
+            if model_has_wikidata_id_field:
+                self.filter(user=user, wikidata_id__in=existing_by_wikidata_id.keys()).delete()
             return
 
         criteria_type = self._get_criteria_type()
         model_has_side_field = self._model_has_side_field()
 
-        instances: list[T] = []
-        lineage_rels: list[models.Model] = []
+        new_instances: list[T] = []
+        matched_instances: list[T] = []
+        matched_wikidata_ids: set[str] = set()
 
-        def build_criteria_tree(nodes, parent: T | None, root: T | None, ancestors: tuple):
+        def build_criteria_tree(nodes, parent: T | None, root: T | None):
             for node in nodes:
                 extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
-                criteria: T = self.model(user=user, type=criteria_type, parent=parent, **extra_kwargs)
+                wikidata_id = node.get(InputFields.ID) if model_has_wikidata_id_field else None
+                matched_criteria = existing_by_wikidata_id.get(wikidata_id) if wikidata_id else None
 
-                # Pre-generate the PK ourselves (rather than relying on the field's
-                # `default=uuid.uuid4`): for an MTI model the PK and the inherited
-                # base-table `uuid` are two distinct Python attributes and must be
-                # forced to the same value, since plain construction defaults each
-                # independently.
-                pk = uuid.uuid4()
-                criteria.uuid = pk
-                criteria.pk = pk
-                criteria._name = node.get(InputFields.NAME_PUBLIC)
-                criteria.root = root if root is not None else criteria
+                if matched_criteria is not None:
+                    criteria: T = matched_criteria
+                    criteria.parent = parent
+                    for field_name, value in extra_kwargs.items():
+                        setattr(criteria, field_name, value)
+                    criteria._name = node.get(InputFields.NAME_PUBLIC)
+                    criteria.root = root if root is not None else criteria
+                    matched_wikidata_ids.add(wikidata_id)
+                    matched_instances.append(criteria)
+                else:
+                    criteria = self.model(user=user, type=criteria_type, parent=parent, **extra_kwargs)
+
+                    # Pre-generate the PK ourselves (rather than relying on the field's
+                    # `default=uuid.uuid4`): for an MTI model the PK and the inherited
+                    # base-table `uuid` are two distinct Python attributes and must be
+                    # forced to the same value, since plain construction defaults each
+                    # independently.
+                    pk = uuid.uuid4()
+                    criteria.uuid = pk
+                    criteria.pk = pk
+                    criteria._name = node.get(InputFields.NAME_PUBLIC)
+                    criteria.root = root if root is not None else criteria
+                    if model_has_wikidata_id_field:
+                        criteria.wikidata_id = wikidata_id
+                    new_instances.append(criteria)
 
                 if hasattr(criteria, "_validate_side"):
                     criteria._validate_side()
 
-                instances.append(criteria)
-
-                for degree, ascendant in enumerate(ancestors, start=1):
-                    lineage_rels.append(
-                        self.lineage_rel_model(user=user, descendant=criteria, ascendant=ascendant, degree=degree)
-                    )
-
                 children = node.get(InputFields.CHILDREN) or []
                 if children:
-                    build_criteria_tree(
-                        children, criteria, root if root is not None else criteria, (criteria, *ancestors)
-                    )
+                    build_criteria_tree(children, criteria, root if root is not None else criteria)
 
-        build_criteria_tree(tree_data, None, None, ())
+        build_criteria_tree(tree_data, None, None)
+
+        if model_has_wikidata_id_field:
+            stale_wikidata_ids = existing_by_wikidata_id.keys() - matched_wikidata_ids
+            if stale_wikidata_ids:
+                self.filter(user=user, wikidata_id__in=stale_wikidata_ids).delete()
+
+        matched_update_fields = [Fields.NAME_INTERNAL, Fields.PARENT, Fields.ROOT]
+        if model_has_side_field:
+            matched_update_fields.append(Fields.SIDE)
 
         try:
-            bulk_create_mti(instances, using=self.db)
+            bulk_create_mti(new_instances, using=self.db)
+            for criteria in matched_instances:
+                # Pass `update_fields` explicitly: `AbstractCriteria._prepare_save` calls
+                # `_set_root()`, and when root changes, `BaseModel.save()` (the-music-tree-api-kit)
+                # restricts the UPDATE to only the fields it saw explicitly modified via
+                # `ctx.add_modified_field` -- silently dropping our plain attribute assignments
+                # (name/parent/side) above unless we list them here too.
+                criteria.save(update_fields=matched_update_fields)
         except IntegrityError as e:
             error_message = str(e)
             if "non_empty_name" in error_message:
@@ -358,7 +404,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             # Let other database integrity errors propagate to be handled as system errors
             raise
 
-        self._on_bulk_created(instances)
+        for top_level_node in (*new_instances, *matched_instances):
+            if top_level_node.parent_id is None:
+                self._refresh_ascendants_of_instance_and_children(top_level_node)
 
-        if lineage_rels:
-            self.lineage_rel_model.objects.bulk_create(lineage_rels)
+        self._on_bulk_created(new_instances)

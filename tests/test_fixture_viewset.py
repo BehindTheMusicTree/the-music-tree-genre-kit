@@ -103,6 +103,40 @@ def test_import_tree_rejects_invalid_node_deep_in_tree(api_client, criteria_type
     assert not Criteria.objects.filter(_name="root").exists()
 
 
+def test_import_tree_accepts_optional_id_field(api_client, criteria_type):
+    payload = {"tree": [{"name": "root", "id": "Q9759", "children": []}]}
+
+    response = api_client.post("/criteria/tree/import/", payload, format="json")
+
+    assert response.status_code == 201
+    names = {result["name"] for result in response.data["results"]}
+    assert names == {"root"}
+
+
+def test_import_tree_rejects_malformed_id_field(api_client, criteria_type):
+    payload = {"tree": [{"name": "root", "id": "not-a-qid", "children": []}]}
+
+    response = api_client.post("/criteria/tree/import/", payload, format="json")
+
+    assert response.status_code == 400
+
+
+def test_import_tree_rejects_duplicate_id_across_branches(api_client, criteria_type):
+    # Whole-tree scope, not just siblings: the two "Q9759" ids are on separate
+    # branches, not each other's siblings, so this exercises TreeField's shared
+    # `seen_ids` accumulation across the full recursion, not just one level.
+    payload = {
+        "tree": [
+            {"name": "Electronic", "id": "Q9759", "children": [{"name": "House", "children": []}]},
+            {"name": "Techno", "children": [{"name": "Acid Techno", "id": "Q9759", "children": []}]},
+        ]
+    }
+
+    response = api_client.post("/criteria/tree/import/", payload, format="json")
+
+    assert response.status_code == 400
+
+
 def test_import_tree_validates_each_node_exactly_once(api_client, criteria_type, monkeypatch):
     # Regression guard for the double-recursion bug where validate_children fully re-validated
     # every descendant subtree in addition to TreeField.run_validation's own explicit recursion,

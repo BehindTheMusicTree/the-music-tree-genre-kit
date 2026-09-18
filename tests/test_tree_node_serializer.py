@@ -80,6 +80,23 @@ def test_to_internal_value_omits_side_when_not_provided():
     assert "side" not in validated
 
 
+def test_to_internal_value_accepts_optional_id_field():
+    validated = _serializer().to_internal_value({"name": "Electronic", "id": "Q9759"})
+
+    assert validated["id"] == "Q9759"
+
+
+def test_to_internal_value_omits_id_when_not_provided():
+    validated = _serializer().to_internal_value({"name": "House"})
+
+    assert "id" not in validated
+
+
+def test_to_internal_value_rejects_malformed_wikidata_id():
+    with pytest.raises(ValidationError):
+        _serializer().to_internal_value({"name": "House", "id": "not-a-qid"})
+
+
 def test_to_internal_value_rejects_invalid_side_value():
     with pytest.raises(ValidationError):
         _serializer().to_internal_value({"name": "House", "side": "invalid"})
