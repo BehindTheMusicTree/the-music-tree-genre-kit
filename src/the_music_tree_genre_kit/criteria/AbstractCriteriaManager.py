@@ -9,6 +9,7 @@ from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import
 from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
 
 from the_music_tree_genre_kit.base.bulk_mti import bulk_create_mti
+from the_music_tree_genre_kit.base.constraint_violation import constraint_violated
 from the_music_tree_genre_kit.serializer.model.criteria.input.Fields import Fields as InputFields
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields as TreeImportFields
 
@@ -301,13 +302,17 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         model_has_wikidata_id_field = self._model_has_wikidata_id_field()
 
+        existing_by_name: dict[str, T] = {}
+
         if not model_has_wikidata_id_field:
             self.filter(user=user).delete()
             existing_by_wikidata_id: dict[str, T] = {}
         else:
-            existing_by_wikidata_id = {
-                criteria.wikidata_id: criteria for criteria in self.filter(user=user, wikidata_id__isnull=False)
-            }
+            existing_by_wikidata_id = {}
+            for criteria in self.filter(user=user):
+                existing_by_name[criteria.name] = criteria
+                if criteria.wikidata_id:
+                    existing_by_wikidata_id[criteria.wikidata_id] = criteria
 
         if isinstance(data, dict) and TreeImportFields.TREE in data:
             tree_data = data[TreeImportFields.TREE]
@@ -331,17 +336,32 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         def build_criteria_tree(nodes, parent: T | None, root: T | None):
             for node in nodes:
                 extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
+                node_name = node.get(InputFields.NAME_PUBLIC)
                 wikidata_id = node.get(InputFields.ID) if model_has_wikidata_id_field else None
                 matched_criteria = existing_by_wikidata_id.get(wikidata_id) if wikidata_id else None
+                if matched_criteria is None and model_has_wikidata_id_field and not wikidata_id:
+                    # No id on this node: fall back to matching an existing row by name, so
+                    # that repeat imports of an id-less tree (e.g. a consumer's bundled seed
+                    # tree with no wikidataIds) stay idempotent instead of re-inserting every
+                    # node and hitting unique_name_per_user. `name` is already unique per user
+                    # regardless of parent, so matching on name alone is sufficient.
+                    matched_criteria = existing_by_name.get(node_name)
 
                 if matched_criteria is not None:
                     criteria: T = matched_criteria
                     criteria.parent = parent
                     for field_name, value in extra_kwargs.items():
                         setattr(criteria, field_name, value)
-                    criteria._name = node.get(InputFields.NAME_PUBLIC)
+                    criteria._name = node_name
                     criteria.root = root if root is not None else criteria
-                    matched_wikidata_ids.add(wikidata_id)
+                    if wikidata_id:
+                        matched_wikidata_ids.add(wikidata_id)
+                    elif matched_criteria.wikidata_id:
+                        # Matched by name onto a row that still carries its own wikidata_id
+                        # (this import's node just didn't repeat it): keep it out of the
+                        # stale-wikidata_id deletion pass below.
+                        matched_wikidata_ids.add(matched_criteria.wikidata_id)
+                    existing_by_name.pop(node_name, None)
                     matched_instances.append(criteria)
                 else:
                     criteria = self.model(user=user, type=criteria_type, parent=parent, **extra_kwargs)
@@ -354,7 +374,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     pk = uuid.uuid4()
                     criteria.uuid = pk
                     criteria.pk = pk
-                    criteria._name = node.get(InputFields.NAME_PUBLIC)
+                    criteria._name = node_name
                     criteria.root = root if root is not None else criteria
                     if model_has_wikidata_id_field:
                         criteria.wikidata_id = wikidata_id
@@ -389,13 +409,15 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 criteria.save(update_fields=matched_update_fields)
         except IntegrityError as e:
             error_message = str(e)
-            if "non_empty_name" in error_message:
+            if constraint_violated(model=self.model, error_message=error_message, constraint_name="non_empty_name"):
                 raise AppValidationException(
                     field_name=Fields.NAME_PUBLIC,
                     message=_("Name cannot be empty"),
                     field_validation_error_code=FieldValidationErrorCode.NAME_EMPTY,
                 )
-            if "unique_name_per_user" in error_message:
+            if constraint_violated(
+                model=self.model, error_message=error_message, constraint_name="unique_name_per_user"
+            ):
                 raise AppValidationException(
                     field_name=Fields.NAME_PUBLIC,
                     message=_("A criteria name is already used"),

@@ -1,6 +1,7 @@
 import pytest
 from django.contrib.auth import get_user_model
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
+from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 
 from tests.fixture_app.manager import GenreManager
 from tests.fixture_app.models import Criteria, CriteriaPlaylist, Genre, Track, TrackPlaylistRel
@@ -68,6 +69,20 @@ def test_side_is_not_a_field_on_plain_criteria(user, tag_type):
 
     assert not hasattr(tag, "side")
     assert not any(field.name == "side" for field in Criteria._meta.get_fields())
+
+
+@pytest.mark.django_db
+def test_save_with_duplicate_name_raises_app_validation_exception(user, genre_type):
+    first = Criteria(user=user, type=genre_type)
+    first._name = "Duplicate"
+    first.save()
+
+    second = Criteria(user=user, type=genre_type)
+    second._name = "Duplicate"
+
+    with pytest.raises(AppValidationException) as exc_info:
+        second.save()
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.NAME_DUPLICATE
 
 
 @pytest.mark.django_db
@@ -300,3 +315,27 @@ def test_tag_import_criteria_tree_delete_and_recreate_unaffected(user, tag_type)
 
     recreated = Criteria.objects.get(user=user, _name="Chill")
     assert recreated.pk != original.pk
+
+
+@pytest.mark.django_db
+def test_reimport_of_same_id_less_tree_is_idempotent(user, genre_type):
+    """
+    A genre model has `wikidata_id`, but a node with no `id` in the input has no way to be
+    matched by id -- reimporting the exact same id-less tree (e.g. a consumer's bundled seed
+    tree with no wikidataIds at all) must fall back to matching by name instead of trying to
+    re-insert every node and hitting `unique_name_per_user`.
+    """
+    tree_data = {
+        "tree": [{"name": "Electronic", "children": [{"name": "House", "children": []}]}],
+    }
+    Genre.objects.import_criteria_tree(user, tree_data)
+    original_root = Genre.objects.get(user=user, _name="Electronic")
+    original_child = Genre.objects.get(user=user, _name="House")
+
+    Genre.objects.import_criteria_tree(user, tree_data)
+
+    reimported_root = Genre.objects.get(user=user, _name="Electronic")
+    reimported_child = Genre.objects.get(user=user, _name="House")
+    assert reimported_root.pk == original_root.pk
+    assert reimported_child.pk == original_child.pk
+    assert Genre.objects.filter(user=user).count() == 2

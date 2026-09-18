@@ -13,6 +13,7 @@ from the_music_tree_api_kit.field.foreign_key.PrivateForeignKey import PrivateFo
 from the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField import PrivateManyToManyField
 from the_music_tree_api_kit.private_unique_resource.PrivateUniqueResource import PrivateUniqueResource
 
+from ..base.constraint_violation import constraint_violated
 from .Fields import Fields
 from .lineage_rel.Fields import Fields as CriteriaLineageRelFields
 from .type.CriteriaType import CriteriaType
@@ -111,13 +112,15 @@ class AbstractCriteria(PrivateUniqueResource):
             super().save(*args, **kwargs)
         except IntegrityError as e:
             error_message = str(e)
-            if "non_empty_name" in error_message:
+            if constraint_violated(model=type(self), error_message=error_message, constraint_name="non_empty_name"):
                 raise AppValidationException(
                     field_name=Fields.NAME_PUBLIC,
                     message=_("Name cannot be empty"),
                     field_validation_error_code=FieldValidationErrorCode.NAME_EMPTY,
                 )
-            if "unique_name_per_user" in error_message:
+            if constraint_violated(
+                model=type(self), error_message=error_message, constraint_name="unique_name_per_user"
+            ):
                 raise AppValidationException(
                     field_name=Fields.NAME_PUBLIC,
                     message=_(f'The name "{self.name}" is already used'),
