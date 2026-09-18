@@ -13,6 +13,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-09-18
+
+### Added
+
+- Optional `id` (wikidata QID, e.g. `"Q9759"`) field on genre tree-import nodes. Malformed QIDs are rejected; a duplicate `id` anywhere in the tree (not just among siblings) raises the same `TREE_VALUE_DUPLICATE` error as a duplicate name.
+
+### Changed
+
+- Genre tree import now merges by wikidata `id` instead of always deleting and recreating: a node whose `id` matches an existing genre updates that row in place (pk preserved), a node with an absent or unmatched `id` is created fresh, and only previously wikidata-tagged genres absent from the new import are deleted — genres without a `wikidata_id` survive untouched. Tag import (no `wikidata_id` field on the model) is unaffected and keeps the previous delete-and-recreate behavior.
+
 ## [0.22.0] - 2026-09-17
 
 ### Changed

@@ -83,7 +83,7 @@ class TreeField(AppListField):
         # Use parent implementation by default
         return super().get_error_field_name()
 
-    def run_validation(self, data: Any = None) -> Any:
+    def run_validation(self, data: Any = None, seen_ids: set | None = None) -> Any:
         if data is None:
             if not self.allow_null:
                 self.fail("null")
@@ -121,6 +121,9 @@ class TreeField(AppListField):
 
         # Check for duplicate values before detailed validation
         self._check_for_duplicate_names(data)
+        if seen_ids is None:
+            seen_ids = set()
+        self._check_for_duplicate_ids(data, seen_ids)
 
         import copy
 
@@ -195,7 +198,7 @@ class TreeField(AppListField):
             # Process non-empty children recursively
             if Fields.CHILDREN in node and node[Fields.CHILDREN]:
                 logger.debug("TREE FIELD - Processing children for node %s: %s", i, node[Fields.CHILDREN])
-                node[Fields.CHILDREN] = self.children_field.run_validation(node[Fields.CHILDREN])
+                node[Fields.CHILDREN] = self.children_field.run_validation(node[Fields.CHILDREN], seen_ids)
                 logger.debug("TREE FIELD - Children after validation: %s", node[Fields.CHILDREN])
 
         logger.debug("TREE FIELD - Returning %s validated nodes", len(validated_data))
@@ -227,3 +230,20 @@ class TreeField(AppListField):
                         field_validation_error_code=FieldValidationErrorCode.TREE_VALUE_DUPLICATE,
                     )
                 names.append(name)
+
+    def _check_for_duplicate_ids(self, data: list, seen_ids: set) -> None:
+        if not data or not isinstance(data, list):
+            return
+
+        from the_music_tree_genre_kit.serializer.model.criteria.input.Fields import Fields as InputFields
+
+        for node in data:
+            if isinstance(node, dict) and node.get(InputFields.ID) is not None:
+                node_id = node[InputFields.ID]
+                if node_id in seen_ids:
+                    raise AppValidationException(
+                        field_name=self.field_name,  # Use serializer field name
+                        message="Tree contains duplicate values",
+                        field_validation_error_code=FieldValidationErrorCode.TREE_VALUE_DUPLICATE,
+                    )
+                seen_ids.add(node_id)

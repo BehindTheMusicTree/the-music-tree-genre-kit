@@ -47,6 +47,18 @@ class AbstractGenreCriteria(models.Model):
     the placement constraint enforced on save.
     """
 
+    wikidata_id = AppCharField(max_length=32, null=True, blank=True, db_column=Fields.WIKIDATA_ID)
+    """
+    Optional wikidata QID (e.g. "Q9759") identifying this genre, used by
+    `AbstractCriteriaManager.import_criteria_tree` to match an incoming node
+    against an existing row across repeated imports instead of recreating it.
+    No DB-level uniqueness is enforced here -- this abstract mixin has no
+    `Meta.constraints` of its own -- so a consumer's concrete Genre model must
+    add its own `UniqueConstraint(fields=["wikidata_id", "user"],
+    condition=Q(wikidata_id__isnull=False), name="unique_wikidata_id_per_user")`,
+    mirroring `unique_name_per_user`.
+    """
+
     class Meta:
         abstract = True
 

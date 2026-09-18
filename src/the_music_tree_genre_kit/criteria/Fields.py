@@ -13,3 +13,4 @@ class Fields(PrivateUniqueResourceFields):
     CHILDREN = "children"
     SIDE = "side"
     SUMMARY = "summary"
+    WIKIDATA_ID = "wikidata_id"
