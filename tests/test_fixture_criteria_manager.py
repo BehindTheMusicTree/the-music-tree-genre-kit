@@ -233,3 +233,70 @@ def test_import_criteria_tree_with_empty_name_raises_app_validation_exception(us
 
     with pytest.raises(AppValidationException):
         Genre.objects.import_criteria_tree(user, tree_data)
+
+
+@pytest.mark.django_db
+def test_import_criteria_tree_sets_wikidata_id(user, genre_type):
+    tree_data = {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]}
+
+    Genre.objects.import_criteria_tree(user, tree_data)
+
+    electronic = Genre.objects.get(user=user, _name="Electronic")
+    assert electronic.wikidata_id == "Q9759"
+
+
+@pytest.mark.django_db
+def test_reimport_with_same_wikidata_id_updates_existing_row_in_place(user, genre_type):
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
+    original = Genre.objects.get(user=user, wikidata_id="Q9759")
+
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic Music", "id": "Q9759", "children": []}]})
+
+    updated = Genre.objects.get(user=user, wikidata_id="Q9759")
+    assert updated.pk == original.pk
+    assert updated._name == "Electronic Music"
+    assert Genre.objects.filter(user=user).count() == 1
+
+
+@pytest.mark.django_db
+def test_genre_without_wikidata_id_survives_reimport_untouched(user, genre_type):
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Manual Genre", "children": []}]})
+    manual = Genre.objects.get(user=user, _name="Manual Genre")
+
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
+
+    manual.refresh_from_db()
+    assert manual._name == "Manual Genre"
+    assert Genre.objects.filter(user=user, _name="Manual Genre").exists()
+
+
+@pytest.mark.django_db
+def test_genre_absent_from_reimport_matched_by_wikidata_id_is_deleted(user, genre_type):
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
+    assert Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
+
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Classical", "id": "Q9730", "children": []}]})
+
+    assert not Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
+    assert Genre.objects.filter(user=user, wikidata_id="Q9730").exists()
+
+
+@pytest.mark.django_db
+def test_reimport_with_empty_tree_deletes_previously_wikidata_tagged_genres(user, genre_type):
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
+    assert Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
+
+    Genre.objects.import_criteria_tree(user, {"tree": []})
+
+    assert not Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
+
+
+@pytest.mark.django_db
+def test_tag_import_criteria_tree_delete_and_recreate_unaffected(user, tag_type):
+    Criteria.objects.import_criteria_tree(user, {"tree": [{"name": "Chill", "children": []}]})
+    original = Criteria.objects.get(user=user, _name="Chill")
+
+    Criteria.objects.import_criteria_tree(user, {"tree": [{"name": "Chill", "children": []}]})
+
+    recreated = Criteria.objects.get(user=user, _name="Chill")
+    assert recreated.pk != original.pk
