@@ -13,6 +13,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `import_criteria_tree`'s stale-genre/criteria deletions now route through `delete_instance`
+  (leaves first) instead of a raw bulk `.delete()`. The bulk delete bypassed `_on_before_delete`,
+  so a track still referencing a since-removed criteria (`Track.genre` is `on_delete=DO_NOTHING`)
+  raised an unhandled `IntegrityError` on reimport. Tracks now reparent up to the nearest
+  surviving ancestor, or hand off to the criteria-less playlist once a stale root is reached,
+  the same as an explicit one-off delete. Added `_delete_stale_instances` to
+  `AbstractCriteriaManager` and a regression test covering a track reparented off a bulk-deleted
+  stale genre.
+
 ## [0.23.1] - 2026-09-18
 
 ### Fixed

@@ -2,7 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
-from tests.fixture_app.models import Criteria
+from tests.fixture_app.models import Criteria, CriteriaPlaylist
 from tests.fixture_app.viewset import GenreCriteriaViewSet
 from the_music_tree_genre_kit.criteria.type.CriteriaType import CriteriaType
 
@@ -36,6 +36,8 @@ def test_load_seed_tree_replaces_existing_criteria(api_client, user, criteria_ty
     stale = Criteria(user=user, type=criteria_type)
     stale._name = "stale"
     stale.save()
+    CriteriaPlaylist.objects.create(user=user, criteria=stale, type=criteria_type)
+    CriteriaPlaylist.objects.create(user=user, criteria=None, type=criteria_type)
 
     response = api_client.post("/genre-criteria/tree/load-seed/")
 
