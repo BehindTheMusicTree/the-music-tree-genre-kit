@@ -9,6 +9,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Add entries to the `[Unreleased]` section under the appropriate category: `Added`, `Changed`, `Improved`, `Deprecated`, `Removed`, `Fixed`.
 - Group related changes together; write clear, user-focused descriptions rather than raw git log dumps.
 - Mention tests within the related feature or fix entry — "Test" is not its own category.
+- Any change that requires a consumer (`hear-the-music-tree-api`, `grow-the-music-tree-api`) to
+  update its own code (removed/renamed abstraction, changed field/signature, dropped default)
+  must be listed under a `### Breaking` heading in its release, in addition to
+  `Added`/`Changed`/`Fixed`.
 - On release, move `[Unreleased]` entries into a dated `## [X.Y.Z] - YYYY-MM-DD` section and leave an empty `[Unreleased]` above it.
 
 ## [Unreleased]

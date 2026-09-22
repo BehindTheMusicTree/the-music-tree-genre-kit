@@ -53,8 +53,6 @@ This project follows strict [Gitflow](https://nvie.com/posts/a-successful-git-br
   direct commits — only merges from PRs.
 - **`feature/<name>`** — new features, branched from `develop`, merged back into `develop` via PR.
 - **`fix/<name>`** — bug fixes, branched from `develop`, merged back into `develop` via PR.
-- **`chore/<name>`** — maintenance, tooling, CI/CD, dependency updates, branched from `develop`,
-  merged back into `develop` via PR.
 - **`release/<x.y.z>`** — release stabilization, branched from `develop`. Merged into `main`
   (then tagged) and back into `develop` when ready. Only fixes belong here, no new features.
 - **`hotfix/<x.y.z>`** — urgent production fixes, branched from `main`. Merged into `main` (then
