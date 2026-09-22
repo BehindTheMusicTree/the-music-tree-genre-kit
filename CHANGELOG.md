@@ -13,6 +13,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `AbstractCriteriaPlaylistManager.bulk_create_for_criteria` raised `KeyError` on a partial
+  criteria-tree reimport where a new node's parent and/or root criteria already existed in the
+  DB (so it wasn't part of the current bulk-create batch). Parent/root resolution now falls back
+  to a DB lookup when the in-memory batch doesn't have it. Added a regression test covering a new
+  node reimported under a pre-existing root.
+
 ## [0.23.2] - 2026-09-22
 
 ### Fixed

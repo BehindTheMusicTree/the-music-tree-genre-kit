@@ -243,6 +243,33 @@ def test_bulk_create_for_criteria_creates_playlists_matching_criteria_tree(user,
 
 
 @pytest.mark.django_db
+def test_bulk_create_for_criteria_resolves_root_that_predates_the_batch(user, genre_type, monkeypatch):
+    monkeypatch.setattr(
+        GenreManager,
+        "_on_bulk_created",
+        lambda self, instances: CriteriaPlaylist.objects.bulk_create_for_criteria(instances),
+    )
+
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
+
+    # Partial reimport: "Electronic" already exists and is matched in place, so only "House"
+    # is new -- its root ("Electronic") is absent from this batch and must be looked up in the DB.
+    Genre.objects.import_criteria_tree(
+        user,
+        {"tree": [{"name": "Electronic", "id": "Q9759", "children": [{"name": "House", "children": []}]}]},
+    )
+
+    root = Genre.objects.get(user=user, _name="Electronic")
+    child = Genre.objects.get(user=user, _name="House")
+
+    root_playlist = CriteriaPlaylist.objects.get(criteria=root)
+    child_playlist = CriteriaPlaylist.objects.get(criteria=child)
+
+    assert child_playlist.parent_id == root_playlist.pk
+    assert child_playlist.root_id == root_playlist.pk
+
+
+@pytest.mark.django_db
 def test_import_criteria_tree_with_empty_name_raises_app_validation_exception(user, genre_type):
     tree_data = {"tree": [{"name": "", "children": []}]}
 
