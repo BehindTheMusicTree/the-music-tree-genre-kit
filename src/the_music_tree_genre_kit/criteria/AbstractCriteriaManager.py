@@ -227,6 +227,24 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         instance.delete()
 
+    def _delete_stale_instances(self, queryset: QuerySet[T]) -> None:
+        """
+        Delete instances dropped from an imported tree by routing each one through
+        `delete_instance`, leaves first, instead of a raw bulk `.delete()`.
+
+        A raw bulk delete skips `_on_before_delete`'s track reparenting: `Track.genre` is
+        `on_delete=DO_NOTHING`, so a track still pointing at a deleted row raises an unhandled
+        `IntegrityError`. Processing leaves first mirrors what repeated one-off deletes would do
+        -- each instance's tracks and child playlists reparent up to its still-live parent
+        (possibly another about-to-be-deleted stale instance, itself processed next) -- so tracks
+        end up reparented to the nearest surviving ancestor, or handed to the criteria-less
+        playlist once a stale root's turn comes, rather than left dangling.
+        """
+        instances = list(queryset)
+        instances.sort(key=lambda instance: instance.ascendants_rels.count(), reverse=True)
+        for instance in instances:
+            self.delete_instance(instance)
+
     def get_roots(self, user: Any) -> QuerySet[T]:
         return self.filter(user=user, parent__isnull=True)
 
@@ -305,7 +323,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         existing_by_name: dict[str, T] = {}
 
         if not model_has_wikidata_id_field:
-            self.filter(user=user).delete()
+            self._delete_stale_instances(self.filter(user=user))
             existing_by_wikidata_id: dict[str, T] = {}
         else:
             existing_by_wikidata_id = {}
@@ -323,7 +341,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         if not tree_data:
             if model_has_wikidata_id_field:
-                self.filter(user=user, wikidata_id__in=existing_by_wikidata_id.keys()).delete()
+                self._delete_stale_instances(self.filter(user=user, wikidata_id__in=existing_by_wikidata_id.keys()))
             return
 
         criteria_type = self._get_criteria_type()
@@ -392,7 +410,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         if model_has_wikidata_id_field:
             stale_wikidata_ids = existing_by_wikidata_id.keys() - matched_wikidata_ids
             if stale_wikidata_ids:
-                self.filter(user=user, wikidata_id__in=stale_wikidata_ids).delete()
+                self._delete_stale_instances(self.filter(user=user, wikidata_id__in=stale_wikidata_ids))
 
         matched_update_fields = [Fields.NAME_INTERNAL, Fields.PARENT, Fields.ROOT]
         if model_has_side_field:

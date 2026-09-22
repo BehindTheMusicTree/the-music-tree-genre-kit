@@ -2,7 +2,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
-from tests.fixture_app.models import Criteria
+from tests.fixture_app.models import Criteria, CriteriaPlaylist
 from the_music_tree_genre_kit.criteria.type.CriteriaType import CriteriaType
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_node import CriteriaTreeNodeSerializer
 
@@ -67,6 +67,8 @@ def test_import_tree_replaces_existing_criteria(api_client, user, criteria_type)
     stale = Criteria(user=user, type=criteria_type)
     stale._name = "stale"
     stale.save()
+    CriteriaPlaylist.objects.create(user=user, criteria=stale, type=criteria_type)
+    CriteriaPlaylist.objects.create(user=user, criteria=None, type=criteria_type)
 
     payload = {"tree": [{"name": "fresh", "children": []}]}
 

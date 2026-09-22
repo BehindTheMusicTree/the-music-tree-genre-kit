@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 
-from tests.fixture_app.manager import GenreManager
+from tests.fixture_app.manager import CriteriaManager, GenreManager
 from tests.fixture_app.models import Criteria, CriteriaPlaylist, Genre, Track, TrackPlaylistRel
 from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
 from the_music_tree_genre_kit.criteria.playlist.bootstrap_criterialess_playlists_for_user import (
@@ -286,7 +286,14 @@ def test_genre_without_wikidata_id_survives_reimport_untouched(user, genre_type)
 
 
 @pytest.mark.django_db
-def test_genre_absent_from_reimport_matched_by_wikidata_id_is_deleted(user, genre_type):
+def test_genre_absent_from_reimport_matched_by_wikidata_id_is_deleted(user, genre_type, tag_type, monkeypatch):
+    bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
+    monkeypatch.setattr(
+        GenreManager,
+        "_on_bulk_created",
+        lambda self, instances: CriteriaPlaylist.objects.bulk_create_for_criteria(instances),
+    )
+
     Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
     assert Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
 
@@ -297,7 +304,47 @@ def test_genre_absent_from_reimport_matched_by_wikidata_id_is_deleted(user, genr
 
 
 @pytest.mark.django_db
-def test_reimport_with_empty_tree_deletes_previously_wikidata_tagged_genres(user, genre_type):
+def test_reimport_reparents_track_off_a_deleted_stale_genre_instead_of_raising(user, genre_type, tag_type, monkeypatch):
+    bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
+    monkeypatch.setattr(
+        GenreManager,
+        "_on_bulk_created",
+        lambda self, instances: CriteriaPlaylist.objects.bulk_create_for_criteria(instances),
+    )
+
+    Genre.objects.import_criteria_tree(
+        user,
+        {
+            "tree": [
+                {
+                    "name": "Electronic",
+                    "id": "Q9759",
+                    "children": [{"name": "House", "id": "Q186024", "children": []}],
+                }
+            ]
+        },
+    )
+    house = Genre.objects.get(user=user, wikidata_id="Q186024")
+    track = Track.objects.create(user=user, genre=house)
+
+    # "House" (Q186024) is dropped from this reimport -- a raw bulk `.delete()` of the stale
+    # row would raise (Track.genre is on_delete=DO_NOTHING); the fix reparents the track instead.
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
+
+    assert not Genre.objects.filter(user=user, wikidata_id="Q186024").exists()
+    track.refresh_from_db()
+    assert track.genre_id == Genre.objects.get(user=user, wikidata_id="Q9759").pk
+
+
+@pytest.mark.django_db
+def test_reimport_with_empty_tree_deletes_previously_wikidata_tagged_genres(user, genre_type, tag_type, monkeypatch):
+    bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
+    monkeypatch.setattr(
+        GenreManager,
+        "_on_bulk_created",
+        lambda self, instances: CriteriaPlaylist.objects.bulk_create_for_criteria(instances),
+    )
+
     Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
     assert Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
 
@@ -307,7 +354,14 @@ def test_reimport_with_empty_tree_deletes_previously_wikidata_tagged_genres(user
 
 
 @pytest.mark.django_db
-def test_tag_import_criteria_tree_delete_and_recreate_unaffected(user, tag_type):
+def test_tag_import_criteria_tree_delete_and_recreate_unaffected(user, genre_type, tag_type, monkeypatch):
+    bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
+    monkeypatch.setattr(
+        CriteriaManager,
+        "_on_bulk_created",
+        lambda self, instances: CriteriaPlaylist.objects.bulk_create_for_criteria(instances),
+    )
+
     Criteria.objects.import_criteria_tree(user, {"tree": [{"name": "Chill", "children": []}]})
     original = Criteria.objects.get(user=user, _name="Chill")
 
