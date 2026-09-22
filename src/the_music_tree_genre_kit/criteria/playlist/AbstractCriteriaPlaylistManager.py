@@ -47,7 +47,10 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
 
         Parent/root are resolved from the in-memory criteria tree instead of
         the per-instance DB lookups `AbstractCriteriaPlaylist._set_parent`/
-        `_set_root` normally do.
+        `_set_root` normally do -- except a parent/root that predates this
+        batch (a partial reimport whose new node attaches under an
+        already-existing criteria), which falls back to a DB lookup since it
+        has no in-memory playlist to reuse.
         """
         if not criteria_instances:
             return
@@ -62,13 +65,28 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
             playlist.uuid = pk
             playlist.pk = pk
 
-            playlist.parent = playlist_by_criteria_pk.get(criteria.parent_id) if criteria.parent_id else None
-            playlist.root = playlist if criteria.is_root else playlist_by_criteria_pk[criteria.root_id]
+            playlist.parent = (
+                self._resolve_by_criteria_id(playlist_by_criteria_pk, criteria.parent_id, user=criteria.user)
+                if criteria.parent_id
+                else None
+            )
+            playlist.root = (
+                playlist
+                if criteria.is_root
+                else self._resolve_by_criteria_id(playlist_by_criteria_pk, criteria.root_id, user=criteria.user)
+            )
 
             playlist_by_criteria_pk[criteria.pk] = playlist
             playlists.append(playlist)
 
         bulk_create_mti(playlists, using=self.db)
+
+    def _resolve_by_criteria_id(self, playlist_by_criteria_pk: dict[Any, T], criteria_id: Any, *, user: Any) -> T:
+        playlist = playlist_by_criteria_pk.get(criteria_id)
+        if playlist is not None:
+            return playlist
+
+        return self.get(user=user, criteria_id=criteria_id)
 
     def get_direct_tracks(self, instance: T) -> QuerySet:
         track_ids = self.track_playlist_rel_model.objects.filter(playlist=instance).values_list("track_id", flat=True)
