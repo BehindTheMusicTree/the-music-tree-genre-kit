@@ -198,13 +198,16 @@ class AbstractTrackManager(StandardResourceManager[T]):
         `filter(...).first()` query per song), artist names are deduplicated
         across every entry before a single call to
         `get_artists_list_from_names_after_potential_creation` (instead of one
-        call per song), and every ancestor-genre `TrackPlaylistRel` is
-        `bulk_create`d in one shot from ancestor chains walked in Python off the
-        already-fetched criteria (instead of one `.create()` per ancestor per
-        track). The `Track` row itself still needs one `save()` per song -
-        Django's `bulk_create` refuses multi-table inherited models, and every
-        concrete `Track` subclass is one - but each save no longer pays for a
-        per-row nested transaction or immediate per-ancestor playlist writes.
+        call per song), the `artists` M2M is written via a single
+        `bulk_create` on its auto-generated through model (instead of one
+        `.set()` call per song), and every ancestor-genre `TrackPlaylistRel`
+        is `bulk_create`d in one shot from ancestor chains walked in Python
+        off the already-fetched criteria (instead of one `.create()` per
+        ancestor per track). The `Track` row itself still needs one `save()`
+        per song - Django's `bulk_create` refuses multi-table inherited
+        models, and every concrete `Track` subclass is one - but each save no
+        longer pays for a per-row nested transaction or immediate
+        per-ancestor playlist writes.
         """
         criteria_model = apps.get_model(settings.CRITERIA_MODEL)
         artist_model = apps.get_model(settings.ARTIST_MODEL)
@@ -256,8 +259,18 @@ class AbstractTrackManager(StandardResourceManager[T]):
             instance.save()
             instances.append(instance)
 
-        for instance, (entry, _genre) in zip(instances, matched_entries, strict=True):
-            instance.artists.set([artists_by_name[entry[SongSeedFields.ARTIST]]])
+        artists_through = self.model.artists.through
+        source_field_id = f"{self.model.artists.field.m2m_field_name()}_id"
+        target_field_id = f"{self.model.artists.field.m2m_reverse_field_name()}_id"
+        artists_through.objects.bulk_create(
+            artists_through(
+                **{
+                    source_field_id: instance.pk,
+                    target_field_id: artists_by_name[entry[SongSeedFields.ARTIST]].pk,
+                }
+            )
+            for instance, (entry, _genre) in zip(instances, matched_entries, strict=True)
+        )
 
         ancestor_playlists_by_genre_pk: dict[Any, list] = {}
 

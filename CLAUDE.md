@@ -99,10 +99,10 @@ Both are opt-in mixins for a consumer's viewset, not automatically wired up.
 ## Contributing conventions (see CONTRIBUTING.md for full detail)
 
 - Strict Gitflow. No direct commits to `main` or `develop` — everything goes through a PR.
-  `feature/`, `fix/`, and `chore/` branches are cut from `develop` and merged back into
-  `develop`. `release/x.y.z` branches from `develop` and merges into `main` (tagged) and back
-  into `develop`. `hotfix/x.y.z` branches from `main` and merges into `main` (tagged) and back
-  into `develop`.
+  `feature/` and `fix/` branches are cut from `develop` and merged back into `develop`.
+  `release/x.y.z` branches from `develop` and merges into `main` (tagged) and back into
+  `develop`. `hotfix/x.y.z` branches from `main` and merges into `main` (tagged) and back into
+  `develop`.
 - Commit/PR title format: `<type>(<scope>): <summary>` (Conventional-Commits-inspired; types:
   `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `perf`, `ci`).
 - Update `CHANGELOG.md` under `[Unreleased]` for any notable change, and `README.md` if the
@@ -110,3 +110,13 @@ Both are opt-in mixins for a consumer's viewset, not automatically wired up.
 - Releases are tagged on `main` via a `release/x.y.z` branch (see above); `the-music-tree-api-kit`
   must always be pinned by tag, never a raw commit SHA (see pyproject.toml comment and changelog
   for why — `uv`'s git-ref resolution conflicts across repos otherwise).
+
+## graphify
+
+This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+
+Rules:
+- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
+- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
+- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
+- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).

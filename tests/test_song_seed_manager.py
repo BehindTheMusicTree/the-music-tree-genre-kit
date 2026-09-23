@@ -1,5 +1,7 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 
 from tests.fixture_app.models import Artist, Criteria, CriteriaPlaylist, Track, TrackPlaylistRel
 from the_music_tree_genre_kit.criteria.playlist.bootstrap_criterialess_playlists_for_user import (
@@ -181,11 +183,24 @@ def test_import_seed_songs_large_batch(user, deep_house):
         {"title": "Unmatched", "artist": "Nobody", "youtube_video_id": "novid", "genre_name": "Not A Real Genre"}
     )
 
-    Track.objects.import_seed_songs(user, data)
+    # The `artists` M2M write is a single `bulk_create` against its auto-generated through
+    # table, not one query per song - asserting exactly one query touches that table is a
+    # regression guard against it turning back into a per-song `.set()` loop. (The overall
+    # query count still scales with `entry_count`: `Track.save()` can't be `bulk_create`d, a
+    # known multi-table-inheritance ceiling, not something this fix addresses.)
+    with CaptureQueriesContext(connection) as queries:
+        Track.objects.import_seed_songs(user, data)
+    through_table = Track.artists.through._meta.db_table
+    through_queries = [q for q in queries.captured_queries if through_table in q["sql"]]
+    assert len(through_queries) == 1
 
     assert Track.objects.filter(user=user).count() == entry_count
     assert not Track.objects.filter(user=user, title="Unmatched").exists()
     assert Artist.objects.filter(user=user).count() == 25
+
+    for track in Track.objects.filter(user=user).select_related(None).prefetch_related("artists"):
+        index = int(track.title.removeprefix("Track "))
+        assert [artist.name for artist in track.artists.all()] == [f"Artist {index % 25}"]
 
     deep_house_count = sum(1 for index in range(entry_count) if index % 3 == 0)
     house_count = sum(1 for index in range(entry_count) if index % 3 == 1)
