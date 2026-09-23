@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.23.4] - 2026-09-23
+
 ### Fixed
 
 - `import_seed_songs`'s per-song `instance.artists.set([...])` loop now writes all artist links
