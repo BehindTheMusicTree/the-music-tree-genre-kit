@@ -17,6 +17,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `import_seed_songs`'s per-song `instance.artists.set([...])` loop now writes all artist links
+  in a single `bulk_create` against the auto-generated `Track.artists.through` model, matching
+  the pattern already used for `TrackPlaylistRel`. On large imports this was one of the
+  O(n) costs pushing `grow-the-music-tree-api`'s `/songs/import` endpoint toward gunicorn's/
+  Cloudflare's request timeout. The per-song `Track.save()` loop is unchanged: Django's
+  `bulk_create` has never supported multi-table-inherited models, and `Track` is one, so this
+  remains a permanent ceiling, not something this fix addresses. Extended
+  `test_import_seed_songs_large_batch` with a query-count guard asserting exactly one query
+  touches the M2M through table.
+
 ## [0.23.3] - 2026-09-22
 
 ### Fixed
