@@ -59,6 +59,25 @@ class AbstractGenreCriteria(models.Model):
     mirroring `unique_name_per_user`.
     """
 
+    is_manually_edited = models.BooleanField(default=False)
+    """
+    Set once an admin edits this row's `parent`/`_name`/`side` (or a track's `genre`
+    pointing at it) directly through CRUD, rather than through
+    `AbstractCriteriaManager.import_criteria_tree`. From then on, import skips
+    overwriting those fields on this row -- the admin's edit always wins over the
+    next pipeline sync -- while the row still participates in tree structure
+    (matched by `wikidata_id`, its children still import normally).
+    """
+
+    is_excluded = models.BooleanField(default=False)
+    """
+    Set when an admin removes this genre from the visible tree. A real `DELETE`
+    would be undone by the next import (the pipeline would just recreate the row,
+    its `wikidata_id` no longer seen), so exclusion is a flag instead: import skips
+    both recreating and deleting an excluded `wikidata_id`, and never descends into
+    its children.
+    """
+
     class Meta:
         abstract = True
 

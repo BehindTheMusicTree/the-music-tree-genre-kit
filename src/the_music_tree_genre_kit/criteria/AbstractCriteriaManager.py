@@ -94,19 +94,29 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         """
         return any(field.name == Fields.WIKIDATA_ID for field in self.model._meta.get_fields())
 
-    def _on_created(self, instance: T) -> None:
+    def _model_has_manual_edit_fields(self) -> bool:
+        """
+        Whether this manager's model declares the `is_manually_edited`/`is_excluded`
+        columns. Only a concrete `Genre` subtype (via `AbstractGenreCriteria`) does --
+        without these, `import_criteria_tree` has no override state to respect.
+        """
+        return any(field.name == "is_manually_edited" for field in self.model._meta.get_fields())
+
+    def _on_created(self, instance: T, *, actor: Any = None) -> None:
         """Hook: react to a newly created criteria. No-op by default."""
 
-    def _on_bulk_created(self, instances: list[T]) -> None:
+    def _on_bulk_created(self, instances: list[T], *, actor: Any = None) -> None:
         """Hook: react to a batch of criteria created by `import_criteria_tree`. No-op by default."""
 
-    def _on_parent_changed(self, instance: T, *, old_parent: T | None, old_root: T, root_changed: bool) -> None:
+    def _on_parent_changed(
+        self, instance: T, *, old_parent: T | None, old_root: T, root_changed: bool, actor: Any = None
+    ) -> None:
         """Hook: react to a criteria being reparented (and possibly re-rooted). No-op by default."""
 
-    def _on_renamed(self, instance: T, *, old_name: str) -> None:
+    def _on_renamed(self, instance: T, *, old_name: str, actor: Any = None) -> None:
         """Hook: react to a criteria being renamed. No-op by default."""
 
-    def _on_track_genre_cleared(self, track: models.Model) -> None:
+    def _on_track_genre_cleared(self, track: models.Model, *, actor: Any = None) -> None:
         """Hook: react to a track's genre FK being cleared/reassigned by a root-criteria deletion. No-op by default."""
 
     def _get_direct_tracks(self, instance: T) -> QuerySet:
@@ -120,7 +130,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         return playlist_manager.get_direct_tracks(instance.criteria_playlist)
 
     @transaction.atomic
-    def _on_before_delete(self, instance: T) -> None:
+    def _on_before_delete(self, instance: T, *, actor: Any = None) -> None:
         criteria_playlist = instance.criteria_playlist
         playlist_manager = type(criteria_playlist).objects
         track_model = playlist_manager.track_model
@@ -131,7 +141,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         for track in genre_tagged_tracks:
             track.genre = instance.parent
             track.save(update_fields=["genre_id"])
-            self._on_track_genre_cleared(track)
+            self._on_track_genre_cleared(track, actor=actor)
 
         if instance.is_root:
             playlist_manager.transfer_direct_tracks_to_criterialess_playlist(
@@ -146,20 +156,20 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 if not instance.parent:
                     playlist_manager.make_playlist_root(child_playlist)
 
-    def _create_without_ascendant_refresh(self, **kwargs) -> T:
+    def _create_without_ascendant_refresh(self, actor: Any = None, **kwargs) -> T:
         criteria_type = self._get_criteria_type()
         instance: T = super().create(type=criteria_type, **kwargs)
-        self._on_created(instance)
+        self._on_created(instance, actor=actor)
         return instance
 
     @transaction.atomic
-    def create(self, **kwargs) -> T:
-        instance = self._create_without_ascendant_refresh(**kwargs)
+    def create(self, actor: Any = None, **kwargs) -> T:
+        instance = self._create_without_ascendant_refresh(actor=actor, **kwargs)
         self._refresh_ascendants_of_instance(instance)
         return instance
 
     @transaction.atomic
-    def update_instance(self, instance: T, **kwargs) -> T:
+    def update_instance(self, instance: T, actor: Any = None, **kwargs) -> T:
         old_root = instance.root
         old_parent = instance.parent
         old_name = instance.name
@@ -174,11 +184,11 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 self.update_children_root(criteria=updated_instance, new_root=updated_instance.root)
 
             self._on_parent_changed(
-                updated_instance, old_parent=old_parent, old_root=old_root, root_changed=root_changed
+                updated_instance, old_parent=old_parent, old_root=old_root, root_changed=root_changed, actor=actor
             )
 
         if old_name != updated_instance.name:
-            self._on_renamed(updated_instance, old_name=old_name)
+            self._on_renamed(updated_instance, old_name=old_name, actor=actor)
 
         return updated_instance
 
@@ -201,7 +211,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         return None
 
     @transaction.atomic
-    def delete_instance(self, instance: T) -> None:
+    def delete_instance(self, instance: T, actor: Any = None) -> None:
         """
         Delete a criteria and handle tree relationships.
 
@@ -223,11 +233,11 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         # Model-level tree state must be updated before this hook runs: subclass hooks
         # (e.g. playlist maintenance) may re-derive fields from the criteria's current
         # parent/root, so they need the post-reassignment state, not the pre-delete one.
-        self._on_before_delete(instance)
+        self._on_before_delete(instance, actor=actor)
 
         instance.delete()
 
-    def _delete_stale_instances(self, queryset: QuerySet[T]) -> None:
+    def _delete_stale_instances(self, queryset: QuerySet[T], actor: Any = None) -> None:
         """
         Delete instances dropped from an imported tree by routing each one through
         `delete_instance`, leaves first, instead of a raw bulk `.delete()`.
@@ -243,7 +253,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         instances = list(queryset)
         instances.sort(key=lambda instance: instance.ascendants_rels.count(), reverse=True)
         for instance in instances:
-            self.delete_instance(instance)
+            self.delete_instance(instance, actor=actor)
 
     def get_roots(self, user: Any) -> QuerySet[T]:
         return self.filter(user=user, parent__isnull=True)
@@ -301,7 +311,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         return build_tree(None)
 
     @transaction.atomic
-    def import_criteria_tree(self, user: Any, data: dict) -> None:
+    def import_criteria_tree(self, user: Any, data: dict, actor: Any = None) -> None:
         """
         Imports a tree structure of criteria, replacing all existing criteria.
         The input should be an array of criteria trees, where each tree follows the format:
@@ -314,16 +324,24 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             }
           ]
         }
+
+        Rows with `is_manually_edited=True` (Genre-only, see `AbstractGenreCriteria`) are
+        still matched by `wikidata_id`/name so their children keep importing normally, but
+        their own `parent`/`_name`/`side`/`root` are left untouched -- an admin edit always
+        wins over the next sync. Rows with `is_excluded=True` are skipped entirely (not
+        updated, not recursed into) and are protected from the stale-deletion pass below,
+        regardless of whether this import's tree still contains their `wikidata_id`.
         """
         if not data:
             return
 
         model_has_wikidata_id_field = self._model_has_wikidata_id_field()
+        model_has_manual_edit_fields = self._model_has_manual_edit_fields()
 
         existing_by_name: dict[str, T] = {}
 
         if not model_has_wikidata_id_field:
-            self._delete_stale_instances(self.filter(user=user))
+            self._delete_stale_instances(self.filter(user=user), actor=actor)
             existing_by_wikidata_id: dict[str, T] = {}
         else:
             existing_by_wikidata_id = {}
@@ -331,6 +349,14 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 existing_by_name[criteria.name] = criteria
                 if criteria.wikidata_id:
                     existing_by_wikidata_id[criteria.wikidata_id] = criteria
+
+        # Excluded wikidata_ids are never touched by import -- neither recreated nor
+        # deleted -- regardless of whether this run's tree still contains them.
+        protected_wikidata_ids: set[str] = set()
+        if model_has_manual_edit_fields:
+            protected_wikidata_ids = {
+                wikidata_id for wikidata_id, criteria in existing_by_wikidata_id.items() if criteria.is_excluded
+            }
 
         if isinstance(data, dict) and TreeImportFields.TREE in data:
             tree_data = data[TreeImportFields.TREE]
@@ -341,7 +367,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         if not tree_data:
             if model_has_wikidata_id_field:
-                self._delete_stale_instances(self.filter(user=user, wikidata_id__in=existing_by_wikidata_id.keys()))
+                stale_wikidata_ids = existing_by_wikidata_id.keys() - protected_wikidata_ids
+                self._delete_stale_instances(self.filter(user=user, wikidata_id__in=stale_wikidata_ids), actor=actor)
             return
 
         criteria_type = self._get_criteria_type()
@@ -365,13 +392,21 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     # regardless of parent, so matching on name alone is sufficient.
                     matched_criteria = existing_by_name.get(node_name)
 
+                if matched_criteria is not None and model_has_manual_edit_fields and matched_criteria.is_excluded:
+                    # Admin-excluded: keep it (and its subtree) out of this import entirely.
+                    existing_by_name.pop(node_name, None)
+                    continue
+
+                is_locked = False
                 if matched_criteria is not None:
                     criteria: T = matched_criteria
-                    criteria.parent = parent
-                    for field_name, value in extra_kwargs.items():
-                        setattr(criteria, field_name, value)
-                    criteria._name = node_name
-                    criteria.root = root if root is not None else criteria
+                    is_locked = model_has_manual_edit_fields and criteria.is_manually_edited
+                    if not is_locked:
+                        criteria.parent = parent
+                        for field_name, value in extra_kwargs.items():
+                            setattr(criteria, field_name, value)
+                        criteria._name = node_name
+                        criteria.root = root if root is not None else criteria
                     if wikidata_id:
                         matched_wikidata_ids.add(wikidata_id)
                     elif matched_criteria.wikidata_id:
@@ -403,14 +438,18 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
                 children = node.get(InputFields.CHILDREN) or []
                 if children:
-                    build_criteria_tree(children, criteria, root if root is not None else criteria)
+                    # A locked row's own root wasn't touched above (it may not even match
+                    # this branch's tree-walk root, if an admin moved it elsewhere) -- recurse
+                    # using its real current root so descendants land under the right tree.
+                    child_root = criteria.root if is_locked else (root if root is not None else criteria)
+                    build_criteria_tree(children, criteria, child_root)
 
         build_criteria_tree(tree_data, None, None)
 
         if model_has_wikidata_id_field:
-            stale_wikidata_ids = existing_by_wikidata_id.keys() - matched_wikidata_ids
+            stale_wikidata_ids = existing_by_wikidata_id.keys() - matched_wikidata_ids - protected_wikidata_ids
             if stale_wikidata_ids:
-                self._delete_stale_instances(self.filter(user=user, wikidata_id__in=stale_wikidata_ids))
+                self._delete_stale_instances(self.filter(user=user, wikidata_id__in=stale_wikidata_ids), actor=actor)
 
         matched_update_fields = [Fields.NAME_INTERNAL, Fields.PARENT, Fields.ROOT]
         if model_has_side_field:
@@ -419,6 +458,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         try:
             bulk_create_mti(new_instances, using=self.db)
             for criteria in matched_instances:
+                if model_has_manual_edit_fields and criteria.is_manually_edited:
+                    continue  # locked: nothing was mutated above, nothing to persist
                 # Pass `update_fields` explicitly: `AbstractCriteria._prepare_save` calls
                 # `_set_root()`, and when root changes, `BaseModel.save()` (the-music-tree-api-kit)
                 # restricts the UPDATE to only the fields it saw explicitly modified via
@@ -448,4 +489,4 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             if top_level_node.parent_id is None:
                 self._refresh_ascendants_of_instance_and_children(top_level_node)
 
-        self._on_bulk_created(new_instances)
+        self._on_bulk_created(new_instances, actor=actor)

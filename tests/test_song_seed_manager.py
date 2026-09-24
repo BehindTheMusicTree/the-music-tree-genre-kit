@@ -96,6 +96,54 @@ def test_import_seed_songs_replaces_existing_tracks(user, house):
     assert Track.objects.filter(user=user).count() == 1
 
 
+@pytest.mark.django_db
+def test_import_seed_songs_upserts_matching_video_id_instead_of_recreating(user, house):
+    existing = Track.objects.create(user=user, title="Old Title", genre=house, youtube_video_id="abc123")
+
+    result = Track.objects.import_seed_songs(
+        user,
+        [{"title": "New Title", "artist": "Frankie Knuckles", "youtube_video_id": "abc123", "genre_name": "House"}],
+    )
+
+    existing.refresh_from_db()
+    assert existing.title == "New Title"
+    assert Track.objects.filter(user=user).count() == 1
+    assert result == {"imported": 1, "skipped": 0}
+
+
+@pytest.mark.django_db
+def test_import_seed_songs_locked_track_keeps_its_genre(user, house):
+    other = Criteria(user=user, type=house.type)
+    other._name = "Techno"
+    other.save()
+    CriteriaPlaylist.objects.create(user=user, type=house.type, criteria=other)
+
+    locked = Track.objects.create(
+        user=user, title="Locked Song", genre=other, youtube_video_id="abc123", is_manually_edited=True
+    )
+
+    Track.objects.import_seed_songs(
+        user,
+        [{"title": "Locked Song", "artist": "Someone", "youtube_video_id": "abc123", "genre_name": "House"}],
+    )
+
+    locked.refresh_from_db()
+    assert locked.genre_id == other.pk
+    assert locked.title == "Locked Song"
+
+
+@pytest.mark.django_db
+def test_import_seed_songs_never_deletes_locked_track_even_when_absent(user, house):
+    locked = Track.objects.create(user=user, title="Locked Song", youtube_video_id="abc123", is_manually_edited=True)
+
+    Track.objects.import_seed_songs(
+        user,
+        [{"title": "Other Song", "artist": "Someone", "youtube_video_id": "zzz999", "genre_name": "House"}],
+    )
+
+    assert Track.objects.filter(pk=locked.pk).exists()
+
+
 @pytest.fixture
 def deep_house(user, genre_type, tag_type):
     bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
