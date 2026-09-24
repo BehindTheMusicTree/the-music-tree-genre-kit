@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Bumped `the-music-tree-api-kit` pin to `v0.6.0`, picking up `AppModelViewSet._get_manager_write_kwargs`.
+
 ## [0.24.0] - 2026-09-24
 
 ### Added
