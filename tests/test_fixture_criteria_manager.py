@@ -197,7 +197,9 @@ def test_import_criteria_tree_calls_on_bulk_created_once_with_full_tree(user, ge
     }
 
     captured: list = []
-    monkeypatch.setattr(GenreManager, "_on_bulk_created", lambda self, instances, actor=None: captured.append(instances))
+    monkeypatch.setattr(
+        GenreManager, "_on_bulk_created", lambda self, instances, actor=None: captured.append(instances)
+    )
 
     Genre.objects.import_criteria_tree(user, tree_data)
 
@@ -428,9 +430,7 @@ def test_excluded_genre_is_neither_recreated_nor_deleted_by_reimport(user, genre
     assert Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
 
     # Reimport with the wikidata_id present again -- an excluded row must not be touched.
-    Genre.objects.import_criteria_tree(
-        user, {"tree": [{"name": "Electronic Renamed", "id": "Q9759", "children": []}]}
-    )
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic Renamed", "id": "Q9759", "children": []}]})
     electronic.refresh_from_db()
     assert electronic._name == "Electronic"
     assert Genre.objects.filter(user=user, wikidata_id="Q9759").count() == 1
