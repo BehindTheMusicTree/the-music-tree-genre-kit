@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-09-24
+
 ### Added
 
 - `AbstractGenreCriteria` gains `is_manually_edited` and `is_excluded` flags. Once set, `AbstractCriteriaManager.import_criteria_tree` skips overwriting `parent`/`_name`/`side` on a manually-edited row and skips both recreating and deleting an excluded `wikidata_id` (its children still import normally otherwise) -- an admin edit made through CRUD now always survives the next pipeline sync instead of being silently overwritten.
