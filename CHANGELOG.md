@@ -17,6 +17,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-09-24
+
+### Added
+
+- `AbstractGenreCriteria` gains `is_manually_edited` and `is_excluded` flags. Once set, `AbstractCriteriaManager.import_criteria_tree` skips overwriting `parent`/`_name`/`side` on a manually-edited row and skips both recreating and deleting an excluded `wikidata_id` (its children still import normally otherwise) -- an admin edit made through CRUD now always survives the next pipeline sync instead of being silently overwritten.
+- `update_instance`/`delete_instance`/`import_criteria_tree` (criteria side) and `create`/`update_instance`/`delete_instance`/`import_seed_songs` (track side) now accept an `actor` parameter, threaded through to the existing `_on_created`/`_on_parent_changed`/`_on_renamed`/`_on_bulk_created` hooks and to a new `_on_track_genre_changed` hook, so a consumer app can log who made a change (pipeline vs. a named admin) without any change to the import logic itself.
+- `AbstractTrackManager.import_seed_songs` is now an upsert by `youtube_video_id` (mirroring `import_criteria_tree`'s `wikidata_id` upsert) instead of a wipe-and-recreate: a matched track is updated in place, an unmatched one is deleted, a new one is inserted. On a concrete track model that declares `is_manually_edited` (e.g. a video-linkable subtype), a locked track keeps its current `genre` across the import and is exempt from stale deletion, while its `title` still refreshes.
+
+### Breaking
+
+- `AbstractGenreCriteria` subclasses require a new migration for `is_manually_edited`/`is_excluded`.
+
 ## [0.23.4] - 2026-09-23
 
 ### Fixed

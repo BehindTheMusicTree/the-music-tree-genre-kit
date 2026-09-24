@@ -88,6 +88,7 @@ class Album(PrivateUniqueResource):
 class Track(KitTrack):
     track = PrivateOneToOneField(KitTrack, on_delete=models.CASCADE, parent_link=True, related_name="fixture_track")
     youtube_video_id = models.CharField(max_length=32, blank=True, default="")
+    is_manually_edited = models.BooleanField(default=False)
 
     objects: TrackManager = TrackManager()
 

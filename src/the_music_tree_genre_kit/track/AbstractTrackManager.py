@@ -97,7 +97,24 @@ class AbstractTrackManager(StandardResourceManager[T]):
         self._add_to_genre_playlists(instance=instance, genre_limit=common_genre)
         self._remove_from_genre_playlists(instance=instance, old_genre=old_genre, genre_limit=common_genre)
 
-    def create(self, **kwargs) -> T:
+    def _model_has_manual_edit_field(self) -> bool:
+        """
+        Whether this manager's model declares the `is_manually_edited` column. Only a
+        concrete video-linkable `Track` subtype (e.g. `YoutubeTrack`) does -- without
+        it, `import_seed_songs` has no override state to respect.
+        """
+        return any(field.name == "is_manually_edited" for field in self.model._meta.get_fields())
+
+    def _on_track_genre_changed(self, instance: T, *, old_genre, actor: Any = None) -> None:
+        """
+        Hook: called whenever `instance.genre` changes, whether via `update_instance`
+        (admin CRUD) or `import_seed_songs` (pipeline import) -- distinct from
+        `AbstractCriteriaManager._on_track_genre_cleared`, which only fires when the
+        track's genre criteria itself gets deleted. No-op by default; a concrete app
+        overrides it to log history.
+        """
+
+    def create(self, actor: Any = None, **kwargs) -> T:
         with transaction.atomic():
             artists = kwargs.pop(Fields.ARTISTS, None)
 
@@ -109,7 +126,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
 
         return instance
 
-    def update_instance(self, old_instance: T, **kwargs) -> T:
+    def update_instance(self, old_instance: T, actor: Any = None, **kwargs) -> T:
         album_model = apps.get_model(settings.ALBUM_MODEL)
         artist_model = apps.get_model(settings.ARTIST_MODEL)
 
@@ -132,6 +149,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
 
             if old_genre != updated_instance.genre:
                 self._update_genre_playlists(updated_instance, old_genre=old_genre)
+                self._on_track_genre_changed(updated_instance, old_genre=old_genre, actor=actor)
 
             if old_album and updated_instance.album and old_album != updated_instance.album:
                 album_model.objects.delete_instance_if_no_track_linked_with_potential_album_artist_deletion(old_album)
@@ -152,7 +170,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
 
             return updated_instance
 
-    def delete_instance(self, instance: T):
+    def delete_instance(self, instance: T, actor: Any = None):
         with transaction.atomic():
             old_playlists_with_positions = instance.playlists_with_positions
             user = instance.user
@@ -177,14 +195,21 @@ class AbstractTrackManager(StandardResourceManager[T]):
             artist_model.objects.delete_instance_if_nothing_linked(artist)
 
     @transaction.atomic
-    def import_seed_songs(self, user: User, data: list[dict[str, Any]]) -> dict[str, int]:
+    def import_seed_songs(self, user: User, data: list[dict[str, Any]], actor: Any = None) -> dict[str, int]:
         """
-        Imports a flat list of seed songs, replacing all of the user's existing
-        tracks first (mirrors `AbstractCriteriaManager.import_criteria_tree`'s
-        wipe-then-seed semantics). An entry whose `genre_name` has no
-        case-insensitive match among the user's criteria is skipped rather than
-        creating a genre-less track. Returns `{"imported": <created count>,
-        "skipped": <skipped-for-unmatched-genre count>}`.
+        Upserts a flat list of seed songs by `youtube_video_id`, mirroring
+        `AbstractCriteriaManager.import_criteria_tree`'s upsert (not wipe-then-seed)
+        semantics: an existing track whose `youtube_video_id` matches an incoming
+        entry is updated in place instead of deleted and recreated, a track whose
+        `youtube_video_id` no longer appears in `data` is deleted, and a new entry is
+        inserted. On a concrete model that declares `is_manually_edited` (e.g. a
+        video-linkable subtype like `YoutubeTrack`), a matched track with that flag
+        set keeps its current `genre` untouched by the import - an admin re-tag always
+        wins over the next pipeline sync - and is also exempt from stale deletion.
+        An entry whose `genre_name` has no case-insensitive match among the user's
+        criteria is skipped rather than creating/updating a track with it. Returns
+        `{"imported": <created + updated count>, "skipped": <skipped-for-unmatched-
+        genre count>}`.
 
         Resolving/creating the artist is delegated to `settings.ARTIST_MODEL`'s
         manager via `get_artists_list_from_names_after_potential_creation`, the
@@ -194,29 +219,37 @@ class AbstractTrackManager(StandardResourceManager[T]):
 
         Efficient at any input size (hand-curated fixtures of a handful of
         entries, up to MusicBrainz-derived exports of thousands): the user's
-        criteria are fetched once into an in-memory dict (instead of one
-        `filter(...).first()` query per song), artist names are deduplicated
-        across every entry before a single call to
-        `get_artists_list_from_names_after_potential_creation` (instead of one
-        call per song), the `artists` M2M is written via a single
-        `bulk_create` on its auto-generated through model (instead of one
-        `.set()` call per song), and every ancestor-genre `TrackPlaylistRel`
-        is `bulk_create`d in one shot from ancestor chains walked in Python
-        off the already-fetched criteria (instead of one `.create()` per
-        ancestor per track). The `Track` row itself still needs one `save()`
-        per song - Django's `bulk_create` refuses multi-table inherited
-        models, and every concrete `Track` subclass is one - but each save no
-        longer pays for a per-row nested transaction or immediate
-        per-ancestor playlist writes.
+        existing tracks and criteria are each fetched once into an in-memory dict
+        (instead of one query per song), artist names are deduplicated across every
+        new entry before a single call to
+        `get_artists_list_from_names_after_potential_creation` (instead of one call
+        per song), the `artists` M2M for new tracks is written via a single
+        `bulk_create` on its auto-generated through model (instead of one `.set()`
+        call per song), and every ancestor-genre `TrackPlaylistRel` for new tracks
+        is `bulk_create`d in one shot from ancestor chains walked in Python off the
+        already-fetched criteria (instead of one `.create()` per ancestor per
+        song). A new `Track` row still needs one `save()` each - Django's
+        `bulk_create` refuses multi-table inherited models, and every concrete
+        `Track` subclass is one.
+
+        ponytail: matched (non-new) tracks only refresh `title`/`genre` - `artists`
+        isn't re-synced for them, only set on insert. Revisit if upstream artist-name
+        corrections need to propagate onto already-imported rows.
         """
         criteria_model = apps.get_model(settings.CRITERIA_MODEL)
         artist_model = apps.get_model(settings.ARTIST_MODEL)
         criteria_playlist_model = type(self).criteria_playlist_model
+        has_manual_edit_field = self._model_has_manual_edit_field()
 
-        for track in list(self.filter(user=user)):
-            self.delete_instance_with_checking_album_and_artists_potential_deletion(track)
+        def _is_locked(track: T) -> bool:
+            return has_manual_edit_field and getattr(track, "is_manually_edited", False)
+
+        existing_by_video_id: dict[str, T] = {track.youtube_video_id: track for track in self.filter(user=user)}
 
         if not data:
+            for track in existing_by_video_id.values():
+                if not _is_locked(track):
+                    self.delete_instance_with_checking_album_and_artists_potential_deletion(track)
             return {"imported": 0, "skipped": 0}
 
         criteria_by_pk: dict[Any, Any] = {}
@@ -231,14 +264,47 @@ class AbstractTrackManager(StandardResourceManager[T]):
             if genre is not None:
                 matched_entries.append((entry, genre))
 
-        if not matched_entries:
-            return {"imported": 0, "skipped": len(data)}
+        skipped = len(data) - len(matched_entries)
+        matched_video_ids = {entry[SongSeedFields.YOUTUBE_VIDEO_ID] for entry, _genre in matched_entries}
 
-        unique_artist_names = list(dict.fromkeys(entry[SongSeedFields.ARTIST] for entry, _ in matched_entries))
-        resolved_artists = artist_model.objects.get_artists_list_from_names_after_potential_creation(
-            user, unique_artist_names
+        for video_id, track in existing_by_video_id.items():
+            if video_id not in matched_video_ids and not _is_locked(track):
+                self.delete_instance_with_checking_album_and_artists_potential_deletion(track)
+
+        if not matched_entries:
+            return {"imported": 0, "skipped": skipped}
+
+        new_entries: list[tuple[dict[str, Any], Any]] = []
+        updated_count = 0
+        for entry, genre in matched_entries:
+            existing_track = existing_by_video_id.get(entry[SongSeedFields.YOUTUBE_VIDEO_ID])
+            if existing_track is None:
+                new_entries.append((entry, genre))
+                continue
+
+            existing_track.title = entry[SongSeedFields.TITLE]
+            update_fields = [Fields.TITLE]
+
+            if not _is_locked(existing_track) and existing_track.genre != genre:
+                old_genre = existing_track.genre
+                existing_track.genre = genre
+                update_fields.append(Fields.GENRE)
+                existing_track.save(update_fields=update_fields)
+                self._update_genre_playlists(existing_track, old_genre=old_genre)
+                self._on_track_genre_changed(existing_track, old_genre=old_genre, actor=actor)
+            else:
+                existing_track.save(update_fields=update_fields)
+
+            updated_count += 1
+
+        unique_artist_names = list(dict.fromkeys(entry[SongSeedFields.ARTIST] for entry, _ in new_entries))
+        artists_by_name = dict(
+            zip(
+                unique_artist_names,
+                artist_model.objects.get_artists_list_from_names_after_potential_creation(user, unique_artist_names),
+                strict=True,
+            )
         )
-        artists_by_name = dict(zip(unique_artist_names, resolved_artists, strict=True))
 
         playlist_by_criteria_pk = {
             playlist.criteria_id: playlist
@@ -246,7 +312,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
         }
 
         instances: list[T] = []
-        for entry, genre in matched_entries:
+        for entry, genre in new_entries:
             instance = self.model(
                 user=user,
                 title=entry[SongSeedFields.TITLE],
@@ -259,18 +325,19 @@ class AbstractTrackManager(StandardResourceManager[T]):
             instance.save()
             instances.append(instance)
 
-        artists_through = self.model.artists.through
-        source_field_id = f"{self.model.artists.field.m2m_field_name()}_id"
-        target_field_id = f"{self.model.artists.field.m2m_reverse_field_name()}_id"
-        artists_through.objects.bulk_create(
-            artists_through(
-                **{
-                    source_field_id: instance.pk,
-                    target_field_id: artists_by_name[entry[SongSeedFields.ARTIST]].pk,
-                }
+        if instances:
+            artists_through = self.model.artists.through
+            source_field_id = f"{self.model.artists.field.m2m_field_name()}_id"
+            target_field_id = f"{self.model.artists.field.m2m_reverse_field_name()}_id"
+            artists_through.objects.bulk_create(
+                artists_through(
+                    **{
+                        source_field_id: instance.pk,
+                        target_field_id: artists_by_name[entry[SongSeedFields.ARTIST]].pk,
+                    }
+                )
+                for instance, (entry, _genre) in zip(instances, new_entries, strict=True)
             )
-            for instance, (entry, _genre) in zip(instances, matched_entries, strict=True)
-        )
 
         ancestor_playlists_by_genre_pk: dict[Any, list] = {}
 
@@ -286,7 +353,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
             return ancestor_playlists_by_genre_pk[genre.pk]
 
         playlist_rel_groups: dict[Any, list[TrackPlaylistRel]] = {}
-        for instance, (_entry, genre) in zip(instances, matched_entries, strict=True):
+        for instance, (_entry, genre) in zip(instances, new_entries, strict=True):
             for playlist in _ancestor_playlists(genre):
                 playlist_rel_groups.setdefault(playlist.pk, []).append(
                     TrackPlaylistRel(user=user, playlist=playlist, track=instance)
@@ -302,6 +369,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 rel.position = count - index
             playlist_rels.extend(rels)
 
-        TrackPlaylistRel.objects.bulk_create(playlist_rels)
+        if playlist_rels:
+            TrackPlaylistRel.objects.bulk_create(playlist_rels)
 
-        return {"imported": len(matched_entries), "skipped": len(data) - len(matched_entries)}
+        return {"imported": len(instances) + updated_count, "skipped": skipped}
