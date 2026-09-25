@@ -14,3 +14,6 @@ class CriteriaOutputFieldKey(StrEnum):
     CHILDREN = "children"
     SIDE = "side"
     SUMMARY = "summary"
+    ALLOWS_MULTIPLE_PRIMARY_PARENTS = "allows_multiple_primary_parents"
+    PRIMARY_PARENTS = "primary_parents"
+    SECONDARY_PARENTS = "secondary_parents"

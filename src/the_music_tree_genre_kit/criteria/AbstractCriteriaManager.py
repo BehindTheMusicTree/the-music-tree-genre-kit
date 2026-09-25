@@ -24,7 +24,7 @@ T = TypeVar("T", bound=AbstractCriteria)
 class AbstractCriteriaManager(StandardResourceManager[T]):
     """
     Owns the pure tree-structure logic for criteria (ascendant refresh, root
-    propagation, common-ascendant lookup), plus the criteria-playlist
+    propagation, primary-parent track moves), plus the criteria-playlist
     orchestration around deletion (direct-track transfer to the criteria-less
     playlist, child reparenting) built on the sibling
     AbstractCriteriaPlaylistManager reached via `instance.criteria_playlist`.
@@ -52,24 +52,111 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
     def _refresh_ascendants_of_instance(self, instance: T):
         instance.ascendants_rels.all().delete()
-        current_degree = 1
-        current_parent = instance.parent
-        visited_ascendant_ids = {instance.pk}
+        for ascendant, degree in instance.primary_ascendants().values():
+            self._create_lineage_rel(user=instance.user, descendant=instance, ascendant=ascendant, degree=degree)
 
-        while current_parent:
-            if current_parent.pk in visited_ascendant_ids:
-                raise ValueError(f"Cycle detected in criteria parent chain at {instance.pk!r}")
-            visited_ascendant_ids.add(current_parent.pk)
-            self._create_lineage_rel(
-                user=instance.user, descendant=instance, ascendant=current_parent, degree=current_degree
-            )
-            current_parent = current_parent.parent
-            current_degree = current_degree + 1
+    def _primary_children(self, instance: T) -> QuerySet[T]:
+        return self.filter(models.Q(parent=instance) | models.Q(additional_primary_parents=instance)).distinct()
 
     def _refresh_ascendants_of_instance_and_children(self, instance):
-        self._refresh_ascendants_of_instance(instance)
-        for child in self.filter(parent=instance):
-            self._refresh_ascendants_of_instance_and_children(child)
+        visited: set[Any] = set()
+        stack = [instance]
+        while stack:
+            node = stack.pop()
+            if node.pk in visited:
+                continue
+            visited.add(node.pk)
+            self._refresh_ascendants_of_instance(node)
+            stack.extend(self._primary_children(node))
+
+    def _validate_parents(self, instance: T) -> None:
+        """Fail fast on any broken primary/secondary parent invariant (see `AbstractCriteria`)."""
+        additional = list(instance.additional_primary_parents.all())
+        secondary = list(instance.secondary_parents.all())
+        primary = [instance.parent, *additional] if instance.parent else additional
+
+        def fail(field_name: str, message: str, code: FieldValidationErrorCode):
+            raise AppValidationException(field_name=field_name, message=message, field_validation_error_code=code)
+
+        if additional and not instance.allows_multiple_primary_parents:
+            fail(
+                Fields.ADDITIONAL_PRIMARY_PARENTS,
+                _("Only a criteria allowing multiple primary parents can have additional primary parents"),
+                FieldValidationErrorCode.DEPENDENCY_MISSING,
+            )
+        if additional and not instance.parent:
+            fail(
+                Fields.ADDITIONAL_PRIMARY_PARENTS,
+                _("A criteria without a parent cannot have additional primary parents"),
+                FieldValidationErrorCode.DEPENDENCY_MISSING,
+            )
+        if not instance.allows_multiple_primary_parents and any(p.allows_multiple_primary_parents for p in primary):
+            fail(
+                Fields.ALLOWS_MULTIPLE_PRIMARY_PARENTS,
+                _("A child of a criteria allowing multiple primary parents must allow them too"),
+                FieldValidationErrorCode.DEPENDENCY_MISSING,
+            )
+
+        parent_ids = [p.pk for p in (*primary, *secondary)]
+        if instance.pk in parent_ids:
+            fail(Fields.PARENT, _("A criteria cannot be its own parent"), FieldValidationErrorCode.SELF_REFERENCE)
+        if len(parent_ids) != len(set(parent_ids)):
+            fail(Fields.PARENT, _("A parent can only be linked once"), FieldValidationErrorCode.DUPLICATE)
+        for parent in (*primary, *secondary):
+            if parent.type_id != instance.type_id:
+                fail(Fields.PARENT, _("A parent must have the same type"), FieldValidationErrorCode.REFERENCE_INVALID)
+            if parent.is_descendant_of(instance):
+                fail(Fields.PARENT, _("A parent cannot be a descendant"), FieldValidationErrorCode.ANCESTOR_REFERENCE)
+
+    def _set_parent_links(self, instance: T, additional_primary_parents, secondary_parents) -> None:
+        if additional_primary_parents is not None:
+            instance.additional_primary_parents.set(additional_primary_parents)
+        if secondary_parents is not None:
+            instance.secondary_parents.set(secondary_parents)
+        self._validate_parents(instance)
+
+    def _primary_ascendants_by_pk(self, instance: T) -> dict[Any, T]:
+        return {pk: ascendant for pk, (ascendant, _degree) in instance.primary_ascendants().items()}
+
+    def _move_tracks_after_primary_parents_changed(self, instance: T, old_ascendants: dict[Any, T]) -> None:
+        """
+        Re-propagates the tracks in `instance`'s playlist after its primary parents changed:
+        added to every gained ascendant's playlist, removed from every lost one unless the
+        track still reaches it through another primary path (its genre's current lineage).
+        Non-genre criteria have no track-to-criteria link, so lost ascendants always drop them.
+        """
+        from the_music_tree_genre_kit.criteria.type.CriteriaTypePks import CriteriaTypePks
+
+        new_ascendants = self._primary_ascendants_by_pk(instance)
+        gained_ids = new_ascendants.keys() - old_ascendants.keys()
+        lost_ids = old_ascendants.keys() - new_ascendants.keys()
+        if not gained_ids and not lost_ids:
+            return
+
+        playlist_manager = type(instance.criteria_playlist).objects
+        rel_model = playlist_manager.track_playlist_rel_model
+        tracks = list(playlist_manager.get_direct_tracks(instance.criteria_playlist))
+
+        for ascendant_id in gained_ids:
+            playlist = new_ascendants[ascendant_id].criteria_playlist
+            present_ids = set(rel_model.objects.filter(playlist=playlist).values_list("track_id", flat=True))
+            for track in tracks:
+                if track.pk not in present_ids:
+                    playlist_manager._create_track_rel(user=instance.user, playlist=playlist, track=track)
+
+        if not lost_ids:
+            return
+        reached_ids_by_genre_id: dict[Any, set[Any]] = {}
+        if instance.type_id == int(CriteriaTypePks.GENRE):
+            for genre in {track.genre for track in tracks if track.genre_id}:
+                reached_ids_by_genre_id[genre.pk] = {genre.pk, *genre.primary_ascendants()}
+        for lost in (old_ascendants[pk] for pk in lost_ids):
+            dropped_ids = [
+                track.pk for track in tracks if lost.pk not in reached_ids_by_genre_id.get(track.genre_id, set())
+            ]
+            playlist_manager._delete_track_rels_and_fill_positions(
+                instance=lost.criteria_playlist, tracks=playlist_manager.track_model.objects.filter(pk__in=dropped_ids)
+            )
 
     def _refresh_ascendants_of_descendants(self, instance):
         for child in instance.children.all():
@@ -156,6 +243,16 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         genre_tagged_tracks = list(track_model.objects.filter(genre=instance))
         direct_tracks = self._get_direct_tracks(instance) if instance.is_root else None
 
+        # Tracks re-genred to the main parent below no longer reach the additional primary branches.
+        if genre_tagged_tracks and instance.parent:
+            kept_ids = {instance.parent.pk, *instance.parent.primary_ascendants()}
+            for lost_pk, lost in self._primary_ascendants_by_pk(instance).items():
+                if lost_pk not in kept_ids:
+                    playlist_manager._delete_track_rels_and_fill_positions(
+                        instance=lost.criteria_playlist,
+                        tracks=track_model.objects.filter(pk__in=[track.pk for track in genre_tagged_tracks]),
+                    )
+
         for track in genre_tagged_tracks:
             track.genre = instance.parent
             track.save(update_fields=["genre_id"])
@@ -168,11 +265,14 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         if criteria_playlist.children.exists():
             for child_playlist in criteria_playlist.children.all():
-                child_playlist.parent = instance.parent.criteria_playlist if instance.parent else None
-                child_playlist.save(update_fields=[Fields.PARENT])
-
-                if not instance.parent:
+                # `delete_instance` already spliced the child criteria onto its new main parent.
+                new_parent = child_playlist.criteria.parent
+                if new_parent is None:
                     playlist_manager.make_playlist_root(child_playlist)
+                    continue
+                child_playlist.parent = new_parent.criteria_playlist
+                child_playlist.save(update_fields=[Fields.PARENT])
+                playlist_manager.update_instance_and_children_root(child_playlist, child_playlist.parent.root)
 
     def _create_without_ascendant_refresh(self, actor: Any = None, **kwargs) -> T:
         criteria_type = self._get_criteria_type()
@@ -182,7 +282,10 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
     @transaction.atomic
     def create(self, actor: Any = None, **kwargs) -> T:
+        additional_primary_parents = kwargs.pop(Fields.ADDITIONAL_PRIMARY_PARENTS, None)
+        secondary_parents = kwargs.pop(Fields.SECONDARY_PARENTS, None)
         instance = self._create_without_ascendant_refresh(actor=actor, **kwargs)
+        self._set_parent_links(instance, additional_primary_parents, secondary_parents)
         self._refresh_ascendants_of_instance(instance)
         return instance
 
@@ -191,12 +294,19 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         old_root = instance.root
         old_parent = instance.parent
         old_name = instance.name
+        old_primary_parent_ids = {parent.pk for parent in instance.primary_parents}
+        old_ascendants = self._primary_ascendants_by_pk(instance)
 
+        additional_primary_parents = kwargs.pop(Fields.ADDITIONAL_PRIMARY_PARENTS, None)
+        secondary_parents = kwargs.pop(Fields.SECONDARY_PARENTS, None)
         updated_instance: T = super().update_instance(instance, **kwargs)
+        self._set_parent_links(updated_instance, additional_primary_parents, secondary_parents)
+
+        if old_primary_parent_ids != {parent.pk for parent in updated_instance.primary_parents}:
+            self._refresh_ascendants_of_instance_and_children(updated_instance)
+            self._move_tracks_after_primary_parents_changed(updated_instance, old_ascendants)
 
         if old_parent != updated_instance.parent:
-            self._refresh_ascendants_of_instance_and_children(updated_instance)
-
             root_changed = old_root != updated_instance.root
             if root_changed:
                 self.update_children_root(criteria=updated_instance, new_root=updated_instance.root)
@@ -210,43 +320,32 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         return updated_instance
 
-    def get_common_ascendant(self, criteria_a: T | None, criteria_b: T | None) -> T | None:
-        if not criteria_a or not criteria_b:
-            return None
-
-        visited = set()
-        current = criteria_a
-        while current:
-            visited.add(current)
-            current = current.parent
-
-        current = criteria_b
-        while current:
-            if current in visited:
-                return current
-            current = current.parent
-
-        return None
-
     @transaction.atomic
     def delete_instance(self, instance: T, actor: Any = None) -> None:
         """
         Delete a criteria and handle tree relationships.
 
-        When deleting a criteria:
-        - If it has children and a parent, children are reassigned to the parent
-        - If it has children but no parent, children become root criteria
-        Non-tree side effects (uploaded tracks, playlists) are left to `_on_before_delete`.
+        The criteria is spliced out of the primary graph: each primary child (main or
+        additional) gets the deleted criteria's primary parents in its place. A child left
+        without a main parent promotes its first additional primary parent, or becomes a
+        root criteria when it has none. Non-tree side effects (uploaded tracks, playlists)
+        are left to `_on_before_delete`.
         """
-        if instance.children.exists():
-            children = list(instance.children.all())
+        replacement_parents = instance.primary_parents
+        for child in list(self._primary_children(instance)):
+            new_primary: dict[Any, T] = {}
+            for parent in child.primary_parents:
+                for new_parent in replacement_parents if parent.pk == instance.pk else [parent]:
+                    new_primary.setdefault(new_parent.pk, new_parent)
+            main_parent, *additional = new_primary.values() or [None]
 
-            for child in children:
-                child.parent = instance.parent
-                child.root = instance.parent or child
-                child.save(update_fields=[Fields.PARENT, Fields.ROOT])
-                self._refresh_ascendants_of_instance_and_children(child)
-                self.update_children_root(child, child.root)
+            child.parent = main_parent
+            child.root = main_parent.root if main_parent else child
+            child.save(update_fields=[Fields.PARENT, Fields.ROOT])
+            child.additional_primary_parents.set(additional)
+            child.secondary_parents.remove(*new_primary.values())
+            self._refresh_ascendants_of_instance_and_children(child)
+            self.update_children_root(child, child.root)
 
         # Model-level tree state must be updated before this hook runs: subclass hooks
         # (e.g. playlist maintenance) may re-derive fields from the criteria's current
@@ -283,9 +382,12 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             for child in children:
                 self.update_children_root(child, new_root)
 
-    def build_criteria_tree(self, user: Any) -> list[dict]:
+    def build_criteria_tree(self, user: Any, *, allows_multiple_primary_parents: bool) -> list[dict]:
         """
-        Builds a tree structure of all criteria for a given user.
+        Builds a tree structure of the user's criteria with the given
+        `allows_multiple_primary_parents` flag. Nesting follows `parent`; a node whose
+        parent is outside this set is top-level and lists it first in `primary_parents`.
+        Additional primary and secondary parents are exported as refs (wikidata id, else name).
         The structure follows the format:
         {
           "name": "Criteria name",
@@ -297,13 +399,22 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
           ]
         }
         """
-        queryset = self.filter(user=user).select_related(Fields.PARENT)
         model_has_side_field = self._model_has_side_field()
         model_has_wikidata_id_field = self._model_has_wikidata_id_field()
+        ref_by_pk = {
+            criteria.pk: (criteria.wikidata_id if model_has_wikidata_id_field else None) or criteria.name
+            for criteria in self.filter(user=user)
+        }
+        queryset = list(
+            self.filter(user=user, allows_multiple_primary_parents=allows_multiple_primary_parents).prefetch_related(
+                Fields.ADDITIONAL_PRIMARY_PARENTS, Fields.SECONDARY_PARENTS
+            )
+        )
+        queryset_pks = {criteria.pk for criteria in queryset}
 
         criteria_by_parent = {}
         for criteria in queryset:
-            parent_id = criteria.parent.uuid if hasattr(criteria.parent, "uuid") else criteria.parent_id
+            parent_id = criteria.parent_id if criteria.parent_id in queryset_pks else None
             if parent_id not in criteria_by_parent:
                 criteria_by_parent[parent_id] = []
             criteria_by_parent[parent_id].append(criteria)
@@ -314,14 +425,20 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
             result = []
             for criteria in criteria_by_parent[parent_id]:
-                child_id = criteria.uuid if hasattr(criteria, "uuid") else criteria.id
                 node = {
                     InputFields.NAME_PUBLIC: criteria.name,
-                    InputFields.CHILDREN: build_tree(child_id),
+                    InputFields.CHILDREN: build_tree(criteria.pk),
                     InputFields.SIDE: criteria.side if model_has_side_field else None,
                 }
                 if model_has_wikidata_id_field:
                     node[InputFields.ID] = criteria.wikidata_id
+                primary_parent_ids = [parent.pk for parent in criteria.additional_primary_parents.all()]
+                if criteria.parent_id and parent_id is None:
+                    primary_parent_ids.insert(0, criteria.parent_id)
+                if primary_parent_ids:
+                    node[InputFields.PRIMARY_PARENTS] = [ref_by_pk[pk] for pk in primary_parent_ids]
+                if secondary_parents := criteria.secondary_parents.all():
+                    node[InputFields.SECONDARY_PARENTS] = [ref_by_pk[parent.pk] for parent in secondary_parents]
                 result.append(node)
 
             return result
@@ -363,25 +480,35 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         this transaction and then rolls it back, so the returned counts reflect what would
         happen without persisting anything.
 
+        `data["allows_multiple_primary_parents"]` is required: the import only matches,
+        stamps and stale-deletes rows with that flag, so the two sets import independently
+        (single-primary-parent tree first, since the other references it). Node
+        `primary_parents`/`secondary_parents` are refs (wikidata id, else name) to any of the
+        user's rows, resolved after all rows exist; a top-level node's first primary ref
+        becomes its `parent`.
+
         Returns `{"created_count", "updated_count", "deleted_count", "dry_run"}`.
         """
         empty_result = {"created_count": 0, "updated_count": 0, "deleted_count": 0, "dry_run": dry_run}
         if not data:
             return empty_result
 
+        allows_multiple_primary_parents: bool = data[TreeImportFields.ALLOWS_MULTIPLE_PRIMARY_PARENTS]
+        tree_data = data[TreeImportFields.TREE]
+
         model_has_wikidata_id_field = self._model_has_wikidata_id_field()
         model_has_manual_edit_fields = self._model_has_manual_edit_fields()
 
-        if isinstance(data, dict) and TreeImportFields.TREE in data:
-            tree_data = data[TreeImportFields.TREE]
-        elif isinstance(data, list):
-            tree_data = data
-        else:
-            tree_data = []
-
         if not model_has_wikidata_id_field:
-            self._delete_stale_instances(self.filter(user=user), actor=actor)
-            result = self._import_tree_without_keys(user=user, tree_data=tree_data, actor=actor)
+            self._delete_stale_instances(
+                self.filter(user=user, allows_multiple_primary_parents=allows_multiple_primary_parents), actor=actor
+            )
+            result = self._import_tree_without_keys(
+                user=user,
+                tree_data=tree_data,
+                actor=actor,
+                allows_multiple_primary_parents=allows_multiple_primary_parents,
+            )
         else:
             result = self._import_tree_with_keys(
                 user=user,
@@ -389,6 +516,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 actor=actor,
                 force=force,
                 model_has_manual_edit_fields=model_has_manual_edit_fields,
+                allows_multiple_primary_parents=allows_multiple_primary_parents,
             )
 
         result["dry_run"] = dry_run
@@ -396,7 +524,19 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             transaction.set_rollback(True)
         return result
 
-    def _import_tree_without_keys(self, user: Any, tree_data: list, actor: Any = None) -> dict[str, Any]:
+    def _node_parent_refs(self, node: dict, allows_multiple_primary_parents: bool) -> tuple[list[str], list[str]]:
+        primary_refs = node.get(InputFields.PRIMARY_PARENTS) or []
+        if primary_refs and not allows_multiple_primary_parents:
+            raise AppValidationException(
+                field_name=TreeImportFields.PRIMARY_PARENTS,
+                message=_("Only a tree allowing multiple primary parents can list primary parents"),
+                field_validation_error_code=FieldValidationErrorCode.DEPENDENCY_MISSING,
+            )
+        return primary_refs, node.get(InputFields.SECONDARY_PARENTS) or []
+
+    def _import_tree_without_keys(
+        self, user: Any, tree_data: list, actor: Any, allows_multiple_primary_parents: bool
+    ) -> dict[str, Any]:
         """Tag-type criteria (no wikidata_id notion of identity): delete-and-recreate."""
         if not tree_data:
             return {"created_count": 0, "updated_count": 0, "deleted_count": 0}
@@ -404,11 +544,20 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         criteria_type = self._get_criteria_type()
         model_has_side_field = self._model_has_side_field()
         new_instances: list[T] = []
+        top_level_instances: list[T] = []
+        pending_parent_refs: list[tuple[T, bool, list[str], list[str]]] = []
 
         def build(nodes, parent: T | None, root: T | None):
             for node in nodes:
+                primary_refs, secondary_refs = self._node_parent_refs(node, allows_multiple_primary_parents)
                 extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
-                criteria = self.model(user=user, type=criteria_type, parent=parent, **extra_kwargs)
+                criteria = self.model(
+                    user=user,
+                    type=criteria_type,
+                    parent=parent,
+                    allows_multiple_primary_parents=allows_multiple_primary_parents,
+                    **extra_kwargs,
+                )
                 pk = uuid.uuid4()
                 criteria.uuid = pk
                 criteria.pk = pk
@@ -417,21 +566,18 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 new_instances.append(criteria)
                 if hasattr(criteria, "_validate_side"):
                     criteria._validate_side()
+                if parent is None:
+                    top_level_instances.append(criteria)
+                pending_parent_refs.append((criteria, parent is None, primary_refs, secondary_refs))
                 build(node.get(InputFields.CHILDREN) or [], criteria, root if root is not None else criteria)
 
         build(tree_data, None, None)
-        self._bulk_create_and_link(new_instances)
-        self._on_bulk_created(new_instances, actor=actor)
-        return {"created_count": len(new_instances), "updated_count": 0, "deleted_count": 0}
-
-    def _bulk_create_and_link(self, new_instances: list[T]) -> None:
         try:
             bulk_create_mti(new_instances, using=self.db)
         except IntegrityError as e:
             self._raise_for_known_constraint(e)
-        for top_level_node in new_instances:
-            if top_level_node.parent_id is None:
-                self._refresh_ascendants_of_instance_and_children(top_level_node)
+        self._finish_import(user, new_instances, top_level_instances, pending_parent_refs, actor=actor)
+        return {"created_count": len(new_instances), "updated_count": 0, "deleted_count": 0}
 
     def _raise_for_known_constraint(self, error: IntegrityError) -> None:
         error_message = str(error)
@@ -451,7 +597,13 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         raise error
 
     def _import_tree_with_keys(
-        self, user: Any, tree_data: list, actor: Any, force: bool, model_has_manual_edit_fields: bool
+        self,
+        user: Any,
+        tree_data: list,
+        actor: Any,
+        force: bool,
+        model_has_manual_edit_fields: bool,
+        allows_multiple_primary_parents: bool,
     ) -> dict[str, Any]:
         from django.conf import settings
 
@@ -460,14 +612,15 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         self._require_node_keys(tree_data)
 
+        scoped_queryset = self.filter(user=user, allows_multiple_primary_parents=allows_multiple_primary_parents)
         existing_by_key: dict[str, T] = {
-            criteria.wikidata_id: criteria for criteria in self.filter(user=user) if criteria.wikidata_id
+            criteria.wikidata_id: criteria for criteria in scoped_queryset if criteria.wikidata_id
         }
         protected_keys: set[str] = set()
         if model_has_manual_edit_fields:
             protected_keys = {key for key, criteria in existing_by_key.items() if criteria.is_excluded}
 
-        pipeline_count_before = self.filter(user=user, source=CriteriaSource.PIPELINE).count()
+        pipeline_count_before = scoped_queryset.filter(source=CriteriaSource.PIPELINE).count()
 
         run = ImportRun.objects.create(user=user)
 
@@ -477,6 +630,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         new_instances: list[T] = []
         matched_instances: list[T] = []
         processed_keys: set[str] = set()
+        top_level_instances: list[T] = []
+        pending_parent_refs: list[tuple[T, bool, list[str], list[str]]] = []
 
         def build(nodes, parent: T | None, root: T | None):
             for node in nodes:
@@ -490,6 +645,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     continue
 
                 processed_keys.add(key)
+                primary_refs, secondary_refs = self._node_parent_refs(node, allows_multiple_primary_parents)
                 is_locked = False
                 if matched_criteria is not None:
                     criteria: T = matched_criteria
@@ -503,7 +659,14 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                         criteria.last_seen_run = run
                     matched_instances.append(criteria)
                 else:
-                    criteria = self.model(user=user, type=criteria_type, parent=parent, wikidata_id=key, **extra_kwargs)
+                    criteria = self.model(
+                        user=user,
+                        type=criteria_type,
+                        parent=parent,
+                        wikidata_id=key,
+                        allows_multiple_primary_parents=allows_multiple_primary_parents,
+                        **extra_kwargs,
+                    )
                     # Pre-generate the PK ourselves (rather than relying on the field's
                     # `default=uuid.uuid4`): for an MTI model the PK and the inherited
                     # base-table `uuid` are two distinct Python attributes and must be
@@ -521,6 +684,11 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 if hasattr(criteria, "_validate_side"):
                     criteria._validate_side()
 
+                if parent is None:
+                    top_level_instances.append(criteria)
+                if not is_locked:
+                    pending_parent_refs.append((criteria, parent is None, primary_refs, secondary_refs))
+
                 children = node.get(InputFields.CHILDREN) or []
                 if children:
                     # A locked row's own root wasn't touched above (it may not even match
@@ -532,7 +700,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         build(tree_data, None, None)
 
         stale_queryset = (
-            self.filter(user=user, source=CriteriaSource.PIPELINE, is_manually_edited=False)
+            scoped_queryset.filter(source=CriteriaSource.PIPELINE, is_manually_edited=False)
             .exclude(pk__in=[c.pk for c in matched_instances if c.last_seen_run_id == run.pk])
             .exclude(wikidata_id__in=protected_keys)
         )
@@ -572,11 +740,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         except IntegrityError as e:
             self._raise_for_known_constraint(e)
 
-        for top_level_node in (*new_instances, *matched_instances):
-            if top_level_node.parent_id is None:
-                self._refresh_ascendants_of_instance_and_children(top_level_node)
-
-        self._on_bulk_created(new_instances, actor=actor)
+        self._finish_import(user, new_instances, top_level_instances, pending_parent_refs, actor=actor)
 
         actual_seen_count = self.filter(user=user, wikidata_id__in=processed_keys).count()
         if actual_seen_count != len(processed_keys):
@@ -600,3 +764,76 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             "updated_count": run.updated_count,
             "deleted_count": run.deleted_count,
         }
+
+    def _finish_import(
+        self,
+        user: Any,
+        new_instances: list[T],
+        top_level_instances: list[T],
+        pending_parent_refs: list[tuple[T, bool, list[str], list[str]]],
+        actor: Any,
+    ) -> None:
+        self._link_imported_parent_refs(user, pending_parent_refs)
+
+        for top_level_node in top_level_instances:
+            self._refresh_ascendants_of_instance_and_children(top_level_node)
+
+        # Top-level nodes may have been attached under other rows (possibly new ones) above:
+        # re-sync the in-memory roots and put parents first, as `_on_bulk_created` expects.
+        root_id_by_pk = dict(self.filter(pk__in=[c.pk for c in new_instances]).values_list("pk", "root_id"))
+        new_by_pk = {criteria.pk: criteria for criteria in new_instances}
+        for criteria in new_instances:
+            criteria.root_id = root_id_by_pk[criteria.pk]
+
+        def depth(criteria: T) -> int:
+            count = 0
+            while criteria.parent_id in new_by_pk:
+                criteria = new_by_pk[criteria.parent_id]
+                count += 1
+            return count
+
+        new_instances.sort(key=depth)
+        self._on_bulk_created(new_instances, actor=actor)
+
+    def _link_imported_parent_refs(self, user: Any, pending: list[tuple[T, bool, list[str], list[str]]]) -> None:
+        """Replaces the additional primary/secondary parents of the imported (unlocked) rows."""
+        if not pending:
+            return
+        pending_pks = [criteria.pk for criteria, *_ in pending]
+        for field_name in (Fields.ADDITIONAL_PRIMARY_PARENTS, Fields.SECONDARY_PARENTS):
+            field = self.model._meta.get_field(field_name)
+            field.remote_field.through.objects.filter(**{f"{field.m2m_field_name()}__in": pending_pks}).delete()
+
+        by_name: dict[str, T] = {}
+        by_wikidata_id: dict[str, T] = {}
+        for criteria in self.filter(user=user):
+            by_name[criteria.name] = criteria
+            if getattr(criteria, Fields.WIKIDATA_ID, None):
+                by_wikidata_id[criteria.wikidata_id] = criteria
+
+        def resolve(ref: str) -> T:
+            found = by_wikidata_id.get(ref) or by_name.get(ref)
+            if found is None:
+                raise AppValidationException(
+                    field_name=TreeImportFields.TREE,
+                    message=_("Unknown parent reference: %(ref)s") % {"ref": ref},
+                    field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
+                )
+            return found
+
+        for criteria, is_top_level, primary_refs, secondary_refs in pending:
+            if not primary_refs and not secondary_refs:
+                continue
+            primary = [resolve(ref) for ref in primary_refs]
+            if is_top_level and primary:
+                main_parent, *primary = primary
+                main_parent.refresh_from_db(fields=[Fields.ROOT])
+                criteria.parent = main_parent
+                criteria.root = main_parent.root
+                if hasattr(criteria, "_validate_side"):
+                    criteria._validate_side()
+                criteria.save(update_fields=[Fields.PARENT, Fields.ROOT])
+                self.update_children_root(criteria, criteria.root)
+            criteria.additional_primary_parents.add(*primary)
+            criteria.secondary_parents.add(*(resolve(ref) for ref in secondary_refs))
+            self._validate_parents(criteria)

@@ -17,6 +17,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Multiple parents on `AbstractCriteria` (genres and tags): `allows_multiple_primary_parents` flag, `additional_primary_parents` and `secondary_parents` (self M2Ms, auto through tables). `parent` stays the main primary parent (root, side, playlist tree). Tracks flow into every primary parent's playlist and its ascendants', never through secondary parents. Invariants enforced on create/update/import (`AppValidationException`): additional primary parents need the flag and a `parent`, children of a flag-true criteria must be flag-true, no self/duplicate/cross-type links, no cycle across all three edge sets.
+- `primary_parents` property and `primary_ascendants()` on `AbstractCriteria`; `ascendants` now holds every primary ascendant (minimum degree), secondary parents excluded.
+- Simple output serializer exposes `allows_multiple_primary_parents`, `primary_parents`, `secondary_parents`.
+- Tree import nodes accept optional `primary_parents` / `secondary_parents` (wikidata id or name refs, resolved against all the user's rows; unknown ref → `REFERENCE_INVALID`). On a top-level node the first primary ref becomes `parent`. Tested.
+
+### Changed
+
+- Track propagation, lineage refresh and delete use the primary graph: a genre change or primary-parent change only adds/removes tracks on gained/lost paths; deleting a criteria splices it out, its primary children inheriting its primary parents (first one promoted to `parent`).
+- `bulk_create_mti` marks inserted instances as saved (`_state.adding = False`).
+
+### Breaking
+
+- Consumers must run `makemigrations` (new column and two through tables on their concrete `Criteria`).
+- Tree import payload requires `allows_multiple_primary_parents`; import matches and stale-deletes only rows with that flag. Import the single-primary-parent tree first. List payloads are no longer accepted.
+- `build_criteria_tree(user, *, allows_multiple_primary_parents)` and `GET tree/?allowsMultiplePrimaryParents=true|false` now require the flag.
+- Removed `AbstractCriteriaManager.get_common_ascendant`, `AbstractCriteriaPlaylistManager.update_ascendants_tracks`, `add_tracks_to_instance_and_ascendants_until_criteria_limit` and `remove_tracks_from_instance_and_ascendants_until_criteria_limit`. Drop the `update_ascendants_tracks` call from `_on_parent_changed`; the kit's `update_instance` now moves tracks itself.
+- Tags have no track link, so a track tied directly to a tag playlist is removed from every lost ascendant when a tag's primary parents change.
+
 ## [0.28.0] - 2026-09-25
 
 ### Added
@@ -76,6 +96,8 @@ Existing rows predate `source` and `last_seen_run`, so each consumer's own migra
    by name too, unlike this package's own SQLite-backed test fixtures, which had to drop it (SQLite
    has no support for `nulls_distinct` constraints and Django silently skips creating the index at
    all rather than erroring).
+
+## [0.27.0] - 2026-09-25
 
 ### Removed
 
