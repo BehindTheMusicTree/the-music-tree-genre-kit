@@ -20,6 +20,9 @@ def build_criteria_simple_serializer(
         CriteriaOutputFieldKey.CREATED_ON.value,
         CriteriaOutputFieldKey.SIDE.value,
         CriteriaOutputFieldKey.SUMMARY.value,
+        CriteriaOutputFieldKey.ALLOWS_MULTIPLE_PRIMARY_PARENTS.value,
+        CriteriaOutputFieldKey.PRIMARY_PARENTS.value,
+        CriteriaOutputFieldKey.SECONDARY_PARENTS.value,
     ]
 
     # `side` is a real column only on the concrete Genre subtype (see
@@ -36,6 +39,8 @@ def build_criteria_simple_serializer(
 
     class CriteriaSimpleSerializer(*bases):
         parent = minimum_serializer_class()
+        primary_parents = minimum_serializer_class(many=True, read_only=True)
+        secondary_parents = minimum_serializer_class(many=True, read_only=True)
 
         class Meta:
             model = criteria_model

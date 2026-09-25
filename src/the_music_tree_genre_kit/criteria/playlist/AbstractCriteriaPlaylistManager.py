@@ -20,7 +20,7 @@ T = TypeVar("T", bound=AbstractCriteriaPlaylist)
 class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
     """
     Owns the tree-structure logic (root propagation) and the track-touching
-    logic (ascendant track-limit maintenance, criteria-less transfer) that
+    primitives (track rels, criteria-less transfer) that
     used to be duplicated line-for-line between grow and hear. Fully
     concrete: track-touching methods are built on `track_playlist_rel_model`/
     `track_model`, plain class attributes wired by the concrete app's manager
@@ -137,50 +137,6 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
     def update_descendants_root(self, instance: T, root: T) -> None:
         for child in instance.children.all():
             self.update_instance_and_children_root(instance=child, root=root)
-
-    def update_ascendants_tracks(
-        self, instance: T, old_parent: AbstractCriteria | None, common_criteria: AbstractCriteria | None
-    ) -> None:
-        if instance.parent:
-            self.add_tracks_to_instance_and_ascendants_until_criteria_limit(
-                instance=instance.parent, tracks=self.get_direct_tracks(instance), criteria_limit=common_criteria
-            )
-
-        if old_parent:
-            self.remove_tracks_from_instance_and_ascendants_until_criteria_limit(
-                instance=old_parent.criteria_playlist,
-                tracks=self.get_direct_tracks(instance),
-                criteria_limit=common_criteria,
-            )
-
-    def add_tracks_to_instance_and_ascendants_until_criteria_limit(
-        self,
-        instance: T,
-        tracks: QuerySet,
-        criteria_limit: AbstractCriteria | None = None,
-    ) -> None:
-        if instance.criteria != criteria_limit:
-            for track in tracks:
-                self._create_track_rel(user=instance.user, playlist=instance, track=track)
-
-            if instance.parent:
-                self.add_tracks_to_instance_and_ascendants_until_criteria_limit(
-                    instance=instance.parent, tracks=tracks, criteria_limit=criteria_limit
-                )
-
-    def remove_tracks_from_instance_and_ascendants_until_criteria_limit(
-        self,
-        instance: T,
-        tracks: QuerySet,
-        criteria_limit: AbstractCriteria | None = None,
-    ) -> None:
-        if instance.criteria != criteria_limit:
-            self._delete_track_rels_and_fill_positions(instance=instance, tracks=tracks)
-
-            if instance.parent:
-                self.remove_tracks_from_instance_and_ascendants_until_criteria_limit(
-                    instance=instance.parent, tracks=tracks, criteria_limit=criteria_limit
-                )
 
     def transfer_direct_tracks_to_criterialess_playlist(self, direct_tracks: QuerySet, criteria_playlist: T) -> None:
         criterialess_playlist = self.get(user=criteria_playlist.user, criteria=None, type=criteria_playlist.type)

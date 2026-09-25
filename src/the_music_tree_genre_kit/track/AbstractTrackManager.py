@@ -37,46 +37,21 @@ class AbstractTrackManager(StandardResourceManager[T]):
     model: type[T]
     criteria_playlist_model: type[models.Model]
 
-    def _remove_from_genre_playlists(self, instance: T, old_genre, genre_limit=None):
+    def _genre_playlists(self, instance: T, genre) -> dict[Any, Any]:
+        """The playlists a track with `genre` belongs to: the genre's and every primary ascendant's, or the genreless one."""
         from the_music_tree_genre_kit.criteria.type.CriteriaTypePks import CriteriaTypePks
 
-        criteria_playlist_model = type(self).criteria_playlist_model
-
-        if old_genre:
-            old_genre_tree_item = old_genre
-            while old_genre_tree_item != genre_limit:
-                TrackPlaylistRel.objects.delete_instance(
-                    user=instance.user, playlist=old_genre_tree_item.criteria_playlist, track=instance
-                )
-
-                # The loop will stop before genre_tree_item is None
-                old_genre_tree_item = old_genre_tree_item.parent
-
-        else:
-            genreless_criteria_playlist = criteria_playlist_model.objects.get(
+        if genre is None:
+            genreless_playlist = type(self).criteria_playlist_model.objects.get(
                 user=instance.user, type=CriteriaTypePks.GENRE, criteria=None
             )
-            TrackPlaylistRel.objects.filter(playlist=genreless_criteria_playlist, track=instance).delete()
+            return {genreless_playlist.pk: genreless_playlist}
+        genres = [genre, *(ascendant for ascendant, _degree in genre.primary_ascendants().values())]
+        return {item.criteria_playlist.pk: item.criteria_playlist for item in genres}
 
-    def _add_to_genre_playlists(self, instance: T, genre_limit=None):
-        from the_music_tree_genre_kit.criteria.type.CriteriaTypePks import CriteriaTypePks
-
-        criteria_playlist_model = type(self).criteria_playlist_model
-
-        if instance.genre:
-            genre_tree_item = instance.genre
-            while genre_tree_item != genre_limit:
-                TrackPlaylistRel.objects.create(
-                    user=instance.user, playlist=genre_tree_item.criteria_playlist, track=instance
-                )
-
-                # The loop will stop before genre_tree_item is None
-                genre_tree_item = genre_tree_item.parent
-        else:
-            genreless_criteria_playlist = criteria_playlist_model.objects.get(
-                user=instance.user, type=CriteriaTypePks.GENRE, criteria=None
-            )
-            TrackPlaylistRel.objects.create(user=instance.user, playlist=genreless_criteria_playlist, track=instance)
+    def _add_to_genre_playlists(self, instance: T):
+        for playlist in self._genre_playlists(instance, instance.genre).values():
+            TrackPlaylistRel.objects.create(user=instance.user, playlist=playlist, track=instance)
 
     def _decrease_position_of_next_tracks_in_old_track_playlists(self, user: User, playlists_with_old_position: list):
         for playlist_uuid, old_position in playlists_with_old_position:
@@ -86,16 +61,15 @@ class AbstractTrackManager(StandardResourceManager[T]):
             track_playlist_rels_to_update.update(position=F("position") - 1)
 
     def _update_genre_playlists(self, instance: T, old_genre):
-        criteria_model = apps.get_model(settings.CRITERIA_MODEL)
+        old_playlists = self._genre_playlists(instance, old_genre)
+        new_playlists = self._genre_playlists(instance, instance.genre)
 
-        common_genre = (
-            criteria_model.objects.get_common_ascendant(instance.genre, old_genre)
-            if old_genre and instance.genre
-            else None
-        )
-
-        self._add_to_genre_playlists(instance=instance, genre_limit=common_genre)
-        self._remove_from_genre_playlists(instance=instance, old_genre=old_genre, genre_limit=common_genre)
+        for playlist_pk in new_playlists.keys() - old_playlists.keys():
+            TrackPlaylistRel.objects.create(user=instance.user, playlist=new_playlists[playlist_pk], track=instance)
+        for playlist_pk in old_playlists.keys() - new_playlists.keys():
+            TrackPlaylistRel.objects.delete_instance(
+                user=instance.user, playlist=old_playlists[playlist_pk], track=instance
+            )
 
     def _model_has_manual_edit_field(self) -> bool:
         """
@@ -226,10 +200,9 @@ class AbstractTrackManager(StandardResourceManager[T]):
         per song), the `artists` M2M for new tracks is written via a single
         `bulk_create` on its auto-generated through model (instead of one `.set()`
         call per song), and every ancestor-genre `TrackPlaylistRel` for new tracks
-        is `bulk_create`d in one shot from ancestor chains walked in Python off the
-        already-fetched criteria (instead of one `.create()` per ancestor per
-        song). A new `Track` row still needs one `save()` each - Django's
-        `bulk_create` refuses multi-table inherited models, and every concrete
+        is `bulk_create`d in one shot from each distinct genre's primary ascendants
+        (instead of one `.create()` per ancestor per song). A new `Track` row still
+        needs one `save()` each - Django's `bulk_create` refuses multi-table inherited models, and every concrete
         `Track` subclass is one.
 
         ponytail: matched (non-new) tracks only refresh `title`/`genre` - `artists`
@@ -252,10 +225,8 @@ class AbstractTrackManager(StandardResourceManager[T]):
                     self.delete_instance_with_checking_album_and_artists_potential_deletion(track)
             return {"imported": 0, "skipped": 0}
 
-        criteria_by_pk: dict[Any, Any] = {}
         criteria_by_lower_name: dict[str, Any] = {}
         for criteria in criteria_model.objects.filter(user=user):
-            criteria_by_pk[criteria.pk] = criteria
             criteria_by_lower_name.setdefault(criteria._name.lower(), criteria)
 
         matched_entries: list[tuple[dict[str, Any], Any]] = []
@@ -343,13 +314,9 @@ class AbstractTrackManager(StandardResourceManager[T]):
 
         def _ancestor_playlists(genre) -> list:
             if genre.pk not in ancestor_playlists_by_genre_pk:
-                playlists = []
-                genre_tree_item = genre
-                while genre_tree_item is not None:
-                    playlists.append(playlist_by_criteria_pk[genre_tree_item.pk])
-                    parent_pk = genre_tree_item.parent_id
-                    genre_tree_item = criteria_by_pk.get(parent_pk) if parent_pk else None
-                ancestor_playlists_by_genre_pk[genre.pk] = playlists
+                ancestor_playlists_by_genre_pk[genre.pk] = [
+                    playlist_by_criteria_pk[pk] for pk in (genre.pk, *genre.primary_ascendants())
+                ]
             return ancestor_playlists_by_genre_pk[genre.pk]
 
         playlist_rel_groups: dict[Any, list[TrackPlaylistRel]] = {}

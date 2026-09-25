@@ -44,6 +44,17 @@ class AbstractCriteria(PrivateUniqueResource):
         "self", on_delete=models.SET_NULL, null=True, related_name=Fields.CHILDREN
     )  # type: ignore
 
+    # `parent` is the main primary parent (drives root, side, the criteria-playlist
+    # tree). Additional primary parents also receive the criteria's tracks; secondary
+    # parents are classification links only.
+    allows_multiple_primary_parents = models.BooleanField(default=False)
+    additional_primary_parents: QuerySet[AbstractCriteria] = PrivateManyToManyField(
+        "self", symmetrical=False, blank=True, related_name=Fields.ADDITIONAL_PRIMARY_CHILDREN
+    )  # type: ignore
+    secondary_parents: QuerySet[AbstractCriteria] = PrivateManyToManyField(
+        "self", symmetrical=False, blank=True, related_name=Fields.SECONDARY_CHILDREN
+    )  # type: ignore
+
     root: AbstractCriteria = PrivateForeignKey("self", on_delete=models.DO_NOTHING, related_name=Fields.DESCENDANTS)  # type: ignore
 
     type = AppForeignKey(CriteriaType, on_delete=models.CASCADE)
@@ -58,6 +69,8 @@ class AbstractCriteria(PrivateUniqueResource):
         descendants: QuerySet[AbstractCriteria]
         descendants_rels: QuerySet[AbstractCriteriaLineageRel]
         children: QuerySet[AbstractCriteria]
+        additional_primary_children: QuerySet[AbstractCriteria]
+        secondary_children: QuerySet[AbstractCriteria]
 
     @property
     def name(self) -> str:
@@ -66,6 +79,29 @@ class AbstractCriteria(PrivateUniqueResource):
     @property
     def is_root(self) -> bool:
         return not self.parent
+
+    @property
+    def primary_parents(self) -> list[AbstractCriteria]:
+        additional = [] if self._state.adding else list(self.additional_primary_parents.all())
+        return [self.parent, *additional] if self.parent else additional
+
+    def primary_ascendants(self) -> dict[Any, tuple[AbstractCriteria, int]]:
+        """Every criteria reachable upward through primary parents, keyed by pk, with its minimum degree."""
+        found: dict[Any, tuple[AbstractCriteria, int]] = {}
+        frontier: list[AbstractCriteria] = [self]
+        degree = 0
+        while frontier:
+            degree += 1
+            next_frontier = []
+            for node in frontier:
+                for parent in node.primary_parents:
+                    if parent.pk == self.pk:
+                        raise ValueError(f"Cycle detected in criteria primary parents at {self.pk!r}")
+                    if parent.pk not in found:
+                        found[parent.pk] = (parent, degree)
+                        next_frontier.append(parent)
+            frontier = next_frontier
+        return found
 
     @property
     def descendant_list(self) -> list[AbstractCriteria]:
@@ -130,12 +166,24 @@ class AbstractCriteria(PrivateUniqueResource):
             raise
 
     def is_descendant_of(self, other_criteria: AbstractCriteria) -> bool:
-        # Compare by pk, not `==`: Django's Model.__eq__ also requires
-        # `_meta.concrete_model` to match, which fails across MTI subtypes
-        # (e.g. a Genre instance vs. the base Criteria rows returned while
-        # walking `.parent`), silently defeating this cycle check.
-        if self.parent_id == other_criteria.pk:
-            return True
-        if self.parent:
-            return self.parent.is_descendant_of(other_criteria)
+        """
+        Whether `other_criteria` is reachable upward through any parent link (main,
+        additional primary or secondary). Compares by pk, not `==`: Django's
+        Model.__eq__ also requires `_meta.concrete_model` to match, which fails across
+        MTI subtypes (e.g. a Genre instance vs. base Criteria rows).
+        """
+        model = type(self)._meta.get_field(Fields.PARENT).related_model
+        visited: set[Any] = set()
+        frontier = {self.pk}
+        while frontier:
+            visited |= frontier
+            parent_ids: set[Any] = set()
+            for parent_id, additional_id, secondary_id in model._default_manager.filter(pk__in=frontier).values_list(
+                Fields.PARENT, Fields.ADDITIONAL_PRIMARY_PARENTS, Fields.SECONDARY_PARENTS
+            ):
+                parent_ids |= {parent_id, additional_id, secondary_id}
+            parent_ids.discard(None)
+            if other_criteria.pk in parent_ids:
+                return True
+            frontier = parent_ids - visited
         return False

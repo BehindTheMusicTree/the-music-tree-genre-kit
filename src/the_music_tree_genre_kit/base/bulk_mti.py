@@ -25,6 +25,9 @@ def bulk_create_mti(instances: list[models.Model], *, using: str) -> None:
     model = type(instances[0])
     for level_model in _base_first_concrete_chain(model):
         _raw_insert_level(level_model, instances, using=using)
+    for instance in instances:
+        instance._state.adding = False
+        instance._state.db = using
 
 
 def _base_first_concrete_chain(model: type[models.Model]) -> list[type[models.Model]]:
