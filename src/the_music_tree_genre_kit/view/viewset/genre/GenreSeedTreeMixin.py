@@ -5,6 +5,7 @@ from django.conf import settings
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from the_music_tree_api_kit.private.get_request_owner import get_request_owner
 
 from the_music_tree_genre_kit.criteria.AbstractCriteria import AbstractCriteria
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.serializer import (
@@ -46,7 +47,7 @@ class GenreSeedTreeMixin[T: AbstractCriteria]:
         serializer = CriteriaTreeImportSerializer(data={"tree": data["tree"]})
         serializer.is_valid(raise_exception=True)
 
-        self.model_class.objects.import_criteria_tree(request.user, serializer.validated_data)
+        self.model_class.objects.import_criteria_tree(get_request_owner(request), serializer.validated_data)
         self.on_seed_tree_loaded(request)
 
         return Response({"message": "Seed genre tree loaded successfully"}, status=status.HTTP_201_CREATED)

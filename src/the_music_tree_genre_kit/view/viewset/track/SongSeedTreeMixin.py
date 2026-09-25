@@ -5,6 +5,7 @@ from django.conf import settings
 from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from the_music_tree_api_kit.private.get_request_owner import get_request_owner
 
 from the_music_tree_genre_kit.serializer.model.track.input.song_seed.Fields import Fields
 from the_music_tree_genre_kit.serializer.model.track.input.song_seed.import_serializer import (
@@ -45,7 +46,7 @@ class SongSeedTreeMixin[T: Track]:
         serializer = SongSeedImportSerializer(data={Fields.SONGS: data})
         serializer.is_valid(raise_exception=True)
 
-        self.model_class.objects.import_seed_songs(request.user, serializer.validated_data[Fields.SONGS])
+        self.model_class.objects.import_seed_songs(get_request_owner(request), serializer.validated_data[Fields.SONGS])
         self.on_seed_songs_loaded(request)
 
         return Response({"message": "Seed songs loaded successfully"}, status=status.HTTP_201_CREATED)

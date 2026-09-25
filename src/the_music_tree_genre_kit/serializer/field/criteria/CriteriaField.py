@@ -3,6 +3,7 @@ from typing import Any
 from django.conf import settings
 from django.db.models.query import QuerySet
 from rest_framework.relations import PrimaryKeyRelatedField
+from the_music_tree_api_kit.private.get_request_owner import get_request_owner
 from the_music_tree_api_kit.serializer.field.AppCharField import AppCharField
 from the_music_tree_api_kit.serializer.field.AppField import AppField
 from the_music_tree_api_kit.serializer.field.foreign_key.PrivateUuidField import PrivateUuidField
@@ -72,7 +73,7 @@ class CriteriaField(AppField, PrimaryKeyRelatedField):
         if CriteriaFieldInputType.NAME in self.input_types and self.char_field:
             validated_name = self.char_field.to_internal_value(data)
             model_class = self.get_queryset().model
-            user = self.context["request"].user
+            user = get_request_owner(self.context["request"])
             return model_class.objects.get_or_create(user=user, name=validated_name)[0]
 
         self.fail("invalid", detail="Field must be a valid UUID or name.")

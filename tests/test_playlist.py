@@ -77,3 +77,11 @@ def test_tracks_not_archived_dict_by_position_empty_when_no_relations(user, genr
     criteria_playlist = CriteriaPlaylist.objects.create(user=user, type=genre_type, criteria=root_criteria)
 
     assert criteria_playlist.playlist.tracks_not_archived_dict_by_position == {}
+
+
+@pytest.mark.django_db
+def test_playlist_can_be_ownerless(user):
+    ownerless = KitPlaylist.objects.create(user=None)
+    KitPlaylist.objects.create(user=user)
+
+    assert list(KitPlaylist.objects.filter(user=None)) == [ownerless]
