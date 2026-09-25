@@ -17,6 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.29.1] - 2026-09-25
+
+### Fixed
+
+- Keyed genre import now adopts legacy rows imported before nodes carried an `id`: an unmatched
+  key claims the same-scope `source=pipeline`, non-manually-edited row with the same name
+  (case-insensitive) and NULL `wikidata_id`, setting its `wikidata_id`, instead of creating a
+  duplicate (or failing on the case-insensitive name constraint) and stale-deleting the original.
+  Consumers must backfill `source=pipeline` on those legacy rows for them to be adopted.
+
 ## [0.29.0] - 2026-09-25
 
 ### Added
