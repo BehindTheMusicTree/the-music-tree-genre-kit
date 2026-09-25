@@ -10,6 +10,8 @@ wheels/
 .venv
 .coverage
 htmlcov/
+.mypy_cache/
+.pytest_cache/
 
 # Local scratch (PR descriptions, etc.)
 .local/
