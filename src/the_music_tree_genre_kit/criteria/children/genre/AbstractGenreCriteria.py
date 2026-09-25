@@ -9,6 +9,8 @@ from the_music_tree_api_kit.field.AppCharField import AppCharField
 
 from ...CriteriaSide import CriteriaSide
 from ...Fields import Fields
+from ...import_run.ImportRun import ImportRun
+from .CriteriaSource import CriteriaSource
 
 
 class AbstractGenreCriteria(models.Model):
@@ -49,15 +51,18 @@ class AbstractGenreCriteria(models.Model):
 
     wikidata_id = AppCharField(max_length=32, null=True, blank=True, db_column=Fields.WIKIDATA_ID)
     """
-    Optional wikidata QID (e.g. "Q9759") identifying this genre, used by
-    `AbstractCriteriaManager.import_criteria_tree` to match an incoming node
-    against an existing row across repeated imports instead of recreating it.
-    No DB-level uniqueness is enforced here -- this abstract mixin has no
-    `Meta.constraints` of its own -- so a consumer's concrete Genre model must
-    add its own `UniqueConstraint(fields=["wikidata_id", "user"],
-    condition=Q(wikidata_id__isnull=False), name="unique_wikidata_id_per_user")`,
-    mirroring `unique_name_per_user`.
+    Stable key identifying this genre across imports: a wikidata QID (e.g. "Q9759")
+    or a synthetic key (e.g. "LOCAL:reggae-dub"). `import_criteria_tree` requires one
+    on every node and matches existing rows by it only. No DB-level uniqueness is
+    enforced here -- this abstract mixin has no `Meta.constraints` of its own -- so a
+    consumer's concrete Genre model must add its own
+    `UniqueConstraint(fields=["wikidata_id", "user"], condition=Q(wikidata_id__isnull=False),
+    nulls_distinct=False, name="unique_wikidata_id_per_user")`.
     """
+
+    source = AppCharField(max_length=8, choices=CriteriaSource.choices, default=CriteriaSource.APP)
+
+    last_seen_run = models.ForeignKey(ImportRun, on_delete=models.SET_NULL, null=True, blank=True, related_name="+")
 
     is_manually_edited = models.BooleanField(default=False)
     """

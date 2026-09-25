@@ -17,7 +17,65 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-## [0.27.0] - 2026-09-25
+## [0.28.0] - 2026-09-25
+
+### Added
+
+- `CriteriaSource` (`pipeline`/`app`/`admin`) on `AbstractGenreCriteria`, defaulting to `app`. A
+  pipeline import (`import_criteria_tree`) only deletes stale `source=pipeline` rows that are not
+  manually edited, so app-created and admin-edited genres always survive a reimport.
+- `ImportRun` model, tracking `started_at`/`finished_at`/`status`/`created_count`/`updated_count`/
+  `deleted_count`/`user` per import. Genres matched or created during an import get a
+  `last_seen_run` FK, which scopes stale-delete to rows the current run didn't touch, so runs can
+  be diffed against each other.
+- `import_criteria_tree` now requires every node (including nested children) to carry a non-empty
+  `id` (a real wikidata QID or a synthetic key); a node without one raises
+  `AppValidationException` (`FieldValidationErrorCode.REQUIRED`) and the whole import is rejected.
+  Matching happens by key only, closing the historical path where a key-less node produced
+  NULL-id duplicates on reimport.
+- `dry_run` and `force` params on `import_criteria_tree`. `dry_run` runs the full plan/apply
+  inside the existing transaction and rolls it back, returning the would-be counts and writing
+  nothing (no rows, no `ImportRun`). `force` bypasses the new stale-delete size guard.
+- Stale-delete size guard: an import that would delete more than
+  `settings.CRITERIA_TREE_IMPORT_STALE_DELETE_MAX_FRACTION` of existing `source=pipeline` rows
+  raises `AppValidationException` (`FieldValidationErrorCode.DEFAULT`) unless `force=True`.
+- Drift check after apply: compares the post-apply row count for the imported keys against the
+  number of keys in the payload and raises on mismatch.
+- `unique_wikidata_id_per_user` constraint on `Genre` (`wikidata_id`, `user`, where
+  `wikidata_id` is not null) and a case-insensitive `unique_name_per_user` constraint on
+  `Criteria` (`Lower(name)`, `user`), closing the case-insensitive duplicate names that the old
+  case-sensitive constraint let through. Migrations `0007_importrun` (this package) and the
+  consumer's own migration for the constraint change.
+
+### Breaking
+
+- Consumers must add `id` to every node of any tree they pass to `import_criteria_tree` — a
+  payload with a key-less node (at any depth) is now rejected outright.
+- Consumers with existing rows must backfill `source` and resolve any case-insensitive duplicate
+  names before applying the new `unique_name_per_user` constraint (see below); the constraint
+  migration will fail on live conflicting rows.
+- A pipeline reimport now only touches `source=pipeline` rows; a consumer relying on reimport to
+  clean up `source=app`/`source=admin` rows must migrate that cleanup elsewhere.
+- A reimport that deletes more than half of existing pipeline rows in one call now requires
+  `force=True`.
+
+### Data migration strategy for existing consumer rows (grow-api, hear-api)
+
+Existing rows predate `source` and `last_seen_run`, so each consumer's own migration must:
+
+1. Backfill `source`: rows with a `wikidata_id` (or otherwise known to originate from the pipeline
+   import) get `source=pipeline`; rows created directly by end users get `source=app`;
+   `is_manually_edited` rows get `source=admin`.
+2. Resolve case-insensitive name collisions *before* adding the new `unique_name_per_user`
+   constraint. Legacy NULL-id duplicates (created by the pre-fix import bug) are the main expected
+   source of collisions — deduplicate/reparent those via the existing reparenting path first,
+   rather than deferring or weakening the constraint, so the constraint can be added outright.
+3. `nulls_distinct=False` on `unique_name_per_user` is safe to keep on Postgres 15+ (both
+   grow-api's and hear-api's production databases) since `supports_nulls_distinct_unique_constraints`
+   is a Postgres 15+ feature; it correctly makes ownerless/reference rows (`user IS NULL`) collide
+   by name too, unlike this package's own SQLite-backed test fixtures, which had to drop it (SQLite
+   has no support for `nulls_distinct` constraints and Django silently skips creating the index at
+   all rather than erroring).
 
 ### Removed
 

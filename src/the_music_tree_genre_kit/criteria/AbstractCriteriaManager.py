@@ -3,6 +3,7 @@ from typing import Any, TypeVar
 
 from django.db import IntegrityError, models, transaction
 from django.db.models import QuerySet
+from django.utils import timezone
 from django.utils.translation import gettext as _
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
@@ -101,6 +102,23 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         without these, `import_criteria_tree` has no override state to respect.
         """
         return any(field.name == "is_manually_edited" for field in self.model._meta.get_fields())
+
+    def _require_node_keys(self, nodes: list[dict]) -> None:
+        """
+        Every node in a wikidata_id-bearing model's import must carry a non-empty
+        `id` (a real wikidata QID or a synthetic key) -- matching happens by key only,
+        so a key-less node can never be found again on the next import, which is how
+        NULL-id duplicates were created historically. Reject the whole payload rather
+        than silently dropping or duplicating such a node.
+        """
+        for node in nodes:
+            if not node.get(InputFields.ID):
+                raise AppValidationException(
+                    field_name=InputFields.ID,
+                    message=_("Each node requires a wikidata_id or synthetic key"),
+                    field_validation_error_code=FieldValidationErrorCode.REQUIRED,
+                )
+            self._require_node_keys(node.get(InputFields.CHILDREN) or [])
 
     def _on_created(self, instance: T, *, actor: Any = None) -> None:
         """Hook: react to a newly created criteria. No-op by default."""
@@ -311,7 +329,9 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         return build_tree(None)
 
     @transaction.atomic
-    def import_criteria_tree(self, user: Any, data: dict, actor: Any = None) -> None:
+    def import_criteria_tree(
+        self, user: Any, data: dict, actor: Any = None, dry_run: bool = False, force: bool = False
+    ) -> dict[str, Any]:
         """
         Imports a tree structure of criteria, replacing all existing criteria.
         The input should be an array of criteria trees, where each tree follows the format:
@@ -326,37 +346,31 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         }
 
         Rows with `is_manually_edited=True` (Genre-only, see `AbstractGenreCriteria`) are
-        still matched by `wikidata_id`/name so their children keep importing normally, but
-        their own `parent`/`_name`/`side`/`root` are left untouched -- an admin edit always
-        wins over the next sync. Rows with `is_excluded=True` are skipped entirely (not
-        updated, not recursed into) and are protected from the stale-deletion pass below,
-        regardless of whether this import's tree still contains their `wikidata_id`.
+        still matched by key so their children keep importing normally, but their own
+        `parent`/`_name`/`side`/`root` are left untouched -- an admin edit always wins over
+        the next sync. Rows with `is_excluded=True` are skipped entirely (not updated, not
+        recursed into) and are protected from the stale-deletion pass below, regardless of
+        whether this import's tree still contains their key.
+
+        On a wikidata_id-bearing model (Genre), every node must carry a non-empty `id` (a
+        wikidata QID or a synthetic key) -- see `_require_node_keys` -- matching is by that
+        key only, no name fallback. Each applied run is recorded as an `ImportRun`; every
+        row this run creates or updates gets `last_seen_run` set to it, and the stale pass
+        deletes only `source=pipeline` rows (not locked) whose `last_seen_run` isn't this
+        run. A stale-deletion pass that would remove more than
+        `settings.CRITERIA_TREE_IMPORT_STALE_DELETE_MAX_FRACTION` of existing pipeline rows
+        is refused unless `force=True`. `dry_run=True` runs the whole plan-and-apply inside
+        this transaction and then rolls it back, so the returned counts reflect what would
+        happen without persisting anything.
+
+        Returns `{"created_count", "updated_count", "deleted_count", "dry_run"}`.
         """
+        empty_result = {"created_count": 0, "updated_count": 0, "deleted_count": 0, "dry_run": dry_run}
         if not data:
-            return
+            return empty_result
 
         model_has_wikidata_id_field = self._model_has_wikidata_id_field()
         model_has_manual_edit_fields = self._model_has_manual_edit_fields()
-
-        existing_by_name: dict[str, T] = {}
-
-        if not model_has_wikidata_id_field:
-            self._delete_stale_instances(self.filter(user=user), actor=actor)
-            existing_by_wikidata_id: dict[str, T] = {}
-        else:
-            existing_by_wikidata_id = {}
-            for criteria in self.filter(user=user):
-                existing_by_name[criteria.name] = criteria
-                if criteria.wikidata_id:
-                    existing_by_wikidata_id[criteria.wikidata_id] = criteria
-
-        # Excluded wikidata_ids are never touched by import -- neither recreated nor
-        # deleted -- regardless of whether this run's tree still contains them.
-        protected_wikidata_ids: set[str] = set()
-        if model_has_manual_edit_fields:
-            protected_wikidata_ids = {
-                wikidata_id for wikidata_id, criteria in existing_by_wikidata_id.items() if criteria.is_excluded
-            }
 
         if isinstance(data, dict) and TreeImportFields.TREE in data:
             tree_data = data[TreeImportFields.TREE]
@@ -365,38 +379,117 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         else:
             tree_data = []
 
+        if not model_has_wikidata_id_field:
+            self._delete_stale_instances(self.filter(user=user), actor=actor)
+            result = self._import_tree_without_keys(user=user, tree_data=tree_data, actor=actor)
+        else:
+            result = self._import_tree_with_keys(
+                user=user,
+                tree_data=tree_data,
+                actor=actor,
+                force=force,
+                model_has_manual_edit_fields=model_has_manual_edit_fields,
+            )
+
+        result["dry_run"] = dry_run
+        if dry_run:
+            transaction.set_rollback(True)
+        return result
+
+    def _import_tree_without_keys(self, user: Any, tree_data: list, actor: Any = None) -> dict[str, Any]:
+        """Tag-type criteria (no wikidata_id notion of identity): delete-and-recreate."""
         if not tree_data:
-            if model_has_wikidata_id_field:
-                stale_wikidata_ids = existing_by_wikidata_id.keys() - protected_wikidata_ids
-                self._delete_stale_instances(self.filter(user=user, wikidata_id__in=stale_wikidata_ids), actor=actor)
-            return
+            return {"created_count": 0, "updated_count": 0, "deleted_count": 0}
+
+        criteria_type = self._get_criteria_type()
+        model_has_side_field = self._model_has_side_field()
+        new_instances: list[T] = []
+
+        def build(nodes, parent: T | None, root: T | None):
+            for node in nodes:
+                extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
+                criteria = self.model(user=user, type=criteria_type, parent=parent, **extra_kwargs)
+                pk = uuid.uuid4()
+                criteria.uuid = pk
+                criteria.pk = pk
+                criteria._name = node.get(InputFields.NAME_PUBLIC)
+                criteria.root = root if root is not None else criteria
+                new_instances.append(criteria)
+                if hasattr(criteria, "_validate_side"):
+                    criteria._validate_side()
+                build(node.get(InputFields.CHILDREN) or [], criteria, root if root is not None else criteria)
+
+        build(tree_data, None, None)
+        self._bulk_create_and_link(new_instances)
+        self._on_bulk_created(new_instances, actor=actor)
+        return {"created_count": len(new_instances), "updated_count": 0, "deleted_count": 0}
+
+    def _bulk_create_and_link(self, new_instances: list[T]) -> None:
+        try:
+            bulk_create_mti(new_instances, using=self.db)
+        except IntegrityError as e:
+            self._raise_for_known_constraint(e)
+        for top_level_node in new_instances:
+            if top_level_node.parent_id is None:
+                self._refresh_ascendants_of_instance_and_children(top_level_node)
+
+    def _raise_for_known_constraint(self, error: IntegrityError) -> None:
+        error_message = str(error)
+        if constraint_violated(model=self.model, error_message=error_message, constraint_name="non_empty_name"):
+            raise AppValidationException(
+                field_name=Fields.NAME_PUBLIC,
+                message=_("Name cannot be empty"),
+                field_validation_error_code=FieldValidationErrorCode.NAME_EMPTY,
+            )
+        if constraint_violated(model=self.model, error_message=error_message, constraint_name="unique_name_per_user"):
+            raise AppValidationException(
+                field_name=Fields.NAME_PUBLIC,
+                message=_("A criteria name is already used"),
+                field_validation_error_code=FieldValidationErrorCode.NAME_DUPLICATE,
+            )
+        # Let other database integrity errors propagate to be handled as system errors
+        raise error
+
+    def _import_tree_with_keys(
+        self, user: Any, tree_data: list, actor: Any, force: bool, model_has_manual_edit_fields: bool
+    ) -> dict[str, Any]:
+        from django.conf import settings
+
+        from .children.genre.CriteriaSource import CriteriaSource
+        from .import_run.ImportRun import ImportRun
+
+        self._require_node_keys(tree_data)
+
+        existing_by_key: dict[str, T] = {
+            criteria.wikidata_id: criteria for criteria in self.filter(user=user) if criteria.wikidata_id
+        }
+        protected_keys: set[str] = set()
+        if model_has_manual_edit_fields:
+            protected_keys = {key for key, criteria in existing_by_key.items() if criteria.is_excluded}
+
+        pipeline_count_before = self.filter(user=user, source=CriteriaSource.PIPELINE).count()
+
+        run = ImportRun.objects.create(user=user)
 
         criteria_type = self._get_criteria_type()
         model_has_side_field = self._model_has_side_field()
 
         new_instances: list[T] = []
         matched_instances: list[T] = []
-        matched_wikidata_ids: set[str] = set()
+        processed_keys: set[str] = set()
 
-        def build_criteria_tree(nodes, parent: T | None, root: T | None):
+        def build(nodes, parent: T | None, root: T | None):
             for node in nodes:
                 extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
                 node_name = node.get(InputFields.NAME_PUBLIC)
-                wikidata_id = node.get(InputFields.ID) if model_has_wikidata_id_field else None
-                matched_criteria = existing_by_wikidata_id.get(wikidata_id) if wikidata_id else None
-                if matched_criteria is None and model_has_wikidata_id_field and not wikidata_id:
-                    # No id on this node: fall back to matching an existing row by name, so
-                    # that repeat imports of an id-less tree (e.g. a consumer's bundled seed
-                    # tree with no wikidataIds) stay idempotent instead of re-inserting every
-                    # node and hitting unique_name_per_user. `name` is already unique per user
-                    # regardless of parent, so matching on name alone is sufficient.
-                    matched_criteria = existing_by_name.get(node_name)
+                key = node[InputFields.ID]
+                matched_criteria = existing_by_key.get(key)
 
                 if matched_criteria is not None and model_has_manual_edit_fields and matched_criteria.is_excluded:
                     # Admin-excluded: keep it (and its subtree) out of this import entirely.
-                    existing_by_name.pop(node_name, None)
                     continue
 
+                processed_keys.add(key)
                 is_locked = False
                 if matched_criteria is not None:
                     criteria: T = matched_criteria
@@ -407,18 +500,10 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                             setattr(criteria, field_name, value)
                         criteria._name = node_name
                         criteria.root = root if root is not None else criteria
-                    if wikidata_id:
-                        matched_wikidata_ids.add(wikidata_id)
-                    elif matched_criteria.wikidata_id:
-                        # Matched by name onto a row that still carries its own wikidata_id
-                        # (this import's node just didn't repeat it): keep it out of the
-                        # stale-wikidata_id deletion pass below.
-                        matched_wikidata_ids.add(matched_criteria.wikidata_id)
-                    existing_by_name.pop(node_name, None)
+                        criteria.last_seen_run = run
                     matched_instances.append(criteria)
                 else:
-                    criteria = self.model(user=user, type=criteria_type, parent=parent, **extra_kwargs)
-
+                    criteria = self.model(user=user, type=criteria_type, parent=parent, wikidata_id=key, **extra_kwargs)
                     # Pre-generate the PK ourselves (rather than relying on the field's
                     # `default=uuid.uuid4`): for an MTI model the PK and the inherited
                     # base-table `uuid` are two distinct Python attributes and must be
@@ -429,8 +514,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     criteria.pk = pk
                     criteria._name = node_name
                     criteria.root = root if root is not None else criteria
-                    if model_has_wikidata_id_field:
-                        criteria.wikidata_id = wikidata_id
+                    criteria.source = CriteriaSource.PIPELINE
+                    criteria.last_seen_run = run
                     new_instances.append(criteria)
 
                 if hasattr(criteria, "_validate_side"):
@@ -442,16 +527,34 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     # this branch's tree-walk root, if an admin moved it elsewhere) -- recurse
                     # using its real current root so descendants land under the right tree.
                     child_root = criteria.root if is_locked else (root if root is not None else criteria)
-                    build_criteria_tree(children, criteria, child_root)
+                    build(children, criteria, child_root)
 
-        build_criteria_tree(tree_data, None, None)
+        build(tree_data, None, None)
 
-        if model_has_wikidata_id_field:
-            stale_wikidata_ids = existing_by_wikidata_id.keys() - matched_wikidata_ids - protected_wikidata_ids
-            if stale_wikidata_ids:
-                self._delete_stale_instances(self.filter(user=user, wikidata_id__in=stale_wikidata_ids), actor=actor)
+        stale_queryset = (
+            self.filter(user=user, source=CriteriaSource.PIPELINE, is_manually_edited=False)
+            .exclude(pk__in=[c.pk for c in matched_instances if c.last_seen_run_id == run.pk])
+            .exclude(wikidata_id__in=protected_keys)
+        )
+        deleted_count = stale_queryset.count()
 
-        matched_update_fields = [Fields.NAME_INTERNAL, Fields.PARENT, Fields.ROOT]
+        if pipeline_count_before > 0 and not force:
+            fraction = deleted_count / pipeline_count_before
+            if fraction > settings.CRITERIA_TREE_IMPORT_STALE_DELETE_MAX_FRACTION:
+                raise AppValidationException(
+                    field_name=TreeImportFields.TREE,
+                    message=_(
+                        "This import would delete %(fraction)d%% of existing pipeline genres; pass force=true "
+                        "to proceed"
+                    )
+                    % {"fraction": round(fraction * 100)},
+                    field_validation_error_code=FieldValidationErrorCode.DEFAULT,
+                )
+
+        if deleted_count:
+            self._delete_stale_instances(stale_queryset, actor=actor)
+
+        matched_update_fields = [Fields.NAME_INTERNAL, Fields.PARENT, Fields.ROOT, "last_seen_run"]
         if model_has_side_field:
             matched_update_fields.append(Fields.SIDE)
 
@@ -467,26 +570,33 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 # (name/parent/side) above unless we list them here too.
                 criteria.save(update_fields=matched_update_fields)
         except IntegrityError as e:
-            error_message = str(e)
-            if constraint_violated(model=self.model, error_message=error_message, constraint_name="non_empty_name"):
-                raise AppValidationException(
-                    field_name=Fields.NAME_PUBLIC,
-                    message=_("Name cannot be empty"),
-                    field_validation_error_code=FieldValidationErrorCode.NAME_EMPTY,
-                )
-            if constraint_violated(
-                model=self.model, error_message=error_message, constraint_name="unique_name_per_user"
-            ):
-                raise AppValidationException(
-                    field_name=Fields.NAME_PUBLIC,
-                    message=_("A criteria name is already used"),
-                    field_validation_error_code=FieldValidationErrorCode.NAME_DUPLICATE,
-                )
-            # Let other database integrity errors propagate to be handled as system errors
-            raise
+            self._raise_for_known_constraint(e)
 
         for top_level_node in (*new_instances, *matched_instances):
             if top_level_node.parent_id is None:
                 self._refresh_ascendants_of_instance_and_children(top_level_node)
 
         self._on_bulk_created(new_instances, actor=actor)
+
+        actual_seen_count = self.filter(user=user, wikidata_id__in=processed_keys).count()
+        if actual_seen_count != len(processed_keys):
+            raise AppValidationException(
+                field_name=TreeImportFields.TREE,
+                message=_("Post-apply state does not match the imported payload"),
+                field_validation_error_code=FieldValidationErrorCode.DEFAULT,
+            )
+
+        run.finished_at = timezone.now()
+        run.status = ImportRun.Status.SUCCEEDED
+        run.created_count = len(new_instances)
+        run.updated_count = len(
+            [c for c in matched_instances if not (model_has_manual_edit_fields and c.is_manually_edited)]
+        )
+        run.deleted_count = deleted_count
+        run.save(update_fields=["finished_at", "status", "created_count", "updated_count", "deleted_count"])
+
+        return {
+            "created_count": run.created_count,
+            "updated_count": run.updated_count,
+            "deleted_count": run.deleted_count,
+        }
