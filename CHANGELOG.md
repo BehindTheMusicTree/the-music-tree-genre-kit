@@ -17,6 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-09-25
+
+### Removed
+
+- `GenreSeedTreeMixin` (`tree/load-seed`), `SongSeedTreeMixin` (`songs/load-seed`), `SongSeedImportSerializer` and the bundled `data/` fixtures (`prototype_genre_tree.json`, `song_seed.json`, `DATA_DIR`). Genre data now comes only from the pipeline import and admin edits; `songs/import` (`SongsImportMixin`) is unchanged. Load-seed tests removed.
+
+### Breaking
+
+- Consumers must drop `GenreSeedTreeMixin` / `SongSeedTreeMixin` from their viewsets and any `the_music_tree_genre_kit.data.DATA_DIR` reference.
+
 ## [0.26.0] - 2026-09-25
 
 ### Added
