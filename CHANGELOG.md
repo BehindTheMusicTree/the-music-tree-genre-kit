@@ -25,8 +25,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Bumped `the-music-tree-api-kit` pin to `v0.7.0`, picking up `AppModelViewSet._get_manager_write_kwargs` and the `get_owner` seam.
+- Bumped `the-music-tree-api-kit` pin to `v0.7.0`, picking up the `get_owner` seam.
 - Criteria tree build/import, seed-song import and `CriteriaField` name lookups now scope by `get_request_owner(request)` instead of `request.user`, so a viewset overriding `get_owner` to return `None` reads and writes ownerless rows.
+
+## [0.25.0] - 2026-09-24
+
+### Changed
+
+- Bumped `the-music-tree-api-kit` pin to `v0.6.0`, picking up `AppModelViewSet._get_manager_write_kwargs`.
 
 ## [0.24.0] - 2026-09-24
 
