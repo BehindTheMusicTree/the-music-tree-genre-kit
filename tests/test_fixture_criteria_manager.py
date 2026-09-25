@@ -642,3 +642,17 @@ def test_reimport_spares_app_and_admin_sourced_genres(user, genre_type):
     assert Genre.objects.filter(pk=app_genre.pk).exists()
     assert Genre.objects.filter(pk=admin_genre.pk).exists()
     assert Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
+
+
+@pytest.mark.django_db
+def test_import_adopts_legacy_unkeyed_pipeline_row_by_name(user, genre_type):
+    legacy = Genre.objects.create(user=user, _name="electronic", source=CriteriaSource.PIPELINE)
+
+    Genre.objects.import_criteria_tree(
+        user,
+        {"allows_multiple_primary_parents": False, "tree": [{"name": "Electronic", "id": "Q9759", "children": []}]},
+    )
+
+    adopted = Genre.objects.get(user=user)
+    assert adopted.pk == legacy.pk
+    assert adopted.wikidata_id == "Q9759" and adopted._name == "Electronic"
