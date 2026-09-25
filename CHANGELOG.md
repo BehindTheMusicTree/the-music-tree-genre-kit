@@ -17,6 +17,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.29.2] - 2026-09-25
+
+### Fixed
+
+- Tree import node `id` now accepts synthetic `LOCAL:<slug>` keys (as emitted by the pipelines for grouping
+  nodes) in addition to Wikidata QIDs; they were rejected with `Enter a valid value`.
+
 ## [0.29.1] - 2026-09-25
 
 ### Fixed

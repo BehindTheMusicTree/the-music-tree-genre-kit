@@ -16,7 +16,7 @@ class CriteriaTreeNodeSerializer(AppInputSerializer):
     children = AppListField(child=DictField(), required=False, default=list, allow_null=True)
     side = ChoiceField(choices=CriteriaSide.choices, required=False, allow_null=True)
     summary = AppCharField(required=False, allow_null=True, allow_blank=True)
-    id = AppCharField(required=False, allow_null=True, validators=[RegexValidator(r"^Q\d+$")])
+    id = AppCharField(required=False, allow_null=True, validators=[RegexValidator(r"^(Q\d+|LOCAL:[a-z0-9-]+)$")])
     primary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
     secondary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
 
