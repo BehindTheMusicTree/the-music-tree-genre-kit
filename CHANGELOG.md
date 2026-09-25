@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-09-25
+
 ### Added
 
 - `Track`, `Playlist` and `TrackPlaylistRel` now accept a null `user` (migration `0006_nullable_user`). A null owner marks ownerless, shared rows. Tested.
