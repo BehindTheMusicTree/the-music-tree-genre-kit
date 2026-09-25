@@ -616,6 +616,13 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         existing_by_key: dict[str, T] = {
             criteria.wikidata_id: criteria for criteria in scoped_queryset if criteria.wikidata_id
         }
+        # Rows imported before nodes carried a key: adopted by name, then keyed.
+        legacy_by_name: dict[str, T] = {
+            criteria.name.lower(): criteria
+            for criteria in scoped_queryset.filter(
+                wikidata_id__isnull=True, source=CriteriaSource.PIPELINE, is_manually_edited=False
+            )
+        }
         protected_keys: set[str] = set()
         if model_has_manual_edit_fields:
             protected_keys = {key for key, criteria in existing_by_key.items() if criteria.is_excluded}
@@ -639,6 +646,10 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 node_name = node.get(InputFields.NAME_PUBLIC)
                 key = node[InputFields.ID]
                 matched_criteria = existing_by_key.get(key)
+                if matched_criteria is None:
+                    matched_criteria = legacy_by_name.pop(node_name.lower(), None)
+                    if matched_criteria is not None:
+                        matched_criteria.wikidata_id = key
 
                 if matched_criteria is not None and model_has_manual_edit_fields and matched_criteria.is_excluded:
                     # Admin-excluded: keep it (and its subtree) out of this import entirely.
@@ -722,7 +733,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         if deleted_count:
             self._delete_stale_instances(stale_queryset, actor=actor)
 
-        matched_update_fields = [Fields.NAME_INTERNAL, Fields.PARENT, Fields.ROOT, "last_seen_run"]
+        matched_update_fields = [Fields.NAME_INTERNAL, Fields.PARENT, Fields.ROOT, "last_seen_run", "wikidata_id"]
         if model_has_side_field:
             matched_update_fields.append(Fields.SIDE)
 
