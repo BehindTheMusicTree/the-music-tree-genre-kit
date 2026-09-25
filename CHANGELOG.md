@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-09-25
+
 ### Added
 
 - Multiple parents on `AbstractCriteria` (genres and tags): `allows_multiple_primary_parents` flag, `additional_primary_parents` and `secondary_parents` (self M2Ms, auto through tables). `parent` stays the main primary parent (root, side, playlist tree). Tracks flow into every primary parent's playlist and its ascendants', never through secondary parents. Invariants enforced on create/update/import (`AppValidationException`): additional primary parents need the flag and a `parent`, children of a flag-true criteria must be flag-true, no self/duplicate/cross-type links, no cycle across all three edge sets.
