@@ -62,6 +62,10 @@ class Track(TrackablePlayCount):
         related_name=PlaylistFields.TRACKS_RELATED_NAME,
     )
 
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="%(class)ss", null=True, blank=True
+    )
+
     objects: TrackManager = TrackManager()
 
     class Meta:

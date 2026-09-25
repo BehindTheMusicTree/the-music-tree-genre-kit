@@ -17,9 +17,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `Track`, `Playlist` and `TrackPlaylistRel` now accept a null `user` (migration `0006_nullable_user`). A null owner marks ownerless, shared rows. Tested.
+
 ### Changed
 
-- Bumped `the-music-tree-api-kit` pin to `v0.6.0`, picking up `AppModelViewSet._get_manager_write_kwargs`.
+- Bumped `the-music-tree-api-kit` pin to `v0.7.0`, picking up `AppModelViewSet._get_manager_write_kwargs` and the `get_owner` seam.
+- Criteria tree build/import, seed-song import and `CriteriaField` name lookups now scope by `get_request_owner(request)` instead of `request.user`, so a viewset overriding `get_owner` to return `None` reads and writes ownerless rows.
 
 ## [0.24.0] - 2026-09-24
 

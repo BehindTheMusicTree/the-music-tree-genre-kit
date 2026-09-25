@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from .AbstractTrackPlaylistRel import AbstractTrackPlaylistRel
@@ -6,6 +7,10 @@ from .TrackPlaylistRelManager import TrackPlaylistRelManager
 
 
 class TrackPlaylistRel(AbstractTrackPlaylistRel):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="%(class)ss", null=True, blank=True
+    )
+
     objects: TrackPlaylistRelManager = TrackPlaylistRelManager()
 
     class Meta:

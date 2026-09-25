@@ -1,5 +1,6 @@
 from typing import TYPE_CHECKING, cast
 
+from django.conf import settings
 from django.db import models
 from the_music_tree_api_kit.trackable_play_count.TrackablePlayCount import TrackablePlayCount
 
@@ -14,6 +15,10 @@ if TYPE_CHECKING:
 
 
 class Playlist(TrackMixin, TrackablePlayCount):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="%(class)ss", null=True, blank=True
+    )
+
     objects: PlaylistManager = PlaylistManager()
 
     if TYPE_CHECKING:

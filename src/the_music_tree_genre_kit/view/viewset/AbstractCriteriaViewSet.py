@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.serializers import Serializer
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
+from the_music_tree_api_kit.private.get_request_owner import get_request_owner
 from the_music_tree_api_kit.serializer.SerializerType import SerializerType
 from the_music_tree_api_kit.view.viewset.model.AppModelViewSet import AppModelViewSet
 
@@ -34,7 +35,7 @@ class AbstractCriteriaViewSet[T: AbstractCriteria](AppModelViewSet[T]):
           ]
         }
         """
-        tree = self.model_class.objects.build_criteria_tree(request.user)
+        tree = self.model_class.objects.build_criteria_tree(get_request_owner(request))
         return Response(tree, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["post"], url_path="tree/import")
@@ -56,7 +57,7 @@ class AbstractCriteriaViewSet[T: AbstractCriteria](AppModelViewSet[T]):
         try:
             serializer = CriteriaTreeImportSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            self.model_class.objects.import_criteria_tree(request.user, serializer.validated_data)
+            self.model_class.objects.import_criteria_tree(get_request_owner(request), serializer.validated_data)
         except ValueError as e:
             raise AppValidationException(
                 field_name="data", message=str(e), field_validation_error_code=FieldValidationErrorCode.FORMAT_INVALID
