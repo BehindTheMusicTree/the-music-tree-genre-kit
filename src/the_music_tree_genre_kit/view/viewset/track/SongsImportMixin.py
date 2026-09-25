@@ -13,9 +13,7 @@ class SongsImportMixin[T: Track]:
     """
     Adds a `songs/import` action accepting an arbitrary flat list of
     {"title", "artist", "youtube_video_id", "genre_name"} entries, replacing all of the
-    current user's tracks. Unlike `SongSeedTreeMixin`'s `songs/load-seed`, the payload
-    comes from the request body rather than a bundled fixture file. Mix into an
-    `AppModelViewSet[T]` subclass for a track viewset.
+    current user's tracks. Mix into an `AppModelViewSet[T]` subclass for a track viewset.
     """
 
     model_class: type[T]
