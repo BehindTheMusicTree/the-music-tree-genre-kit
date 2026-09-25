@@ -1,4 +1,5 @@
 import uuid
+from collections import defaultdict
 from typing import Any, TypeVar
 
 from django.db import IntegrityError, models, transaction
@@ -58,16 +59,57 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     def _primary_children(self, instance: T) -> QuerySet[T]:
         return self.filter(models.Q(parent=instance) | models.Q(additional_primary_parents=instance)).distinct()
 
-    def _refresh_ascendants_of_instance_and_children(self, instance):
-        visited: set[Any] = set()
-        stack = [instance]
+    def _refresh_ascendants_of_instance_and_children(self, *instances: T) -> None:
+        """`_refresh_ascendants_of_instance` for `instances` and every primary descendant, computed
+        in memory from one load of the owner's primary-parent graph: one delete and one bulk insert
+        instead of per-row queries (a full tree import touches every row)."""
+        if not instances:
+            return
+        user_id = instances[0].user_id
+        parents_by_pk: dict[Any, list[Any]] = {
+            pk: [parent_id] if parent_id else []
+            for pk, parent_id in self.filter(user_id=user_id).values_list("pk", Fields.PARENT)
+        }
+        field = self.model._meta.get_field(Fields.ADDITIONAL_PRIMARY_PARENTS)
+        child_col, parent_col = field.m2m_field_name(), field.m2m_reverse_field_name()
+        for child_pk, parent_pk in field.remote_field.through.objects.filter(
+            **{f"{child_col}__user_id": user_id}
+        ).values_list(child_col, parent_col):
+            parents_by_pk[child_pk].append(parent_pk)
+
+        children_by_pk: dict[Any, list[Any]] = defaultdict(list)
+        for pk, parent_pks in parents_by_pk.items():
+            for parent_pk in parent_pks:
+                children_by_pk[parent_pk].append(pk)
+        affected: set[Any] = set()
+        stack = [instance.pk for instance in instances]
         while stack:
-            node = stack.pop()
-            if node.pk in visited:
-                continue
-            visited.add(node.pk)
-            self._refresh_ascendants_of_instance(node)
-            stack.extend(self._primary_children(node))
+            pk = stack.pop()
+            if pk not in affected:
+                affected.add(pk)
+                stack.extend(children_by_pk[pk])
+
+        rels = []
+        for pk in affected:
+            degree_by_ascendant: dict[Any, int] = {}
+            frontier, degree = [pk], 0
+            while frontier:
+                degree += 1
+                next_frontier = []
+                for node_pk in frontier:
+                    for parent_pk in parents_by_pk[node_pk]:
+                        if parent_pk == pk:
+                            raise ValueError(f"Cycle detected in criteria primary parents at {pk!r}")
+                        if parent_pk not in degree_by_ascendant:
+                            degree_by_ascendant[parent_pk] = degree
+                            next_frontier.append(parent_pk)
+                frontier = next_frontier
+            rels.extend(
+                self.lineage_rel_model(user_id=user_id, descendant_id=pk, ascendant_id=ascendant_pk, degree=d)
+                for ascendant_pk, d in degree_by_ascendant.items()
+            )
+        self.lineage_rel_model.objects.filter(descendant_id__in=affected).delete()
+        self.lineage_rel_model.objects.bulk_create(rels, batch_size=1000)
 
     def _validate_parents(self, instance: T) -> None:
         """Fail fast on any broken primary/secondary parent invariant (see `AbstractCriteria`)."""
@@ -786,8 +828,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     ) -> None:
         self._link_imported_parent_refs(user, pending_parent_refs)
 
-        for top_level_node in top_level_instances:
-            self._refresh_ascendants_of_instance_and_children(top_level_node)
+        self._refresh_ascendants_of_instance_and_children(*top_level_instances)
 
         # Top-level nodes may have been attached under other rows (possibly new ones) above:
         # re-sync the in-memory roots and put parents first, as `_on_bulk_created` expects.

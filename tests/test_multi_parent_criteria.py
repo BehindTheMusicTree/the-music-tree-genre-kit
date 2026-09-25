@@ -169,6 +169,11 @@ def test_import_scopes_by_flag_and_round_trips_parent_refs(user, genre_type):
     nu_fusion = Genre.objects.get(user=user, wikidata_id="Q2")
     assert fusion.parent.name == "Rock" and nu_fusion.root_id == fusion.parent_id
     assert ascendant_names(nu_fusion) == {"Fusion", "Rock", "Jazz"}
+    assert {rel.ascendant.name: rel.degree for rel in nu_fusion.ascendants_rels.all()} == {
+        "Fusion": 1,
+        "Rock": 2,
+        "Jazz": 2,
+    }
 
     exported_single = Genre.objects.build_criteria_tree(user, allows_multiple_primary_parents=False)
     exported_multi = Genre.objects.build_criteria_tree(user, allows_multiple_primary_parents=True)
