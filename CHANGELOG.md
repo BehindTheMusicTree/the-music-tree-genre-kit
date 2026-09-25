@@ -17,6 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.29.4] - 2026-09-25
+
+### Fixed
+
+- `import_criteria_tree` no longer times out on a full-size tree (e.g. grow staging's 1712-genre
+  canonical tree took >120s): the ascendant-lineage rebuild now loads the owner's primary-parent
+  graph once and computes every affected row's lineage in memory, with one delete and one bulk
+  insert instead of per-row queries. Same rows and degrees; the multi-parent import test now also
+  asserts degrees.
+
 ## [0.29.3] - 2026-09-25
 
 ### Fixed
