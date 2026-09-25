@@ -71,6 +71,54 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 user=instance.user, playlist=old_playlists[playlist_pk], track=instance
             )
 
+    def _bulk_update_genre_playlists(self, user: User, genre_changes: list[tuple[T, Any]]) -> None:
+        """
+        `_update_genre_playlists` for many `(track, old_genre)` pairs at once, with the same resulting
+        positions (each added track lands at position 1, LIFO) but one delete and one renumber per
+        touched playlist instead of a whole-playlist position shift per track and playlist.
+        """
+        playlists_by_genre_pk: dict[Any, dict[Any, Any]] = {}
+
+        def _playlists(track: T, genre) -> dict[Any, Any]:
+            key = genre.pk if genre is not None else None
+            if key not in playlists_by_genre_pk:
+                playlists_by_genre_pk[key] = self._genre_playlists(track, genre)
+            return playlists_by_genre_pk[key]
+
+        playlist_by_pk: dict[Any, Any] = {}
+        removed_track_pks: dict[Any, list[Any]] = {}
+        added_tracks: dict[Any, list[T]] = {}
+        for track, old_genre in genre_changes:
+            old_playlists = _playlists(track, old_genre)
+            new_playlists = _playlists(track, track.genre)
+            playlist_by_pk.update(old_playlists)
+            playlist_by_pk.update(new_playlists)
+            for playlist_pk in old_playlists.keys() - new_playlists.keys():
+                removed_track_pks.setdefault(playlist_pk, []).append(track.pk)
+            for playlist_pk in new_playlists.keys() - old_playlists.keys():
+                added_tracks.setdefault(playlist_pk, []).append(track)
+
+        for playlist_pk, track_pks in removed_track_pks.items():
+            TrackPlaylistRel.objects.filter(user=user, playlist_id=playlist_pk, track_id__in=track_pks).delete()
+
+        for playlist_pk in removed_track_pks.keys() | added_tracks.keys():
+            tracks = added_tracks.get(playlist_pk, [])
+            kept_rels = []
+            for position, rel in enumerate(
+                TrackPlaylistRel.objects.filter(user=user, playlist_id=playlist_pk, position__isnull=False).order_by(
+                    "position"
+                ),
+                len(tracks) + 1,
+            ):
+                if rel.position != position:
+                    rel.position = position
+                    kept_rels.append(rel)
+            TrackPlaylistRel.objects.bulk_update(kept_rels, ["position"], batch_size=1000)
+            TrackPlaylistRel.objects.bulk_create(
+                TrackPlaylistRel(user=user, playlist=playlist_by_pk[playlist_pk], track=track, position=len(tracks) - i)
+                for i, track in enumerate(tracks)
+            )
+
     def _model_has_manual_edit_field(self) -> bool:
         """
         Whether this manager's model declares the `is_manually_edited` column. Only a
@@ -246,6 +294,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
             return {"imported": 0, "skipped": skipped}
 
         new_entries: list[tuple[dict[str, Any], Any]] = []
+        genre_changes: list[tuple[T, Any]] = []
         updated_count = 0
         for entry, genre in matched_entries:
             existing_track = existing_by_video_id.get(entry[SongSeedFields.YOUTUBE_VIDEO_ID])
@@ -261,12 +310,14 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 existing_track.genre = genre
                 update_fields.append(Fields.GENRE)
                 existing_track.save(update_fields=update_fields)
-                self._update_genre_playlists(existing_track, old_genre=old_genre)
+                genre_changes.append((existing_track, old_genre))
                 self._on_track_genre_changed(existing_track, old_genre=old_genre, actor=actor)
             else:
                 existing_track.save(update_fields=update_fields)
 
             updated_count += 1
+
+        self._bulk_update_genre_playlists(user, genre_changes)
 
         unique_artist_names = list(dict.fromkeys(entry[SongSeedFields.ARTIST] for entry, _ in new_entries))
         artists_by_name = dict(

@@ -17,6 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.29.3] - 2026-09-25
+
+### Fixed
+
+- `import_seed_songs` no longer times out when many existing tracks change genre (e.g. thousands of
+  genreless tracks being re-assigned): their playlist moves are batched, with one delete and one position
+  renumber per touched playlist, instead of a whole-playlist position shift per track and playlist.
+  Resulting positions are unchanged.
+
 ## [0.29.2] - 2026-09-25
 
 ### Fixed

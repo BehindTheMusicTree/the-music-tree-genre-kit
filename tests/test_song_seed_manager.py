@@ -261,3 +261,33 @@ def test_import_seed_songs_large_batch(user, deep_house):
         TrackPlaylistRel.objects.filter(playlist=electronic.criteria_playlist).count()
         == electronic_count + house_count + deep_house_count
     )
+
+
+@pytest.mark.django_db
+def test_import_seed_songs_genre_change_positions_match_per_track_moves(user, deep_house):
+    electronic, house, deep_house_genre = deep_house
+    kept = Track.objects.create(user=user, title="Kept", genre=house, youtube_video_id="kept")
+    first = Track.objects.create(user=user, title="First", genre=None, youtube_video_id="first")
+    second = Track.objects.create(user=user, title="Second", genre=None, youtube_video_id="second")
+
+    Track.objects.import_seed_songs(
+        user,
+        [
+            {"title": "Kept", "artist": "A", "youtube_video_id": "kept", "genre_name": "House"},
+            {"title": "First", "artist": "A", "youtube_video_id": "first", "genre_name": "Deep House"},
+            {"title": "Second", "artist": "A", "youtube_video_id": "second", "genre_name": "Electronic"},
+        ],
+    )
+
+    def ordered(genre):
+        return list(
+            TrackPlaylistRel.objects.filter(playlist=genre.criteria_playlist)
+            .order_by("position")
+            .values_list("track_id", "position")
+        )
+
+    assert ordered(deep_house_genre) == [(first.pk, 1)]
+    assert ordered(house) == [(first.pk, 1), (kept.pk, 2)]
+    assert ordered(electronic) == [(second.pk, 1), (first.pk, 2), (kept.pk, 3)]
+    genreless = CriteriaPlaylist.objects.get(user=user, type=CriteriaTypePks.GENRE, criteria=None)
+    assert not TrackPlaylistRel.objects.filter(playlist=genreless).exists()
