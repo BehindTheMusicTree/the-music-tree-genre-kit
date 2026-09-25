@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-09-25
+
 ### Added
 
 - `CriteriaSource` (`pipeline`/`app`/`admin`) on `AbstractGenreCriteria`, defaulting to `app`. A
