@@ -9,6 +9,7 @@ from the_music_tree_api_kit.serializer.SerializerType import SerializerType
 from the_music_tree_api_kit.view.viewset.model.AppModelViewSet import AppModelViewSet
 
 from the_music_tree_genre_kit.criteria.AbstractCriteria import AbstractCriteria
+from the_music_tree_genre_kit.serializer.model.criteria.input.Fields import Fields as InputFields
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.serializer import (
     CriteriaTreeImportSerializer,
 )
@@ -23,7 +24,8 @@ class AbstractCriteriaViewSet[T: AbstractCriteria](AppModelViewSet[T]):
     @action(detail=False, methods=["get"])
     def tree(self, request):
         """
-        Returns a tree structure of all criteria.
+        Returns the tree of the criteria matching the required
+        `allowsMultiplePrimaryParents` query parameter (`true`/`false`).
         The structure follows the format:
         {
           "name": "Criteria name",
@@ -35,7 +37,16 @@ class AbstractCriteriaViewSet[T: AbstractCriteria](AppModelViewSet[T]):
           ]
         }
         """
-        tree = self.model_class.objects.build_criteria_tree(get_request_owner(request))
+        flag = request.query_params.get(InputFields.ALLOWS_MULTIPLE_PRIMARY_PARENTS)
+        if flag not in ("true", "false"):
+            raise AppValidationException(
+                field_name=InputFields.ALLOWS_MULTIPLE_PRIMARY_PARENTS,
+                message="Required boolean query parameter",
+                field_validation_error_code=FieldValidationErrorCode.REQUIRED,
+            )
+        tree = self.model_class.objects.build_criteria_tree(
+            get_request_owner(request), allows_multiple_primary_parents=flag == "true"
+        )
         return Response(tree, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["post"], url_path="tree/import")

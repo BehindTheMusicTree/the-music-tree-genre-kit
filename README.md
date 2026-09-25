@@ -4,6 +4,10 @@
 
 Shared genre/tag/criteria/tree library for `hear-the-music-tree-api` and `grow-the-music-tree-api`. Installable Python package (Django abstract base classes, managers, serializer fields) — not a deployable service.
 
+## Multiple parents
+
+A criteria (genre or tag) has a main `parent` plus optional `additional_primary_parents` (only when `allows_multiple_primary_parents` is true) and `secondary_parents` (always allowed). Tracks flow up through primary parents only; secondary parents are classification links. The tree import/export (`tree/import`, `tree/`) handles one flag value at a time: import the single-primary-parent tree first, then the multi-primary-parent tree, whose nodes reference the first via `primaryParents` / `secondaryParents` (wikidata id or name).
+
 ## Not shipped: consumer-defined criteria querysets
 
 This package has no concrete, queryable `Criteria` model — only `AbstractCriteria` (`abstract = True`). Serializers/fields that need to *query* a criteria table (as opposed to just representing one) can't be shipped here, since an abstract model has no table to query. Each consuming service defines its own concrete `Criteria(AbstractCriteria)` subclass and builds these locally against it:
