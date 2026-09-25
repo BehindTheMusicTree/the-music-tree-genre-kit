@@ -86,6 +86,12 @@ def test_to_internal_value_accepts_optional_id_field():
     assert validated["id"] == "Q9759"
 
 
+def test_to_internal_value_accepts_local_synthetic_id():
+    validated = _serializer().to_internal_value({"name": "Core Electronic", "id": "LOCAL:core-electronic"})
+
+    assert validated["id"] == "LOCAL:core-electronic"
+
+
 def test_to_internal_value_omits_id_when_not_provided():
     validated = _serializer().to_internal_value({"name": "House"})
 
