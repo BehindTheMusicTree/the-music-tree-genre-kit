@@ -1,6 +1,7 @@
 from typing import TYPE_CHECKING
 
 from django.db import models
+from django.db.models.functions import Lower
 from the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField import PrivateManyToManyField
 from the_music_tree_api_kit.field.foreign_key.PrivateOneToOneField import PrivateOneToOneField
 from the_music_tree_api_kit.private_unique_resource.PrivateUniqueResource import PrivateUniqueResource
@@ -35,7 +36,12 @@ class Criteria(AbstractCriteria):
             models.CheckConstraint(
                 condition=~models.Q(**{f"{CriteriaFields.NAME_INTERNAL}": ""}), name="non_empty_name"
             ),
-            models.UniqueConstraint(fields=[CriteriaFields.NAME_INTERNAL, "user"], name="unique_name_per_user"),
+            # ponytail: nulls_distinct=False (would make ownerless/reference rows collide by
+            # name too) is dropped here -- SQLite has no `supports_nulls_distinct_unique_constraints`
+            # so Django silently skips creating the index at all, and this fixture's `user` is
+            # non-nullable anyway. A Postgres-backed consumer with a nullable `user` should add
+            # nulls_distinct=False on its own concrete constraint.
+            models.UniqueConstraint(Lower(CriteriaFields.NAME_INTERNAL), "user", name="unique_name_per_user"),
         ]
 
 
@@ -57,6 +63,13 @@ class Genre(AbstractGenreCriteria, Criteria):  # type: ignore[django-manager-mis
 
     class Meta:
         app_label = "fixture_app"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["wikidata_id", "user"],
+                condition=models.Q(wikidata_id__isnull=False),
+                name="unique_wikidata_id_per_user",
+            ),
+        ]
 
 
 class Artist(PrivateUniqueResource):

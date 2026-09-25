@@ -5,7 +5,9 @@ from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import
 
 from tests.fixture_app.manager import CriteriaManager, GenreManager
 from tests.fixture_app.models import Criteria, CriteriaPlaylist, Genre, Track, TrackPlaylistRel
+from the_music_tree_genre_kit.criteria.children.genre.CriteriaSource import CriteriaSource
 from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
+from the_music_tree_genre_kit.criteria.import_run.ImportRun import ImportRun
 from the_music_tree_genre_kit.criteria.playlist.bootstrap_criterialess_playlists_for_user import (
     bootstrap_criterialess_playlists_for_user,
 )
@@ -91,9 +93,10 @@ def test_import_and_export_round_trip_preserves_pop_side(user, genre_type):
         "tree": [
             {
                 "name": "Electronic",
+                "id": "Q9759",
                 "children": [
-                    {"name": "Core Electronic", "children": []},
-                    {"name": "Pop Electronic", "side": "pop", "children": []},
+                    {"name": "Core Electronic", "id": "LOCAL:core-electronic", "children": []},
+                    {"name": "Pop Electronic", "id": "LOCAL:pop-electronic", "side": "pop", "children": []},
                 ],
             }
         ]
@@ -117,7 +120,11 @@ def test_import_and_export_round_trip_preserves_pop_side(user, genre_type):
 
 @pytest.mark.django_db
 def test_import_root_with_only_core_child_keeps_side_null(user, genre_type):
-    tree_data = {"tree": [{"name": "Classical", "children": [{"name": "Baroque", "children": []}]}]}
+    tree_data = {
+        "tree": [
+            {"name": "Classical", "id": "Q9730", "children": [{"name": "Baroque", "id": "Q37853", "children": []}]}
+        ]
+    }
 
     Genre.objects.import_criteria_tree(user, tree_data)
 
@@ -134,8 +141,13 @@ def test_import_criteria_tree_sets_ascendant_lineage_with_correct_degrees(user, 
         "tree": [
             {
                 "name": "Electronic",
+                "id": "Q9759",
                 "children": [
-                    {"name": "House", "children": [{"name": "Deep House", "children": []}]},
+                    {
+                        "name": "House",
+                        "id": "Q186024",
+                        "children": [{"name": "Deep House", "id": "Q1198500", "children": []}],
+                    },
                 ],
             }
         ]
@@ -192,7 +204,7 @@ def test_multiple_pop_side_siblings_allowed(user, genre_type):
 def test_import_criteria_tree_calls_on_bulk_created_once_with_full_tree(user, genre_type, monkeypatch):
     tree_data = {
         "tree": [
-            {"name": "Electronic", "children": [{"name": "House", "children": []}]},
+            {"name": "Electronic", "id": "Q9759", "children": [{"name": "House", "id": "Q186024", "children": []}]},
         ]
     }
 
@@ -213,7 +225,14 @@ def test_bulk_create_for_criteria_creates_playlists_matching_criteria_tree(user,
         "tree": [
             {
                 "name": "Electronic",
-                "children": [{"name": "House", "children": [{"name": "Deep House", "children": []}]}],
+                "id": "Q9759",
+                "children": [
+                    {
+                        "name": "House",
+                        "id": "Q186024",
+                        "children": [{"name": "Deep House", "id": "Q1198500", "children": []}],
+                    }
+                ],
             }
         ]
     }
@@ -258,7 +277,11 @@ def test_bulk_create_for_criteria_resolves_root_that_predates_the_batch(user, ge
     # is new -- its root ("Electronic") is absent from this batch and must be looked up in the DB.
     Genre.objects.import_criteria_tree(
         user,
-        {"tree": [{"name": "Electronic", "id": "Q9759", "children": [{"name": "House", "children": []}]}]},
+        {
+            "tree": [
+                {"name": "Electronic", "id": "Q9759", "children": [{"name": "House", "id": "Q186024", "children": []}]}
+            ]
+        },
     )
 
     root = Genre.objects.get(user=user, _name="Electronic")
@@ -303,15 +326,23 @@ def test_reimport_with_same_wikidata_id_updates_existing_row_in_place(user, genr
 
 
 @pytest.mark.django_db
-def test_genre_without_wikidata_id_survives_reimport_untouched(user, genre_type):
-    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Manual Genre", "children": []}]})
-    manual = Genre.objects.get(user=user, _name="Manual Genre")
+def test_genre_node_without_wikidata_id_is_rejected(user, genre_type):
+    with pytest.raises(AppValidationException) as exc_info:
+        Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Manual Genre", "children": []}]})
 
-    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.REQUIRED
+    assert not Genre.objects.filter(user=user).exists()
 
-    manual.refresh_from_db()
-    assert manual._name == "Manual Genre"
-    assert Genre.objects.filter(user=user, _name="Manual Genre").exists()
+
+@pytest.mark.django_db
+def test_genre_child_node_without_wikidata_id_is_rejected(user, genre_type):
+    tree_data = {"tree": [{"name": "Electronic", "id": "Q9759", "children": [{"name": "House", "children": []}]}]}
+
+    with pytest.raises(AppValidationException) as exc_info:
+        Genre.objects.import_criteria_tree(user, tree_data)
+
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.REQUIRED
+    assert not Genre.objects.filter(user=user).exists()
 
 
 @pytest.mark.django_db
@@ -326,7 +357,11 @@ def test_genre_absent_from_reimport_matched_by_wikidata_id_is_deleted(user, genr
     Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
     assert Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
 
-    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Classical", "id": "Q9730", "children": []}]})
+    # Deleting the only existing pipeline row is a 100% stale-delete, so the size guard
+    # requires force=True here (see test_reimport_refuses_large_stale_delete_without_force).
+    Genre.objects.import_criteria_tree(
+        user, {"tree": [{"name": "Classical", "id": "Q9730", "children": []}]}, force=True
+    )
 
     assert not Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
     assert Genre.objects.filter(user=user, wikidata_id="Q9730").exists()
@@ -448,7 +483,7 @@ def test_reimport_with_empty_tree_deletes_previously_wikidata_tagged_genres(user
     Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
     assert Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
 
-    Genre.objects.import_criteria_tree(user, {"tree": []})
+    Genre.objects.import_criteria_tree(user, {"tree": []}, force=True)
 
     assert not Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
 
@@ -472,24 +507,71 @@ def test_tag_import_criteria_tree_delete_and_recreate_unaffected(user, genre_typ
 
 
 @pytest.mark.django_db
-def test_reimport_of_same_id_less_tree_is_idempotent(user, genre_type):
-    """
-    A genre model has `wikidata_id`, but a node with no `id` in the input has no way to be
-    matched by id -- reimporting the exact same id-less tree (e.g. a consumer's bundled seed
-    tree with no wikidataIds at all) must fall back to matching by name instead of trying to
-    re-insert every node and hitting `unique_name_per_user`.
-    """
+def test_import_rejects_case_insensitive_duplicate_names(user, genre_type):
     tree_data = {
-        "tree": [{"name": "Electronic", "children": [{"name": "House", "children": []}]}],
+        "tree": [
+            {"name": "House", "id": "Q186024", "children": []},
+            {"name": "house", "id": "Q999999", "children": []},
+        ]
     }
-    Genre.objects.import_criteria_tree(user, tree_data)
-    original_root = Genre.objects.get(user=user, _name="Electronic")
-    original_child = Genre.objects.get(user=user, _name="House")
 
-    Genre.objects.import_criteria_tree(user, tree_data)
+    with pytest.raises(AppValidationException) as exc_info:
+        Genre.objects.import_criteria_tree(user, tree_data)
 
-    reimported_root = Genre.objects.get(user=user, _name="Electronic")
-    reimported_child = Genre.objects.get(user=user, _name="House")
-    assert reimported_root.pk == original_root.pk
-    assert reimported_child.pk == original_child.pk
-    assert Genre.objects.filter(user=user).count() == 2
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.NAME_DUPLICATE
+
+
+@pytest.mark.django_db
+def test_dry_run_import_writes_nothing(user, genre_type):
+    result = Genre.objects.import_criteria_tree(
+        user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]}, dry_run=True
+    )
+
+    assert result == {"created_count": 1, "updated_count": 0, "deleted_count": 0, "dry_run": True}
+    assert not Genre.objects.filter(user=user).exists()
+    assert not ImportRun.objects.filter(user=user).exists()
+
+
+@pytest.mark.django_db
+def test_reimport_refuses_large_stale_delete_without_force(user, genre_type, tag_type, monkeypatch):
+    bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
+    monkeypatch.setattr(
+        GenreManager,
+        "_on_bulk_created",
+        lambda self, instances, actor=None: CriteriaPlaylist.objects.bulk_create_for_criteria(instances),
+    )
+
+    Genre.objects.import_criteria_tree(
+        user,
+        {
+            "tree": [
+                {"name": "Electronic", "id": "Q9759", "children": []},
+                {"name": "Classical", "id": "Q9730", "children": []},
+                {"name": "Jazz", "id": "Q8341", "children": []},
+            ]
+        },
+    )
+
+    with pytest.raises(AppValidationException) as exc_info:
+        Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.DEFAULT
+    assert Genre.objects.filter(user=user).count() == 3
+
+    Genre.objects.import_criteria_tree(
+        user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]}, force=True
+    )
+    assert Genre.objects.filter(user=user).count() == 1
+
+
+@pytest.mark.django_db
+def test_reimport_spares_app_and_admin_sourced_genres(user, genre_type):
+    app_genre = Genre.objects.create(user=user, _name="App Genre", source=CriteriaSource.APP)
+    admin_genre = Genre.objects.create(
+        user=user, _name="Admin Genre", source=CriteriaSource.ADMIN, wikidata_id="LOCAL:admin-genre"
+    )
+
+    Genre.objects.import_criteria_tree(user, {"tree": [{"name": "Electronic", "id": "Q9759", "children": []}]})
+
+    assert Genre.objects.filter(pk=app_genre.pk).exists()
+    assert Genre.objects.filter(pk=admin_genre.pk).exists()
+    assert Genre.objects.filter(user=user, wikidata_id="Q9759").exists()
