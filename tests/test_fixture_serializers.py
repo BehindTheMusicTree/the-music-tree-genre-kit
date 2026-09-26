@@ -171,33 +171,27 @@ def test_build_criteria_detailed_tracks_fields(db):
     root_criteria.save()
     playlist = CriteriaPlaylist.objects.create(user=user, type=criteria_type, criteria=root_criteria)
 
-    active_track = Track.objects.create(user=user, title="Active")
-    archived_track = Track.objects.create(user=user, title="Archived", archived=True)
-    TrackPlaylistRel.objects.create(user=user, playlist=playlist, track=active_track)
-    TrackPlaylistRel.objects.create(user=user, playlist=playlist, track=archived_track)
+    track = Track.objects.create(user=user, title="Active")
+    TrackPlaylistRel.objects.create(user=user, playlist=playlist, track=track)
 
     class TrackFixtureSerializer(serializers.ModelSerializer):
         class Meta:
             model = Track
             fields = ["uuid", "title"]
 
-    tracks_fields = build_criteria_detailed_tracks_fields(
-        TrackFixtureSerializer, "tracks", "tracks_count", "tracks_archived_count"
-    )
+    tracks_fields = build_criteria_detailed_tracks_fields(TrackFixtureSerializer, "tracks", "tracks_count")
 
     class PlaylistDetailedSerializer(serializers.ModelSerializer):
         tracks = tracks_fields["tracks"]
         tracks_count = tracks_fields["tracks_count"]
-        tracks_archived_count = tracks_fields["tracks_archived_count"]
 
         class Meta:
             model = CriteriaPlaylist
-            fields = ["uuid", "tracks", "tracks_count", "tracks_archived_count"]
+            fields = ["uuid", "tracks", "tracks_count"]
 
     data = PlaylistDetailedSerializer(playlist).data
 
     assert data["tracks_count"] == 1
-    assert data["tracks_archived_count"] == 1
     assert [track["title"] for track in data["tracks"]] == ["Active"]
 
 
