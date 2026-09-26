@@ -232,6 +232,33 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         """
         return any(field.name == "is_manually_edited" for field in self.model._meta.get_fields())
 
+    def _model_has_name_conflict_field(self) -> bool:
+        return any(field.name == "has_name_conflict" for field in self.model._meta.get_fields())
+
+    def _disambiguate_conflicting_names(self, user: Any, instances: list[T], excluded_pks: set[Any]) -> None:
+        """
+        Renames each of `instances` whose name (case-insensitively) is already taken by another
+        of the user's criteria -- or by an earlier one of `instances` -- to `"<name> (<wikidata_id>)"`,
+        flagging it `has_name_conflict` for admin review instead of failing the whole import on the
+        unique-name constraint. `excluded_pks` are rows about to be deleted, whose names are free.
+        """
+        has_flag = self._model_has_name_conflict_field()
+        # The unique-name constraint spans the shared base criteria table (tags too), not just this subtype.
+        base_model = (self.model._meta.get_parent_list() or [self.model])[-1]
+        taken = {
+            name.lower()
+            for name in base_model._base_manager.filter(user=user)
+            .exclude(pk__in={c.pk for c in instances} | excluded_pks)
+            .values_list(Fields.NAME_INTERNAL, flat=True)
+        }
+        for criteria in instances:
+            conflict = criteria._name.lower() in taken
+            if conflict:
+                criteria._name = f"{criteria._name} ({criteria.wikidata_id})"
+            if has_flag:
+                criteria.has_name_conflict = conflict
+            taken.add(criteria._name.lower())
+
     def _require_node_keys(self, nodes: list[dict]) -> None:
         """
         Every node in a wikidata_id-bearing model's import must carry a non-empty
@@ -529,6 +556,10 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         user's rows, resolved after all rows exist; a top-level node's first primary ref
         becomes its `parent`.
 
+        A node whose name is already taken (case-insensitively) by another of the user's
+        criteria is imported as `"<name> (<id>)"` with `has_name_conflict=True` instead of
+        failing the run -- see `_disambiguate_conflicting_names`.
+
         Returns `{"created_count", "updated_count", "deleted_count", "dry_run"}`.
         """
         empty_result = {"created_count": 0, "updated_count": 0, "deleted_count": 0, "dry_run": dry_run}
@@ -772,12 +803,22 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     field_validation_error_code=FieldValidationErrorCode.DEFAULT,
                 )
 
+        # Matched rows first, so an existing row keeps its name over a newly imported namesake.
+        renamed_instances = [
+            c for c in matched_instances if not (model_has_manual_edit_fields and c.is_manually_edited)
+        ] + new_instances
+        self._disambiguate_conflicting_names(
+            user, renamed_instances, excluded_pks=set(stale_queryset.values_list("pk", flat=True))
+        )
+
         if deleted_count:
             self._delete_stale_instances(stale_queryset, actor=actor)
 
         matched_update_fields = [Fields.NAME_INTERNAL, Fields.PARENT, Fields.ROOT, "last_seen_run", "wikidata_id"]
         if model_has_side_field:
             matched_update_fields.append(Fields.SIDE)
+        if self._model_has_name_conflict_field():
+            matched_update_fields.append("has_name_conflict")
 
         try:
             bulk_create_mti(new_instances, using=self.db)

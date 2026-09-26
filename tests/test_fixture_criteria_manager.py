@@ -562,7 +562,7 @@ def test_tag_import_criteria_tree_delete_and_recreate_unaffected(user, genre_typ
 
 
 @pytest.mark.django_db
-def test_import_rejects_case_insensitive_duplicate_names(user, genre_type):
+def test_import_disambiguates_case_insensitive_duplicate_names(user, genre_type):
     tree_data = {
         "allows_multiple_primary_parents": False,
         "tree": [
@@ -571,10 +571,12 @@ def test_import_rejects_case_insensitive_duplicate_names(user, genre_type):
         ],
     }
 
-    with pytest.raises(AppValidationException) as exc_info:
-        Genre.objects.import_criteria_tree(user, tree_data)
+    Genre.objects.import_criteria_tree(user, tree_data)
 
-    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.NAME_DUPLICATE
+    assert set(Genre.objects.filter(user=user).values_list("_name", "has_name_conflict")) == {
+        ("House", False),
+        ("house (Q999999)", True),
+    }
 
 
 @pytest.mark.django_db
