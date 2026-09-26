@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-09-26
+
 ### Breaking
 
 - Track archiving moves out of the kit (it is a hear-only concept):
