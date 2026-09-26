@@ -17,6 +17,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-09-26
+
+### Breaking
+
+- `AbstractGenreCriteria` gains a `has_name_conflict` column: consumers must add a migration for
+  their concrete `Genre`.
+
+### Changed
+
+- `import_criteria_tree` no longer fails the whole run when a genre's name is already taken
+  (case-insensitively) by another criteria of the same user, e.g. a regional genre sharing a
+  canonical genre's name. The row is imported as `"<name> (<wikidata_id>)"` and flagged
+  `has_name_conflict=True` for admin review; the flag is recomputed on each import of an
+  unlocked row, and an admin rename (which locks the row) survives later imports. Tested.
+
 ## [0.29.5] - 2026-09-26
 
 ### Fixed
