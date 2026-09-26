@@ -80,6 +80,17 @@ def test_update_instance_moves_track_between_genre_playlists(user, genre_tree):
 
 
 @pytest.mark.django_db
+def test_update_instance_genreless_track_without_genreless_rel_gets_genre(user, genre_tree):
+    root, _child = genre_tree
+    track = Track.objects.create(user=user)
+    TrackPlaylistRel.objects.filter(track=track).delete()
+
+    updated = Track.objects.update_instance(track, genre=root)
+
+    assert TrackPlaylistRel.objects.filter(playlist=root.criteria_playlist, track=updated).exists()
+
+
+@pytest.mark.django_db
 def test_update_instance_swapping_album_deletes_orphaned_old_album_and_artists(user, genre_tree):
     old_artist = Artist.objects.create(user=user, name="Solo Artist")
     old_album = Album.objects.create(user=user, name="Solo Album")
