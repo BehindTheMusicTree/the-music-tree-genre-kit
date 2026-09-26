@@ -17,6 +17,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.29.5] - 2026-09-26
+
+### Fixed
+
+- Giving a genre to a genreless track no longer fails when the track has no genreless-playlist rel
+  (pre-0.29 data, tolerated before the multi-parent refactor). Tested.
+
 ## [0.29.4] - 2026-09-25
 
 ### Fixed
