@@ -188,3 +188,26 @@ def test_import_rejects_unknown_ref_and_primary_parents_in_single_tree(user, gen
     unknown = [{"name": "Fusion", "id": "Q3", "children": [], "primary_parents": ["Q404"]}]
     assert error_code(lambda: import_tree(user, True, unknown)) == FieldValidationErrorCode.REFERENCE_INVALID
     assert error_code(lambda: import_tree(user, False, unknown)) == FieldValidationErrorCode.DEPENDENCY_MISSING
+
+
+@pytest.mark.django_db
+def test_import_flags_name_conflict_instead_of_failing(user, make, tag_type):
+    make("Arabesque", criteria_type=tag_type)
+    import_tree(user, False, [{"name": "Pub rock", "id": "Q1431327", "children": []}])
+    regional = [
+        {"name": "pub rock", "id": "Q16250593", "children": [], "primary_parents": ["Q1431327"]},
+        {"name": "arabesque", "id": "Q623824", "children": []},
+    ]
+    import_tree(user, True, regional)
+    import_tree(user, True, regional)
+
+    canonical = Genre.objects.get(user=user, wikidata_id="Q1431327")
+    assert (canonical.name, canonical.has_name_conflict) == ("Pub rock", False)
+    flagged = Genre.objects.filter(user=user, has_name_conflict=True).order_by("wikidata_id")
+    assert [g.name for g in flagged] == ["pub rock (Q16250593)", "arabesque (Q623824)"]
+
+    Genre.objects.filter(pk=flagged[0].pk).update(
+        _name="pub rock (Australia)", is_manually_edited=True, has_name_conflict=False
+    )
+    import_tree(user, True, regional)
+    assert Genre.objects.get(user=user, wikidata_id="Q16250593").name == "pub rock (Australia)"

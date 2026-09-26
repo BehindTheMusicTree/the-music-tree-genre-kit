@@ -83,6 +83,14 @@ class AbstractGenreCriteria(models.Model):
     its children.
     """
 
+    has_name_conflict = models.BooleanField(default=False)
+    """
+    Set by `import_criteria_tree` when this row's imported name (case-insensitively) was
+    already taken by another criteria: the row is stored as `"<name> (<wikidata_id>)"`
+    instead of failing the whole import, and waits for an admin rename (which locks it via
+    `is_manually_edited`). Recomputed on every import of an unlocked row.
+    """
+
     class Meta:
         abstract = True
 
