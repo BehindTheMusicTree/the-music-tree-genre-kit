@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-09-26
+
 ### Breaking
 
 - `AbstractGenreCriteria` gains a `has_name_conflict` column: consumers must add a migration for
