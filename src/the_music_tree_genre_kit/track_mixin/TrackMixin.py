@@ -25,18 +25,9 @@ class TrackMixin(PrivateUniqueResource):
         pass
 
     @property
-    @abstractmethod
-    def tracks_not_archived(self) -> models.QuerySet[Track]:
-        return self.tracks.filter(archived=False)
+    def tracks_sorted(self) -> models.QuerySet[Track]:
+        return self.tracks.order_by(f"-{Fields.CREATED_ON}")
 
     @property
-    def tracks_not_archived_sorted(self) -> models.QuerySet[Track]:
-        return self.tracks_not_archived.order_by(f"-{Fields.CREATED_ON}")
-
-    @property
-    def tracks_not_archived_count(self) -> int:
-        return self.tracks_not_archived.count()
-
-    @property
-    def tracks_archived_count(self) -> int:
-        return self.tracks.filter(archived=True).count()
+    def tracks_count(self) -> int:
+        return self.tracks.count()

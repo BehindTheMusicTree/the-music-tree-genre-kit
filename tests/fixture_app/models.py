@@ -63,13 +63,6 @@ class Genre(AbstractGenreCriteria, Criteria):  # type: ignore[django-manager-mis
 
     class Meta:
         app_label = "fixture_app"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["wikidata_id", "user"],
-                condition=models.Q(wikidata_id__isnull=False),
-                name="unique_wikidata_id_per_user",
-            ),
-        ]
 
 
 class Artist(PrivateUniqueResource):

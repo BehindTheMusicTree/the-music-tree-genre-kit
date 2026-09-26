@@ -107,21 +107,15 @@ def test_update_instance_swapping_album_deletes_orphaned_old_album_and_artists(u
 
 
 @pytest.mark.django_db
-def test_update_instance_archiving_and_unarchiving_track_updates_rel_positions(user, genre_tree):
+def test_update_instance_calls_on_updated_hook(user, genre_tree, monkeypatch):
     _root, child = genre_tree
-    track_a = Track.objects.create(user=user, genre=child)
-    track_b = Track.objects.create(user=user, genre=child)
+    track = Track.objects.create(user=user, genre=child)
+    calls = []
+    monkeypatch.setattr(Track.objects, "_on_updated", lambda old, new: calls.append((old, new)))
 
-    Track.objects.update_instance(track_a, archived=True)
+    updated = Track.objects.update_instance(track, title="Renamed")
 
-    rel_a = TrackPlaylistRel.objects.get(playlist=child.criteria_playlist, track=track_a)
-    rel_b = TrackPlaylistRel.objects.get(playlist=child.criteria_playlist, track=track_b)
-    assert rel_a.position is None
-    assert rel_b.position == 1
-
-    Track.objects.update_instance(track_a, archived=False)
-    rel_a.refresh_from_db()
-    assert rel_a.position == 1
+    assert calls == [(track, updated)]
 
 
 @pytest.mark.django_db

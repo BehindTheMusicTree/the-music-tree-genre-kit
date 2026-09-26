@@ -145,10 +145,10 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
             playlist=criteria_playlist, tracks=direct_tracks
         )
 
-        direct_tracks_rels_not_archived = direct_tracks_rels_in_criteria_playlist.filter(position__isnull=False)
+        direct_positioned_tracks_rels = direct_tracks_rels_in_criteria_playlist.filter(position__isnull=False)
 
         self._move_track_rels_to_playlist_beginning(
-            source_rels=direct_tracks_rels_not_archived, target_playlist=criterialess_playlist
+            source_rels=direct_positioned_tracks_rels, target_playlist=criterialess_playlist
         )
 
         direct_tracks_rels_in_criteria_playlist.filter(position__isnull=True).update(playlist=criterialess_playlist)
