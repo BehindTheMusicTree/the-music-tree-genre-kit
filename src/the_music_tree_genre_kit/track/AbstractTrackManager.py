@@ -67,6 +67,14 @@ class AbstractTrackManager(StandardResourceManager[T]):
         for playlist_pk in new_playlists.keys() - old_playlists.keys():
             TrackPlaylistRel.objects.create(user=instance.user, playlist=new_playlists[playlist_pk], track=instance)
         for playlist_pk in old_playlists.keys() - new_playlists.keys():
+            # Genreless tracks from before 0.29 may lack their genreless-playlist rel.
+            if (
+                old_genre is None
+                and not TrackPlaylistRel.objects.filter(
+                    user=instance.user, playlist_id=playlist_pk, track=instance
+                ).exists()
+            ):
+                continue
             TrackPlaylistRel.objects.delete_instance(
                 user=instance.user, playlist=old_playlists[playlist_pk], track=instance
             )
