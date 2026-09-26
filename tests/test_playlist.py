@@ -51,7 +51,7 @@ def test_playlist_name_and_type_label_raise_without_manual_or_criteria_playlist(
 
 
 @pytest.mark.django_db
-def test_tracks_not_archived_dict_by_position(user, genre_type):
+def test_tracks_dict_by_position(user, genre_type):
     root_criteria = Criteria(user=user, type=genre_type)
     root_criteria._name = "root"
     root_criteria.save()
@@ -61,7 +61,7 @@ def test_tracks_not_archived_dict_by_position(user, genre_type):
     track_a = Track.objects.create(user=user, genre=root_criteria)
     track_b = Track.objects.create(user=user, genre=root_criteria)
 
-    result = playlist.tracks_not_archived_dict_by_position
+    result = playlist.tracks_dict_by_position
 
     # Each create shifts existing relations to position+1 and takes position 1 itself.
     # `.track` resolves through the kit's base `Track` model (MTI parent), not the
@@ -70,13 +70,13 @@ def test_tracks_not_archived_dict_by_position(user, genre_type):
 
 
 @pytest.mark.django_db
-def test_tracks_not_archived_dict_by_position_empty_when_no_relations(user, genre_type):
+def test_tracks_dict_by_position_empty_when_no_relations(user, genre_type):
     root_criteria = Criteria(user=user, type=genre_type)
     root_criteria._name = "root"
     root_criteria.save()
     criteria_playlist = CriteriaPlaylist.objects.create(user=user, type=genre_type, criteria=root_criteria)
 
-    assert criteria_playlist.playlist.tracks_not_archived_dict_by_position == {}
+    assert criteria_playlist.playlist.tracks_dict_by_position == {}
 
 
 @pytest.mark.django_db

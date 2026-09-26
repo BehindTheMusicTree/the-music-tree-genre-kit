@@ -17,6 +17,24 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Breaking
+
+- Track archiving moves out of the kit (it is a hear-only concept):
+  - `Track.archived` is dropped by migration `0008_remove_track_archived`. A consumer that archives
+    must copy the column into its own model first (migration with `run_before` 0008).
+  - `AbstractTrackPlaylistRelManager.archive_instances_of_track`/`unarchive_instances_of_track`
+    are removed.
+  - `TrackMixin.tracks_not_archived*`/`tracks_archived_count` are replaced by
+    `tracks_sorted`/`tracks_count`; `track_mixin.Fields.TRACKS_NOT_ARCHIVED_*` become `TRACKS_*`
+    and `TRACKS_ARCHIVED_COUNT_*` is removed.
+  - `build_criteria_detailed_tracks_fields` drops its `tracks_archived_count_field_name` argument.
+  - `Playlist.tracks_not_archived_dict_by_position` is renamed `tracks_dict_by_position`.
+
+### Added
+
+- `AbstractTrackManager._on_updated(old, updated)` hook, called inside `update_instance`'s
+  transaction, so consumers can react to a track update (e.g. hear's archive bookkeeping).
+
 ## [0.30.0] - 2026-09-26
 
 ### Breaking

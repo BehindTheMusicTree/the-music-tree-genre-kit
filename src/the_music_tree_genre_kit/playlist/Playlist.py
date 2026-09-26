@@ -50,7 +50,7 @@ class Playlist(TrackMixin, TrackablePlayCount):
         raise ValueError("Playlist has no type")
 
     @property
-    def tracks_not_archived_dict_by_position(self) -> dict[int | None, Track]:
+    def tracks_dict_by_position(self) -> dict[int | None, Track]:
         return Playlist.objects.get_ordered_relations_for_playlist(self)
 
     @property

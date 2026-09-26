@@ -55,7 +55,6 @@ class Track(TrackablePlayCount):
         validators=[MinValueValidator(0), MaxValueValidator(settings.TRACK_RATING_VALUE_MAX)],
     )
     language = AppCharField(max_length=settings.LANGUAGE_LEN_MAX, blank=True, default=None, null=True)
-    archived = models.BooleanField(default=False)
     playlists = PrivateManyToManyField(
         "the_music_tree_genre_kit.Playlist",
         through="the_music_tree_genre_kit.TrackPlaylistRel",

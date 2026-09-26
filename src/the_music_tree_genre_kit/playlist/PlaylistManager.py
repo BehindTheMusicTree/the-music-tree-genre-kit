@@ -78,8 +78,7 @@ class PlaylistManager(StandardResourceManager):
     def get_ordered_relations_for_playlist(self, playlist: Playlist) -> dict[int | None, Track]:
         """
         Returns a dictionary of Track objects where dict[position] = track.
-        Includes both non-archived tracks (with position) and archived tracks (position is None).
-        Archived tracks (null positions) are sorted last.
+        Tracks with a null position are sorted last.
         Returns empty dict if no tracks.
         """
         from the_music_tree_genre_kit.criteria.track_playlist_rel.TrackPlaylistRel import TrackPlaylistRel
