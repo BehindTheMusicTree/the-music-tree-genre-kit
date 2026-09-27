@@ -383,8 +383,11 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 )
 
         playlist_rels: list[TrackPlaylistRel] = []
-        for rels in playlist_rel_groups.values():
+        for playlist_pk, rels in playlist_rel_groups.items():
             count = len(rels)
+            TrackPlaylistRel.objects.filter(user=user, playlist_id=playlist_pk, position__isnull=False).update(
+                position=F("position") + count
+            )
             for index, rel in enumerate(rels):
                 # Mirrors `AbstractTrackPlaylistRel._perform_save`'s LIFO shift (each new
                 # row becomes position 1, bumping earlier rows up): the last-inserted

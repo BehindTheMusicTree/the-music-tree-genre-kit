@@ -17,6 +17,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `PlaylistTracksActionMixin` (`view/viewset/playlist/`): adds a paginated `GET {uuid}/tracks/` action to a playlist viewset. It lists the playlist's track relations in play order (position ascending, unpositioned last) through the consumer's `track_playlist_rel_serializer_class`, eager-loaded through its `setup_queryset`, so the cost scales with the page rather than the playlist. Covered by an endpoint test.
+- `tracks_count_annotation()` (`criteria/track_playlist_rel/`): a correlated per-playlist track count for `.annotate(...)`, shared by the consumers' list and detail serializers.
+
+### Fixed
+
+- `import_seed_songs` now shifts the existing positions of a playlist before inserting new tracks at the top. Re-importing used to leave duplicate positions. Covered by a regression test.
+- `transfer_direct_tracks_to_criterialess_playlist` drops the rels of tracks that are already in the criteria-less playlist instead of moving them, which created duplicate `(playlist, track)` pairs. Covered by a regression test.
+
+### Breaking
+
+- `TrackPlaylistRel` now has a unique `(playlist, track)` constraint (`uniq_track_playlist_rel`). Migration `0009` deletes the existing duplicates first: it keeps the lowest position, then the earliest `created_on`. It then renumbers each playlist's positions 1..n in their current order. Consumer code or tests that insert the same track into a playlist twice now raise `IntegrityError`. Covered by migration and constraint tests.
+
 ## [0.32.1] - 2026-09-27
 
 ### Fixed
