@@ -1,5 +1,7 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from rest_framework import serializers
 
 from tests.fixture_app.models import Criteria, CriteriaLineageRel, CriteriaPlaylist, Genre, Track, TrackPlaylistRel
@@ -208,3 +210,55 @@ def test_build_criteria_playlist_minimum_serializer(db):
 
     assert data["uuid"] == str(playlist.uuid)
     assert data["name"] == "root-playlist-criteria"
+
+
+def _serialize_counting_queries(serializer_class, queryset):
+    with CaptureQueriesContext(connection) as queries:
+        serializer_class(serializer_class.setup_queryset(queryset), many=True).data
+    return len(queries.captured_queries)
+
+
+def _create_genres(user, genre_type, root, start, stop):
+    for index in range(start, stop):
+        genre = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
+        genre._name = f"genre {index}"
+        genre.save()
+        genre.additional_primary_parents.add(root.criteria_ptr)
+        genre.secondary_parents.add(root.criteria_ptr)
+
+
+def test_criteria_simple_serializer_setup_queryset_keeps_query_count_constant(db):
+    user = get_user_model().objects.create(username="fixture-user")
+    genre_type = CriteriaType.objects.create(label="genre")
+    root = Genre(user=user, type=genre_type)
+    root._name = "root"
+    root.save()
+    serializer_class = build_criteria_simple_serializer(Criteria)
+    queryset = Criteria.objects.filter(parent=root)
+
+    _create_genres(user, genre_type, root, 0, 1)
+    one = _serialize_counting_queries(serializer_class, queryset)
+    _create_genres(user, genre_type, root, 1, 6)
+    many = _serialize_counting_queries(serializer_class, queryset)
+
+    assert many == one
+
+
+def test_criteria_playlist_minimum_serializer_setup_queryset_keeps_query_count_constant(db):
+    user = get_user_model().objects.create(username="fixture-user")
+    criteria_type = CriteriaType.objects.create(label="genre")
+    serializer_class = build_criteria_playlist_minimum_serializer(CriteriaPlaylist)
+
+    def create_playlists(start, stop):
+        for index in range(start, stop):
+            criteria = Criteria(user=user, type=criteria_type)
+            criteria._name = f"criteria {index}"
+            criteria.save()
+            CriteriaPlaylist.objects.create(user=user, type=criteria_type, criteria=criteria)
+
+    create_playlists(0, 1)
+    one = _serialize_counting_queries(serializer_class, CriteriaPlaylist.objects.all())
+    create_playlists(1, 6)
+    many = _serialize_counting_queries(serializer_class, CriteriaPlaylist.objects.all())
+
+    assert many == one
