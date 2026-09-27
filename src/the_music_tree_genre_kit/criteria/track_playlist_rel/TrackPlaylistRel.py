@@ -20,3 +20,6 @@ class TrackPlaylistRel(AbstractTrackPlaylistRel):
             models.Index(fields=["user", Fields.PLAYLIST], name="tpr_user_playlist_idx"),
             models.Index(fields=["user", Fields.TRACK_INTERNAL], name="tpr_user_track_idx"),
         ]
+        constraints = [
+            models.UniqueConstraint(fields=[Fields.PLAYLIST, Fields.TRACK_INTERNAL], name="uniq_track_playlist_rel"),
+        ]

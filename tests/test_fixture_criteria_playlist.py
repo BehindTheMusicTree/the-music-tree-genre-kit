@@ -81,3 +81,25 @@ def test_transfer_direct_tracks_to_criterialess_playlist(user, genre_type, tag_t
     genreless_playlist = CriteriaPlaylist.objects.get(user=user, criteria=None, type=genre_type)
     assert TrackPlaylistRel.objects.filter(playlist=genreless_playlist, track=track).exists()
     assert not TrackPlaylistRel.objects.filter(playlist=root_playlist, track=track).exists()
+
+
+@pytest.mark.django_db
+def test_transfer_direct_tracks_skips_tracks_already_in_criterialess_playlist(user, genre_type, tag_type):
+    bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
+    genreless_playlist = CriteriaPlaylist.objects.get(user=user, criteria=None, type=genre_type)
+
+    root_criteria = Criteria(user=user, type=genre_type)
+    root_criteria._name = "root"
+    root_criteria.save()
+    root_playlist = CriteriaPlaylist.objects.create(user=user, type=genre_type, criteria=root_criteria)
+
+    track = Track.objects.create(user=user)
+    assert TrackPlaylistRel.objects.filter(playlist=genreless_playlist, track=track).exists()
+    TrackPlaylistRel.objects.create(user=user, playlist=root_playlist, track=track)
+
+    CriteriaPlaylist.objects.transfer_direct_tracks_to_criterialess_playlist(
+        direct_tracks=Track.objects.filter(pk=track.pk), criteria_playlist=root_playlist
+    )
+
+    assert TrackPlaylistRel.objects.filter(playlist=genreless_playlist, track=track).count() == 1
+    assert not TrackPlaylistRel.objects.filter(playlist=root_playlist, track=track).exists()

@@ -144,6 +144,9 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
         direct_tracks_rels_in_criteria_playlist = self._get_track_rels_for_tracks(
             playlist=criteria_playlist, tracks=direct_tracks
         )
+        direct_tracks_rels_in_criteria_playlist.filter(
+            track__in=self.track_playlist_rel_model.objects.filter(playlist=criterialess_playlist).values("track")
+        ).delete()
 
         direct_positioned_tracks_rels = direct_tracks_rels_in_criteria_playlist.filter(position__isnull=False)
 
