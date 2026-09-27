@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from the_music_tree_api_kit.serializer.AppInputSerializer import AppInputSerializer
+from the_music_tree_api_kit.serializer.EagerLoadingMixin import EagerLoadingMixin
 
 from the_music_tree_genre_kit.criteria.AbstractCriteria import AbstractCriteria
 from the_music_tree_genre_kit.serializer.model.criteria.output.minimum import build_criteria_minimum_serializer
@@ -37,10 +38,17 @@ def build_criteria_simple_serializer(
         else (CriteriaSideSerializerMixin, AppInputSerializer, serializers.ModelSerializer)
     )
 
-    class CriteriaSimpleSerializer(*bases):
+    class CriteriaSimpleSerializer(EagerLoadingMixin, *bases):
         parent = minimum_serializer_class()
         primary_parents = minimum_serializer_class(many=True, read_only=True)
         secondary_parents = minimum_serializer_class(many=True, read_only=True)
+
+        @classmethod
+        def setup_queryset(cls, queryset, prefix=""):
+            queryset = queryset.select_related(f"{prefix}parent").prefetch_related(
+                f"{prefix}additional_primary_parents", f"{prefix}secondary_parents"
+            )
+            return queryset if has_own_side_field else queryset.select_related(f"{prefix}genre")
 
         class Meta:
             model = criteria_model
