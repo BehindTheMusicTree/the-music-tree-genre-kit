@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-09-27
+
 ### Added
 
 - `build_criteria_simple_serializer` and `build_criteria_playlist_minimum_serializer` now return serializers with api-kit's `EagerLoadingMixin` and declare the relations they read in `setup_queryset(queryset, prefix="")`. For criteria that's `parent`, `genre` (for `side`), and the primary and secondary parents. For a playlist it's `criteria` and `type`. Consumer serializers nest them by delegating under the relation prefix, which removes the per-row queries in list endpoints. Covered by query-count tests.
