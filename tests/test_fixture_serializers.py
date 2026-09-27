@@ -262,3 +262,17 @@ def test_criteria_playlist_minimum_serializer_setup_queryset_keeps_query_count_c
     many = _serialize_counting_queries(serializer_class, CriteriaPlaylist.objects.all())
 
     assert many == one
+
+
+def test_criteria_simple_serializer_setup_queryset_accepts_a_concrete_genre_queryset(db):
+    user = get_user_model().objects.create(username="fixture-user")
+    genre_type = CriteriaType.objects.create(label="genre")
+    root = Genre(user=user, type=genre_type)
+    root._name = "root"
+    root.save()
+    _create_genres(user, genre_type, root, 0, 2)
+    serializer_class = build_criteria_simple_serializer(Criteria)
+
+    data = serializer_class(serializer_class.setup_queryset(Genre._base_manager.filter(parent=root)), many=True).data
+
+    assert [item["side"] for item in data] == [CriteriaSide.POP, CriteriaSide.POP]
