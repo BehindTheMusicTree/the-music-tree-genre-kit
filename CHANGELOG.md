@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.32.1] - 2026-09-27
+
+### Fixed
+
+- The criteria simple serializer's `setup_queryset` no longer tries to join `genre` when handed a queryset of a concrete criteria subtype (e.g. `Genre`), which raised a `FieldError` (500) on consumers' genre/tag lists. Covered by a regression test.
+
 ## [0.32.0] - 2026-09-27
 
 ### Added

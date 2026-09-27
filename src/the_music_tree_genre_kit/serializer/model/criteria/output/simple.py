@@ -48,7 +48,14 @@ def build_criteria_simple_serializer(
             queryset = queryset.select_related(f"{prefix}parent").prefetch_related(
                 f"{prefix}additional_primary_parents", f"{prefix}secondary_parents"
             )
-            return queryset if has_own_side_field else queryset.select_related(f"{prefix}genre")
+            # Decided from the queryset, not `criteria_model`: a consumer may hand this serializer a
+            # queryset of a concrete subtype (e.g. `Genre`, whose `side` is its own column).
+            model = queryset.model
+            for name in filter(None, prefix.split("__")):
+                model = model._meta.get_field(name).related_model
+            if any(field.name == "genre" for field in model._meta.get_fields()):
+                return queryset.select_related(f"{prefix}genre")
+            return queryset
 
         class Meta:
             model = criteria_model
