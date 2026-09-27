@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-09-27
+
 ### Added
 
 - `PlaylistTracksActionMixin` (`view/viewset/playlist/`): adds a paginated `GET {uuid}/tracks/` action to a playlist viewset. It lists the playlist's track relations in play order (position ascending, unpositioned last) through the consumer's `track_playlist_rel_serializer_class`, eager-loaded through its `setup_queryset`, so the cost scales with the page rather than the playlist. Covered by an endpoint test.
