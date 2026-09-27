@@ -299,7 +299,8 @@ class AbstractTrackManager(StandardResourceManager[T]):
             return {"imported": 0, "skipped": skipped}
 
         new_entries: list[tuple[dict[str, Any], Any]] = []
-        genre_changes: list[tuple[T, Any]] = []
+        # Keyed by track: an entry repeating a video id must diff against the track's original genre.
+        genre_changes: dict[Any, tuple[T, Any]] = {}
         updated_count = 0
         for entry, genre in matched_entries:
             existing_track = existing_by_video_id.get(entry[SongSeedFields.YOUTUBE_VIDEO_ID])
@@ -315,14 +316,14 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 existing_track.genre = genre
                 update_fields.append(Fields.GENRE)
                 existing_track.save(update_fields=update_fields)
-                genre_changes.append((existing_track, old_genre))
+                genre_changes.setdefault(existing_track.pk, (existing_track, old_genre))
                 self._on_track_genre_changed(existing_track, old_genre=old_genre, actor=actor)
             else:
                 existing_track.save(update_fields=update_fields)
 
             updated_count += 1
 
-        self._bulk_update_genre_playlists(user, genre_changes)
+        self._bulk_update_genre_playlists(user, list(genre_changes.values()))
 
         unique_artist_names = list(dict.fromkeys(entry[SongSeedFields.ARTIST] for entry, _ in new_entries))
         artists_by_name = dict(

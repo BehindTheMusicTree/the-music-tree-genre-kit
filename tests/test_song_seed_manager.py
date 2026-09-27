@@ -307,3 +307,18 @@ def test_import_seed_songs_shifts_existing_positions_for_new_tracks(user, house)
         .values_list("track__title", "position")
     )
     assert positions == [("Can You Feel It", 1), ("Your Love", 2)]
+
+
+@pytest.mark.django_db
+def test_import_seed_songs_repeated_video_id_with_genre_flip_keeps_rels_unique(user, deep_house):
+    electronic, house, deep = deep_house
+    song = {"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "abc123"}
+    Track.objects.import_seed_songs(user, [{**song, "genre_name": "deep house"}])
+
+    Track.objects.import_seed_songs(user, [{**song, "genre_name": "house"}, {**song, "genre_name": "deep house"}])
+
+    track = Track.objects.get(user=user, youtube_video_id="abc123")
+    assert track.genre_id == deep.pk
+    assert sorted(TrackPlaylistRel.objects.filter(track=track).values_list("playlist_id", flat=True)) == sorted(
+        [electronic.criteria_playlist.pk, house.criteria_playlist.pk, deep.criteria_playlist.pk]
+    )
