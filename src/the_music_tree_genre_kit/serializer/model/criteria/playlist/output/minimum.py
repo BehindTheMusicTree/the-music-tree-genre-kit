@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from the_music_tree_api_kit.serializer.EagerLoadingMixin import EagerLoadingMixin
 from the_music_tree_api_kit.uuid.Fields import Fields as UuidFields
 
 from the_music_tree_genre_kit.criteria.playlist.AbstractCriteriaPlaylist import AbstractCriteriaPlaylist
@@ -10,7 +11,11 @@ def build_criteria_playlist_minimum_serializer(
 ) -> type[serializers.ModelSerializer]:
     """DRF's ModelSerializer rejects an abstract Meta.model, so each consumer must supply its own concrete subclass."""
 
-    class CriteriaPlaylistMinimumSerializer(serializers.ModelSerializer):
+    class CriteriaPlaylistMinimumSerializer(EagerLoadingMixin, serializers.ModelSerializer):
+        @classmethod
+        def setup_queryset(cls, queryset, prefix=""):
+            return queryset.select_related(f"{prefix}criteria", f"{prefix}type")
+
         class Meta:
             model = criteria_playlist_model
             fields = [UuidFields.UUID, CriteriaPlaylistFields.NAME]
