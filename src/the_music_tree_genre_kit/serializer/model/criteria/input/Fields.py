@@ -8,3 +8,4 @@ class Fields:
     ALLOWS_MULTIPLE_PRIMARY_PARENTS = "allows_multiple_primary_parents"
     PRIMARY_PARENTS = "primary_parents"
     SECONDARY_PARENTS = "secondary_parents"
+    IS_UNACCEPTED_ROOT = "is_unaccepted_root"

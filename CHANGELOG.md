@@ -17,6 +17,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `AbstractGenreCriteria.is_unaccepted_root`: tree import copies the node's new optional `is_unaccepted_root` flag onto the row. The pipeline sets it on canonical roots it hasn't accepted yet, so a new root lands in the tree flagged for admin review instead of failing the nightly run. The flag is recomputed on every import of an unlocked row, so it clears once the pipeline gives the node a parent. A locked row (`is_manually_edited`, e.g. an admin accepted it) keeps its state. Covered by an import test.
+
+### Changed
+
+- `AbstractCriteriaManager._model_has_name_conflict_field()` is replaced by a generic `_model_has_field(name)`.
+
+### Breaking
+
+- New `is_unaccepted_root` column on `AbstractGenreCriteria`: consumers need a migration adding it.
+
 ## [0.33.0] - 2026-09-27
 
 ### Added

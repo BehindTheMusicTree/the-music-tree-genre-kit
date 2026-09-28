@@ -211,3 +211,23 @@ def test_import_flags_name_conflict_instead_of_failing(user, make, tag_type):
     )
     import_tree(user, True, regional)
     assert Genre.objects.get(user=user, wikidata_id="Q16250593").name == "pub rock (Australia)"
+
+
+@pytest.mark.django_db
+def test_import_flags_unaccepted_root_until_parented_or_locked(user, genre_type):
+    tree = [
+        {"name": "Rock", "id": "Q11399", "children": []},
+        {"name": "Pala", "id": "Q15724583", "children": [], "is_unaccepted_root": True},
+    ]
+    import_tree(user, False, tree)
+    flagged = Genre.objects.filter(user=user, is_unaccepted_root=True)
+    assert [g.wikidata_id for g in flagged] == ["Q15724583"]
+
+    parented = [{"name": "Rock", "id": "Q11399", "children": [{"name": "Pala", "id": "Q15724583", "children": []}]}]
+    import_tree(user, False, parented)
+    assert not Genre.objects.filter(user=user, is_unaccepted_root=True).exists()
+
+    import_tree(user, False, tree)
+    Genre.objects.filter(user=user, wikidata_id="Q15724583").update(is_unaccepted_root=False, is_manually_edited=True)
+    import_tree(user, False, tree)
+    assert not Genre.objects.get(user=user, wikidata_id="Q15724583").is_unaccepted_root

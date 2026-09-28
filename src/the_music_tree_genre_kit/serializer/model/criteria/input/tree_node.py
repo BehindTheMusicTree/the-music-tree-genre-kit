@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.validators import RegexValidator
-from rest_framework.serializers import ChoiceField, DictField
+from rest_framework.serializers import BooleanField, ChoiceField, DictField
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 from the_music_tree_api_kit.serializer.AppInputSerializer import AppInputSerializer
@@ -19,6 +19,7 @@ class CriteriaTreeNodeSerializer(AppInputSerializer):
     id = AppCharField(required=False, allow_null=True, validators=[RegexValidator(r"^(Q\d+|LOCAL:[a-z0-9-]+)$")])
     primary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
     secondary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
+    is_unaccepted_root = BooleanField(required=False, default=False)
 
     def __init__(self, structure_field_name: str, *args, **kwargs):
         super().__init__(*args, **kwargs)

@@ -232,8 +232,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         """
         return any(field.name == "is_manually_edited" for field in self.model._meta.get_fields())
 
-    def _model_has_name_conflict_field(self) -> bool:
-        return any(field.name == "has_name_conflict" for field in self.model._meta.get_fields())
+    def _model_has_field(self, name: str) -> bool:
+        return any(field.name == name for field in self.model._meta.get_fields())
 
     def _disambiguate_conflicting_names(self, user: Any, instances: list[T], excluded_pks: set[Any]) -> None:
         """
@@ -242,7 +242,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         flagging it `has_name_conflict` for admin review instead of failing the whole import on the
         unique-name constraint. `excluded_pks` are rows about to be deleted, whose names are free.
         """
-        has_flag = self._model_has_name_conflict_field()
+        has_flag = self._model_has_field("has_name_conflict")
         # The unique-name constraint spans the shared base criteria table (tags too), not just this subtype.
         base_model = (self.model._meta.get_parent_list() or [self.model])[-1]
         taken = {
@@ -706,6 +706,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         criteria_type = self._get_criteria_type()
         model_has_side_field = self._model_has_side_field()
+        model_has_unaccepted_root_field = self._model_has_field(Fields.IS_UNACCEPTED_ROOT)
 
         new_instances: list[T] = []
         matched_instances: list[T] = []
@@ -716,6 +717,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         def build(nodes, parent: T | None, root: T | None):
             for node in nodes:
                 extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
+                if model_has_unaccepted_root_field:
+                    extra_kwargs[Fields.IS_UNACCEPTED_ROOT] = bool(node.get(InputFields.IS_UNACCEPTED_ROOT))
                 node_name = node.get(InputFields.NAME_PUBLIC)
                 key = node[InputFields.ID]
                 matched_criteria = existing_by_key.get(key)
@@ -817,8 +820,10 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         matched_update_fields = [Fields.NAME_INTERNAL, Fields.PARENT, Fields.ROOT, "last_seen_run", "wikidata_id"]
         if model_has_side_field:
             matched_update_fields.append(Fields.SIDE)
-        if self._model_has_name_conflict_field():
+        if self._model_has_field("has_name_conflict"):
             matched_update_fields.append("has_name_conflict")
+        if model_has_unaccepted_root_field:
+            matched_update_fields.append(Fields.IS_UNACCEPTED_ROOT)
 
         try:
             bulk_create_mti(new_instances, using=self.db)
