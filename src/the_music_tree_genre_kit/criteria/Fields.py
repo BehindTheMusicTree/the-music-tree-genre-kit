@@ -17,5 +17,6 @@ class Fields(PrivateUniqueResourceFields):
     SECONDARY_CHILDREN = "secondary_children"
     CHILDREN = "children"
     SIDE = "side"
+    IS_UNACCEPTED_ROOT = "is_unaccepted_root"
     SUMMARY = "summary"
     WIKIDATA_ID = "wikidata_id"
