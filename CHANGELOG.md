@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-09-30
+
 ### Changed
 
 - A criteria's tree is now identified by name instead of a behaviour flag: `AbstractCriteria.tree_name` (`CriteriaTreeName`: `canonical` | `regional`, default `canonical`) replaces the `allows_multiple_primary_parents` column. `allows_multiple_primary_parents` remains as a read-only property (`tree_name == regional`), so the parent invariants are unchanged; the "child of a criteria allowing multiple primary parents" error now reports on `tree_name`. Tests updated, plus a `tree/` 400 test for a missing or unknown `tree_name`.
