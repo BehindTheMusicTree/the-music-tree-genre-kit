@@ -7,7 +7,7 @@ class Fields:
     CHILDREN: str = InputFields.CHILDREN
     SIDE: str = InputFields.SIDE
     ID: str = InputFields.ID
-    ALLOWS_MULTIPLE_PRIMARY_PARENTS: str = InputFields.ALLOWS_MULTIPLE_PRIMARY_PARENTS
+    TREE_NAME: str = InputFields.TREE_NAME
     PRIMARY_PARENTS: str = InputFields.PRIMARY_PARENTS
     SECONDARY_PARENTS: str = InputFields.SECONDARY_PARENTS
     IS_UNACCEPTED_ROOT: str = InputFields.IS_UNACCEPTED_ROOT

@@ -10,7 +10,7 @@ class Fields(PrivateUniqueResourceFields):
     DESCENDANTS_RELS = "descendants_rels"
     ROOT = "root"
     PARENT = "parent"
-    ALLOWS_MULTIPLE_PRIMARY_PARENTS = "allows_multiple_primary_parents"
+    TREE_NAME = "tree_name"
     ADDITIONAL_PRIMARY_PARENTS = "additional_primary_parents"
     ADDITIONAL_PRIMARY_CHILDREN = "additional_primary_children"
     SECONDARY_PARENTS = "secondary_parents"

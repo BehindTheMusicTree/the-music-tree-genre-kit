@@ -21,7 +21,7 @@ def build_criteria_simple_serializer(
         CriteriaOutputFieldKey.CREATED_ON.value,
         CriteriaOutputFieldKey.SIDE.value,
         CriteriaOutputFieldKey.SUMMARY.value,
-        CriteriaOutputFieldKey.ALLOWS_MULTIPLE_PRIMARY_PARENTS.value,
+        CriteriaOutputFieldKey.TREE_NAME.value,
         CriteriaOutputFieldKey.PRIMARY_PARENTS.value,
         CriteriaOutputFieldKey.SECONDARY_PARENTS.value,
     ]

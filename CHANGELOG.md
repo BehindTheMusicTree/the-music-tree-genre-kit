@@ -17,6 +17,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.35.0] - 2026-09-30
+
+### Changed
+
+- A criteria's tree is now identified by name instead of a behaviour flag: `AbstractCriteria.tree_name` (`CriteriaTreeName`: `canonical` | `regional`, default `canonical`) replaces the `allows_multiple_primary_parents` column. `allows_multiple_primary_parents` remains as a read-only property (`tree_name == regional`), so the parent invariants are unchanged; the "child of a criteria allowing multiple primary parents" error now reports on `tree_name`. Tests updated, plus a `tree/` 400 test for a missing or unknown `tree_name`.
+
+### Breaking
+
+- `allows_multiple_primary_parents` column replaced by `tree_name`: consumers need a migration (map `true` to `regional`, `false` to `canonical`).
+- `tree/` takes a required `treeName` query parameter (`canonical`/`regional`) instead of `allowsMultiplePrimaryParents`, and returns a 400 `REQUIRED` otherwise.
+- `tree/import` (`CriteriaTreeImportSerializer`) requires `tree_name` instead of `allows_multiple_primary_parents`.
+- `AbstractCriteriaManager.build_criteria_tree` and `import_criteria_tree` take `tree_name` instead of `allows_multiple_primary_parents`.
+- The simple output serializer emits `tree_name` instead of `allows_multiple_primary_parents`. The `ALLOWS_MULTIPLE_PRIMARY_PARENTS` constants on `Fields`, input `Fields`, tree-import `Fields` and `CriteriaOutputFieldKey` are renamed to `TREE_NAME`.
+
 ## [0.34.0] - 2026-09-28
 
 ### Added

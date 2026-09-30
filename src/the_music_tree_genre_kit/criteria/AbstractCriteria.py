@@ -14,6 +14,7 @@ from the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField import Priv
 from the_music_tree_api_kit.private_unique_resource.PrivateUniqueResource import PrivateUniqueResource
 
 from ..base.constraint_violation import constraint_violated
+from .CriteriaTreeName import CriteriaTreeName
 from .Fields import Fields
 from .lineage_rel.Fields import Fields as CriteriaLineageRelFields
 from .type.CriteriaType import CriteriaType
@@ -47,7 +48,7 @@ class AbstractCriteria(PrivateUniqueResource):
     # `parent` is the main primary parent (drives root, side, the criteria-playlist
     # tree). Additional primary parents also receive the criteria's tracks; secondary
     # parents are classification links only.
-    allows_multiple_primary_parents = models.BooleanField(default=False)
+    tree_name = models.CharField(max_length=16, choices=CriteriaTreeName.choices, default=CriteriaTreeName.CANONICAL)
     additional_primary_parents: QuerySet[AbstractCriteria] = PrivateManyToManyField(
         "self", symmetrical=False, blank=True, related_name=Fields.ADDITIONAL_PRIMARY_CHILDREN
     )  # type: ignore
@@ -75,6 +76,10 @@ class AbstractCriteria(PrivateUniqueResource):
     @property
     def name(self) -> str:
         return self._name
+
+    @property
+    def allows_multiple_primary_parents(self) -> bool:
+        return self.tree_name == CriteriaTreeName.REGIONAL
 
     @property
     def is_root(self) -> bool:
