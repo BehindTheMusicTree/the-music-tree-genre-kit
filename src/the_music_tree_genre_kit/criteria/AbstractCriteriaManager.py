@@ -16,6 +16,7 @@ from the_music_tree_genre_kit.serializer.model.criteria.input.Fields import Fiel
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields as TreeImportFields
 
 from .AbstractCriteria import AbstractCriteria
+from .CriteriaTreeName import CriteriaTreeName
 from .Fields import Fields
 from .type.CriteriaType import CriteriaType
 
@@ -134,7 +135,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             )
         if not instance.allows_multiple_primary_parents and any(p.allows_multiple_primary_parents for p in primary):
             fail(
-                Fields.ALLOWS_MULTIPLE_PRIMARY_PARENTS,
+                Fields.TREE_NAME,
                 _("A child of a criteria allowing multiple primary parents must allow them too"),
                 FieldValidationErrorCode.DEPENDENCY_MISSING,
             )
@@ -451,10 +452,9 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             for child in children:
                 self.update_children_root(child, new_root)
 
-    def build_criteria_tree(self, user: Any, *, allows_multiple_primary_parents: bool) -> list[dict]:
+    def build_criteria_tree(self, user: Any, *, tree_name: str) -> list[dict]:
         """
-        Builds a tree structure of the user's criteria with the given
-        `allows_multiple_primary_parents` flag. Nesting follows `parent`; a node whose
+        Builds a tree structure of the user's criteria in the given `tree_name`. Nesting follows `parent`; a node whose
         parent is outside this set is top-level and lists it first in `primary_parents`.
         Additional primary and secondary parents are exported as refs (wikidata id, else name).
         The structure follows the format:
@@ -475,7 +475,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             for criteria in self.filter(user=user)
         }
         queryset = list(
-            self.filter(user=user, allows_multiple_primary_parents=allows_multiple_primary_parents).prefetch_related(
+            self.filter(user=user, tree_name=tree_name).prefetch_related(
                 Fields.ADDITIONAL_PRIMARY_PARENTS, Fields.SECONDARY_PARENTS
             )
         )
@@ -549,9 +549,9 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         this transaction and then rolls it back, so the returned counts reflect what would
         happen without persisting anything.
 
-        `data["allows_multiple_primary_parents"]` is required: the import only matches,
-        stamps and stale-deletes rows with that flag, so the two sets import independently
-        (single-primary-parent tree first, since the other references it). Node
+        `data["tree_name"]` is required: the import only matches, stamps and stale-deletes
+        rows of that tree, so the two trees import independently (canonical first, since
+        the regional one, which allows multiple primary parents, references it). Node
         `primary_parents`/`secondary_parents` are refs (wikidata id, else name) to any of the
         user's rows, resolved after all rows exist; a top-level node's first primary ref
         becomes its `parent`.
@@ -566,21 +566,19 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         if not data:
             return empty_result
 
-        allows_multiple_primary_parents: bool = data[TreeImportFields.ALLOWS_MULTIPLE_PRIMARY_PARENTS]
+        tree_name: str = data[TreeImportFields.TREE_NAME]
         tree_data = data[TreeImportFields.TREE]
 
         model_has_wikidata_id_field = self._model_has_wikidata_id_field()
         model_has_manual_edit_fields = self._model_has_manual_edit_fields()
 
         if not model_has_wikidata_id_field:
-            self._delete_stale_instances(
-                self.filter(user=user, allows_multiple_primary_parents=allows_multiple_primary_parents), actor=actor
-            )
+            self._delete_stale_instances(self.filter(user=user, tree_name=tree_name), actor=actor)
             result = self._import_tree_without_keys(
                 user=user,
                 tree_data=tree_data,
                 actor=actor,
-                allows_multiple_primary_parents=allows_multiple_primary_parents,
+                tree_name=tree_name,
             )
         else:
             result = self._import_tree_with_keys(
@@ -589,7 +587,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 actor=actor,
                 force=force,
                 model_has_manual_edit_fields=model_has_manual_edit_fields,
-                allows_multiple_primary_parents=allows_multiple_primary_parents,
+                tree_name=tree_name,
             )
 
         result["dry_run"] = dry_run
@@ -597,9 +595,9 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             transaction.set_rollback(True)
         return result
 
-    def _node_parent_refs(self, node: dict, allows_multiple_primary_parents: bool) -> tuple[list[str], list[str]]:
+    def _node_parent_refs(self, node: dict, tree_name: str) -> tuple[list[str], list[str]]:
         primary_refs = node.get(InputFields.PRIMARY_PARENTS) or []
-        if primary_refs and not allows_multiple_primary_parents:
+        if primary_refs and tree_name != CriteriaTreeName.REGIONAL:
             raise AppValidationException(
                 field_name=TreeImportFields.PRIMARY_PARENTS,
                 message=_("Only a tree allowing multiple primary parents can list primary parents"),
@@ -607,9 +605,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             )
         return primary_refs, node.get(InputFields.SECONDARY_PARENTS) or []
 
-    def _import_tree_without_keys(
-        self, user: Any, tree_data: list, actor: Any, allows_multiple_primary_parents: bool
-    ) -> dict[str, Any]:
+    def _import_tree_without_keys(self, user: Any, tree_data: list, actor: Any, tree_name: str) -> dict[str, Any]:
         """Tag-type criteria (no wikidata_id notion of identity): delete-and-recreate."""
         if not tree_data:
             return {"created_count": 0, "updated_count": 0, "deleted_count": 0}
@@ -622,13 +618,13 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         def build(nodes, parent: T | None, root: T | None):
             for node in nodes:
-                primary_refs, secondary_refs = self._node_parent_refs(node, allows_multiple_primary_parents)
+                primary_refs, secondary_refs = self._node_parent_refs(node, tree_name)
                 extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
                 criteria = self.model(
                     user=user,
                     type=criteria_type,
                     parent=parent,
-                    allows_multiple_primary_parents=allows_multiple_primary_parents,
+                    tree_name=tree_name,
                     **extra_kwargs,
                 )
                 pk = uuid.uuid4()
@@ -676,7 +672,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         actor: Any,
         force: bool,
         model_has_manual_edit_fields: bool,
-        allows_multiple_primary_parents: bool,
+        tree_name: str,
     ) -> dict[str, Any]:
         from django.conf import settings
 
@@ -685,7 +681,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         self._require_node_keys(tree_data)
 
-        scoped_queryset = self.filter(user=user, allows_multiple_primary_parents=allows_multiple_primary_parents)
+        scoped_queryset = self.filter(user=user, tree_name=tree_name)
         existing_by_key: dict[str, T] = {
             criteria.wikidata_id: criteria for criteria in scoped_queryset if criteria.wikidata_id
         }
@@ -732,7 +728,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     continue
 
                 processed_keys.add(key)
-                primary_refs, secondary_refs = self._node_parent_refs(node, allows_multiple_primary_parents)
+                primary_refs, secondary_refs = self._node_parent_refs(node, tree_name)
                 is_locked = False
                 if matched_criteria is not None:
                     criteria: T = matched_criteria
@@ -751,7 +747,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                         type=criteria_type,
                         parent=parent,
                         wikidata_id=key,
-                        allows_multiple_primary_parents=allows_multiple_primary_parents,
+                        tree_name=tree_name,
                         **extra_kwargs,
                     )
                     # Pre-generate the PK ourselves (rather than relying on the field's

@@ -6,7 +6,7 @@ Shared genre/tag/criteria/tree library for `hear-the-music-tree-api` and `grow-t
 
 ## Multiple parents
 
-A criteria (genre or tag) has a main `parent` plus optional `additional_primary_parents` (only when `allows_multiple_primary_parents` is true) and `secondary_parents` (always allowed). Tracks flow up through primary parents only; secondary parents are classification links. The tree import/export (`tree/import`, `tree/`) handles one flag value at a time: import the single-primary-parent tree first, then the multi-primary-parent tree, whose nodes reference the first via `primaryParents` / `secondaryParents` (wikidata id or name).
+A criteria (genre or tag) has a main `parent` plus optional `additional_primary_parents` (only when `tree_name` is `regional`, see `CriteriaTreeName`) and `secondary_parents` (always allowed). Tracks flow up through primary parents only; secondary parents are classification links. The tree import/export (`tree/import`, `tree/`) handles one `tree_name` at a time (required `tree_name` body field on import, `treeName` query parameter on export): import the `canonical` tree first, then the `regional` tree (the one allowing multiple primary parents), whose nodes reference the first via `primaryParents` / `secondaryParents` (wikidata id or name).
 
 ## Not shipped: consumer-defined criteria querysets
 

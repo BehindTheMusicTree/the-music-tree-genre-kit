@@ -61,7 +61,7 @@ def test_track_flows_into_every_primary_branch_but_not_secondary_parents(user, m
     fusion = make(
         "Fusion",
         parent=rock,
-        allows_multiple_primary_parents=True,
+        tree_name="regional",
         additional_primary_parents=[jazz],
         secondary_parents=[pop],
     )
@@ -80,7 +80,7 @@ def test_track_flows_into_every_primary_branch_but_not_secondary_parents(user, m
 @pytest.mark.django_db
 def test_changing_primary_parents_moves_tracks_only_on_lost_paths(user, make):
     rock, jazz, blues = make("Rock"), make("Jazz"), make("Blues")
-    fusion = make("Fusion", parent=rock, allows_multiple_primary_parents=True, additional_primary_parents=[jazz])
+    fusion = make("Fusion", parent=rock, tree_name="regional", additional_primary_parents=[jazz])
     track = Track.objects.create(user=user, genre=fusion)
 
     Criteria.objects.update_instance(fusion, additional_primary_parents=[blues])
@@ -104,14 +104,14 @@ def test_secondary_parent_on_tag_gets_no_ascendant(make, tag_type):
 def test_parent_invariants_are_enforced(make, tag_type):
     rock, jazz = make("Rock"), make("Jazz")
     mood = make("Mood", criteria_type=tag_type)
-    fusion = make("Fusion", parent=rock, allows_multiple_primary_parents=True)
+    fusion = make("Fusion", parent=rock, tree_name="regional")
 
     assert (
         error_code(lambda: make("Plain", parent=rock, additional_primary_parents=[jazz]))
         == FieldValidationErrorCode.DEPENDENCY_MISSING
     )
     assert (
-        error_code(lambda: make("Orphan", allows_multiple_primary_parents=True, additional_primary_parents=[jazz]))
+        error_code(lambda: make("Orphan", tree_name="regional", additional_primary_parents=[jazz]))
         == FieldValidationErrorCode.DEPENDENCY_MISSING
     )
     assert error_code(lambda: make("Strict", parent=fusion)) == FieldValidationErrorCode.DEPENDENCY_MISSING
@@ -133,7 +133,7 @@ def test_parent_invariants_are_enforced(make, tag_type):
 @pytest.mark.django_db
 def test_deleting_main_parent_promotes_additional_primary_parent(user, make):
     rock, jazz = make("Rock"), make("Jazz")
-    fusion = make("Fusion", parent=rock, allows_multiple_primary_parents=True, additional_primary_parents=[jazz])
+    fusion = make("Fusion", parent=rock, tree_name="regional", additional_primary_parents=[jazz])
 
     Criteria.objects.delete_instance(rock)
 
@@ -143,12 +143,12 @@ def test_deleting_main_parent_promotes_additional_primary_parent(user, make):
     assert ascendant_names(fusion) == {"Jazz"}
 
 
-def import_tree(user, flag, tree):
-    Genre.objects.import_criteria_tree(user, {"allows_multiple_primary_parents": flag, "tree": tree})
+def import_tree(user, tree_name, tree):
+    Genre.objects.import_criteria_tree(user, {"tree_name": tree_name, "tree": tree})
 
 
 @pytest.mark.django_db
-def test_import_scopes_by_flag_and_round_trips_parent_refs(user, genre_type):
+def test_import_scopes_by_tree_name_and_round_trips_parent_refs(user, genre_type):
     single_tree = [
         {"name": "Rock", "id": "Q11399", "children": [], "secondary_parents": ["Q8341"]},
         {"name": "Jazz", "id": "Q8341", "children": []},
@@ -161,9 +161,9 @@ def test_import_scopes_by_flag_and_round_trips_parent_refs(user, genre_type):
             "children": [{"name": "Nu Fusion", "id": "Q2", "children": []}],
         }
     ]
-    import_tree(user, False, single_tree)
-    import_tree(user, True, multi_tree)
-    import_tree(user, False, single_tree)
+    import_tree(user, "canonical", single_tree)
+    import_tree(user, "regional", multi_tree)
+    import_tree(user, "canonical", single_tree)
 
     fusion = Genre.objects.get(user=user, wikidata_id="Q1")
     nu_fusion = Genre.objects.get(user=user, wikidata_id="Q2")
@@ -175,8 +175,8 @@ def test_import_scopes_by_flag_and_round_trips_parent_refs(user, genre_type):
         "Jazz": 2,
     }
 
-    exported_single = Genre.objects.build_criteria_tree(user, allows_multiple_primary_parents=False)
-    exported_multi = Genre.objects.build_criteria_tree(user, allows_multiple_primary_parents=True)
+    exported_single = Genre.objects.build_criteria_tree(user, tree_name="canonical")
+    exported_multi = Genre.objects.build_criteria_tree(user, tree_name="regional")
     assert [node["secondary_parents"] for node in exported_single if node["name"] == "Rock"] == [["Q8341"]]
     assert [node["name"] for node in exported_multi] == ["Fusion"]
     assert exported_multi[0]["primary_parents"] == ["Q11399", "Q8341"]
@@ -186,20 +186,20 @@ def test_import_scopes_by_flag_and_round_trips_parent_refs(user, genre_type):
 @pytest.mark.django_db
 def test_import_rejects_unknown_ref_and_primary_parents_in_single_tree(user, genre_type):
     unknown = [{"name": "Fusion", "id": "Q3", "children": [], "primary_parents": ["Q404"]}]
-    assert error_code(lambda: import_tree(user, True, unknown)) == FieldValidationErrorCode.REFERENCE_INVALID
-    assert error_code(lambda: import_tree(user, False, unknown)) == FieldValidationErrorCode.DEPENDENCY_MISSING
+    assert error_code(lambda: import_tree(user, "regional", unknown)) == FieldValidationErrorCode.REFERENCE_INVALID
+    assert error_code(lambda: import_tree(user, "canonical", unknown)) == FieldValidationErrorCode.DEPENDENCY_MISSING
 
 
 @pytest.mark.django_db
 def test_import_flags_name_conflict_instead_of_failing(user, make, tag_type):
     make("Arabesque", criteria_type=tag_type)
-    import_tree(user, False, [{"name": "Pub rock", "id": "Q1431327", "children": []}])
+    import_tree(user, "canonical", [{"name": "Pub rock", "id": "Q1431327", "children": []}])
     regional = [
         {"name": "pub rock", "id": "Q16250593", "children": [], "primary_parents": ["Q1431327"]},
         {"name": "arabesque", "id": "Q623824", "children": []},
     ]
-    import_tree(user, True, regional)
-    import_tree(user, True, regional)
+    import_tree(user, "regional", regional)
+    import_tree(user, "regional", regional)
 
     canonical = Genre.objects.get(user=user, wikidata_id="Q1431327")
     assert (canonical.name, canonical.has_name_conflict) == ("Pub rock", False)
@@ -209,7 +209,7 @@ def test_import_flags_name_conflict_instead_of_failing(user, make, tag_type):
     Genre.objects.filter(pk=flagged[0].pk).update(
         _name="pub rock (Australia)", is_manually_edited=True, has_name_conflict=False
     )
-    import_tree(user, True, regional)
+    import_tree(user, "regional", regional)
     assert Genre.objects.get(user=user, wikidata_id="Q16250593").name == "pub rock (Australia)"
 
 
@@ -219,15 +219,15 @@ def test_import_flags_unaccepted_root_until_parented_or_locked(user, genre_type)
         {"name": "Rock", "id": "Q11399", "children": []},
         {"name": "Pala", "id": "Q15724583", "children": [], "is_unaccepted_root": True},
     ]
-    import_tree(user, False, tree)
+    import_tree(user, "canonical", tree)
     flagged = Genre.objects.filter(user=user, is_unaccepted_root=True)
     assert [g.wikidata_id for g in flagged] == ["Q15724583"]
 
     parented = [{"name": "Rock", "id": "Q11399", "children": [{"name": "Pala", "id": "Q15724583", "children": []}]}]
-    import_tree(user, False, parented)
+    import_tree(user, "canonical", parented)
     assert not Genre.objects.filter(user=user, is_unaccepted_root=True).exists()
 
-    import_tree(user, False, tree)
+    import_tree(user, "canonical", tree)
     Genre.objects.filter(user=user, wikidata_id="Q15724583").update(is_unaccepted_root=False, is_manually_edited=True)
-    import_tree(user, False, tree)
+    import_tree(user, "canonical", tree)
     assert not Genre.objects.get(user=user, wikidata_id="Q15724583").is_unaccepted_root
