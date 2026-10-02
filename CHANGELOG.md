@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.35.2] - 2026-10-02
+
+### Changed
+
+- Bump `the-music-tree-api-kit` to `v0.9.1`. List endpoints now break default-ordering ties by `pk`, so OFFSET pages over rows with equal `created_on` no longer repeat or skip items.
+
 ## [0.35.1] - 2026-09-30
 
 ### Changed
