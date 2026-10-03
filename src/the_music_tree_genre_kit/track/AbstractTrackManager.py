@@ -127,13 +127,16 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 for i, track in enumerate(tracks)
             )
 
+    def _model_has_field(self, name: str) -> bool:
+        return any(field.name == name for field in self.model._meta.get_fields())
+
     def _model_has_manual_edit_field(self) -> bool:
         """
         Whether this manager's model declares the `is_manually_edited` column. Only a
         concrete video-linkable `Track` subtype (e.g. `YoutubeTrack`) does -- without
         it, `import_seed_songs` has no override state to respect.
         """
-        return any(field.name == "is_manually_edited" for field in self.model._meta.get_fields())
+        return self._model_has_field("is_manually_edited")
 
     def _on_track_genre_changed(self, instance: T, *, old_genre, actor: Any = None) -> None:
         """
@@ -229,7 +232,9 @@ class AbstractTrackManager(StandardResourceManager[T]):
         semantics: an existing track whose `youtube_video_id` matches an incoming
         entry is updated in place instead of deleted and recreated, a track whose
         `youtube_video_id` no longer appears in `data` is deleted, and a new entry is
-        inserted. On a concrete model that declares `is_manually_edited` (e.g. a
+        inserted. On a concrete model that declares `youtube_unplayable_reason`, each
+        inserted or matched track gets the entry's value (omitted = null = playable).
+        On a concrete model that declares `is_manually_edited` (e.g. a
         video-linkable subtype like `YoutubeTrack`), a matched track with that flag
         set keeps its current `genre` untouched by the import - an admin re-tag always
         wins over the next pipeline sync - and is also exempt from stale deletion.
@@ -266,6 +271,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
         artist_model = apps.get_model(settings.ARTIST_MODEL)
         criteria_playlist_model = type(self).criteria_playlist_model
         has_manual_edit_field = self._model_has_manual_edit_field()
+        has_unplayable_reason_field = self._model_has_field(SongSeedFields.YOUTUBE_UNPLAYABLE_REASON)
 
         def _is_locked(track: T) -> bool:
             return has_manual_edit_field and getattr(track, "is_manually_edited", False)
@@ -310,6 +316,10 @@ class AbstractTrackManager(StandardResourceManager[T]):
 
             existing_track.title = entry[SongSeedFields.TITLE]
             update_fields = [Fields.TITLE]
+            if has_unplayable_reason_field:
+                # Omitted means playable, so a video fixed upstream clears its flag on the next sync.
+                existing_track.youtube_unplayable_reason = entry.get(SongSeedFields.YOUTUBE_UNPLAYABLE_REASON)
+                update_fields.append(SongSeedFields.YOUTUBE_UNPLAYABLE_REASON)
 
             if not _is_locked(existing_track) and existing_track.genre != genre:
                 old_genre = existing_track.genre
@@ -350,6 +360,8 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 # is/extends such a subclass.
                 youtube_video_id=entry[SongSeedFields.YOUTUBE_VIDEO_ID],
             )
+            if has_unplayable_reason_field:
+                instance.youtube_unplayable_reason = entry.get(SongSeedFields.YOUTUBE_UNPLAYABLE_REASON)
             instance.save()
             instances.append(instance)
 
