@@ -322,3 +322,60 @@ def test_import_seed_songs_repeated_video_id_with_genre_flip_keeps_rels_unique(u
     assert sorted(TrackPlaylistRel.objects.filter(track=track).values_list("playlist_id", flat=True)) == sorted(
         [electronic.criteria_playlist.pk, house.criteria_playlist.pk, deep.criteria_playlist.pk]
     )
+
+
+@pytest.mark.django_db
+def test_import_seed_songs_stores_unplayable_reason_on_insert(user, house):
+    Track.objects.import_seed_songs(
+        user,
+        [
+            {
+                "title": "Blocked",
+                "artist": "Someone",
+                "youtube_video_id": "abc123",
+                "genre_name": "House",
+                "youtube_unplayable_reason": "not_embeddable",
+            },
+            {"title": "Fine", "artist": "Someone", "youtube_video_id": "def456", "genre_name": "House"},
+        ],
+    )
+
+    assert Track.objects.get(youtube_video_id="abc123").youtube_unplayable_reason == "not_embeddable"
+    assert Track.objects.get(youtube_video_id="def456").youtube_unplayable_reason is None
+
+
+@pytest.mark.django_db
+def test_import_seed_songs_updates_unplayable_reason_on_matched_track(user, house):
+    existing = Track.objects.create(user=user, title="Song", genre=house, youtube_video_id="abc123")
+
+    Track.objects.import_seed_songs(
+        user,
+        [
+            {
+                "title": "Song",
+                "artist": "Someone",
+                "youtube_video_id": "abc123",
+                "genre_name": "House",
+                "youtube_unplayable_reason": "private",
+            }
+        ],
+    )
+
+    existing.refresh_from_db()
+    assert existing.youtube_unplayable_reason == "private"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("extra", [{}, {"youtube_unplayable_reason": None}])
+def test_import_seed_songs_clears_unplayable_reason_when_null_or_omitted(user, house, extra):
+    existing = Track.objects.create(
+        user=user, title="Song", genre=house, youtube_video_id="abc123", youtube_unplayable_reason="not_found"
+    )
+
+    Track.objects.import_seed_songs(
+        user,
+        [{"title": "Song", "artist": "Someone", "youtube_video_id": "abc123", "genre_name": "House", **extra}],
+    )
+
+    existing.refresh_from_db()
+    assert existing.youtube_unplayable_reason is None

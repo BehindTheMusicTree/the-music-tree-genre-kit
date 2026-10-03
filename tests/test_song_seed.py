@@ -85,3 +85,22 @@ def test_import_songs_rejects_invalid_payload(api_client, genres):
     response = api_client.post("/tracks/songs/import/", data=payload, format="json")
 
     assert response.status_code == 400
+
+
+def _entry(**extra):
+    return {"title": "Song", "artist": "Someone", "youtube_video_id": "abc12345678", "genre_name": "Techno", **extra}
+
+
+@pytest.mark.parametrize("reason", ["not_embeddable", None])
+def test_import_songs_accepts_youtube_unplayable_reason(api_client, user, genres, reason):
+    response = api_client.post("/tracks/songs/import/", data=[_entry(youtube_unplayable_reason=reason)], format="json")
+
+    assert response.status_code == 201
+    assert Track.objects.get(user=user).youtube_unplayable_reason == reason
+
+
+def test_import_songs_rejects_unknown_youtube_unplayable_reason(api_client, user, genres):
+    response = api_client.post("/tracks/songs/import/", data=[_entry(youtube_unplayable_reason="bogus")], format="json")
+
+    assert response.status_code == 400
+    assert not Track.objects.filter(user=user).exists()

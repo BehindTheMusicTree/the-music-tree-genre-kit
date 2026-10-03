@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-10-03
+
+### Added
+
+- `import_seed_songs` / `songs/import` accept an optional, nullable `youtube_unplayable_reason` per entry (`not_found`, `not_embeddable`, `private`, `not_processed`, `region_whitelisted`; null = playable), exposed as `track.YoutubeUnplayableReason` choices. On a concrete track model declaring a `youtube_unplayable_reason` field it is written on insert and on matched-track update, an omitted or null value clearing a previous flag; models without the field are unaffected. Covered by serializer and manager tests.
+
 ## [0.35.2] - 2026-10-02
 
 ### Changed
