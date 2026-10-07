@@ -17,6 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-10-07
+
+### Breaking
+
+- `import_seed_songs` / `songs/import` entries now require `musicbrainz_recording_id` (UUID), and the concrete track model must declare a `musicbrainz_recording_id` field (e.g. `UUIDField(null=True, unique=True)`), next to `youtube_video_id`. Importers must send the MusicBrainz recording MBID with every song.
+
+### Changed
+
+- `import_seed_songs` upserts on `musicbrainz_recording_id` instead of `youtube_video_id`: two recordings sharing a video become two tracks, and a recording whose video changes upstream keeps its track (uuid, plays, history, playlist positions) with the new `youtube_video_id`. An entry with no MBID match adopts an existing track with a null MBID and the same `youtube_video_id`, stamping the MBID onto it, so the first sync after upgrading backfills legacy rows in place. Stale deletion now removes any unlocked track matched by neither path. Covered by manager and serializer tests.
+
 ## [0.36.0] - 2026-10-03
 
 ### Added

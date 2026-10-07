@@ -1,3 +1,5 @@
+import uuid
+
 import pytest
 from django.contrib.auth import get_user_model
 from django.db import connection
@@ -9,6 +11,10 @@ from the_music_tree_genre_kit.criteria.playlist.bootstrap_criterialess_playlists
 )
 from the_music_tree_genre_kit.criteria.type.CriteriaType import CriteriaType
 from the_music_tree_genre_kit.criteria.type.CriteriaTypePks import CriteriaTypePks
+
+
+def _mbid(video_id):
+    return str(uuid.uuid5(uuid.NAMESPACE_OID, video_id))
 
 
 @pytest.fixture
@@ -41,7 +47,15 @@ def house(user, genre_type, tag_type):
 def test_import_seed_songs_creates_track_for_matching_genre(user, house):
     result = Track.objects.import_seed_songs(
         user,
-        [{"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "abc123", "genre_name": "house"}],
+        [
+            {
+                "title": "Your Love",
+                "artist": "Frankie Knuckles",
+                "youtube_video_id": "abc123",
+                "musicbrainz_recording_id": _mbid("abc123"),
+                "genre_name": "house",
+            }
+        ],
     )
 
     track = Track.objects.get(user=user, title="Your Love")
@@ -60,6 +74,7 @@ def test_import_seed_songs_skips_entry_with_no_matching_genre(user, house):
                 "title": "No Genre Song",
                 "artist": "Nobody",
                 "youtube_video_id": "xyz789",
+                "musicbrainz_recording_id": _mbid("xyz789"),
                 "genre_name": "Nonexistent Genre",
             }
         ],
@@ -75,7 +90,15 @@ def test_import_seed_songs_reuses_existing_artist(user, house):
 
     Track.objects.import_seed_songs(
         user,
-        [{"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "abc123", "genre_name": "House"}],
+        [
+            {
+                "title": "Your Love",
+                "artist": "Frankie Knuckles",
+                "youtube_video_id": "abc123",
+                "musicbrainz_recording_id": _mbid("abc123"),
+                "genre_name": "House",
+            }
+        ],
     )
 
     track = Track.objects.get(user=user, title="Your Love")
@@ -89,7 +112,15 @@ def test_import_seed_songs_replaces_existing_tracks(user, house):
 
     Track.objects.import_seed_songs(
         user,
-        [{"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "abc123", "genre_name": "House"}],
+        [
+            {
+                "title": "Your Love",
+                "artist": "Frankie Knuckles",
+                "youtube_video_id": "abc123",
+                "musicbrainz_recording_id": _mbid("abc123"),
+                "genre_name": "House",
+            }
+        ],
     )
 
     assert not Track.objects.filter(pk=stale.pk).exists()
@@ -102,7 +133,15 @@ def test_import_seed_songs_upserts_matching_video_id_instead_of_recreating(user,
 
     result = Track.objects.import_seed_songs(
         user,
-        [{"title": "New Title", "artist": "Frankie Knuckles", "youtube_video_id": "abc123", "genre_name": "House"}],
+        [
+            {
+                "title": "New Title",
+                "artist": "Frankie Knuckles",
+                "youtube_video_id": "abc123",
+                "musicbrainz_recording_id": _mbid("abc123"),
+                "genre_name": "House",
+            }
+        ],
     )
 
     existing.refresh_from_db()
@@ -124,7 +163,15 @@ def test_import_seed_songs_locked_track_keeps_its_genre(user, house):
 
     Track.objects.import_seed_songs(
         user,
-        [{"title": "Locked Song", "artist": "Someone", "youtube_video_id": "abc123", "genre_name": "House"}],
+        [
+            {
+                "title": "Locked Song",
+                "artist": "Someone",
+                "youtube_video_id": "abc123",
+                "musicbrainz_recording_id": _mbid("abc123"),
+                "genre_name": "House",
+            }
+        ],
     )
 
     locked.refresh_from_db()
@@ -138,7 +185,15 @@ def test_import_seed_songs_never_deletes_locked_track_even_when_absent(user, hou
 
     Track.objects.import_seed_songs(
         user,
-        [{"title": "Other Song", "artist": "Someone", "youtube_video_id": "zzz999", "genre_name": "House"}],
+        [
+            {
+                "title": "Other Song",
+                "artist": "Someone",
+                "youtube_video_id": "zzz999",
+                "musicbrainz_recording_id": _mbid("zzz999"),
+                "genre_name": "House",
+            }
+        ],
     )
 
     assert Track.objects.filter(pk=locked.pk).exists()
@@ -177,6 +232,7 @@ def test_import_seed_songs_adds_multi_level_ancestor_playlist_rels(user, deep_ho
                 "title": "Silent Shout",
                 "artist": "The Knife",
                 "youtube_video_id": "aaa111",
+                "musicbrainz_recording_id": _mbid("aaa111"),
                 "genre_name": "Deep House",
             }
         ],
@@ -196,8 +252,20 @@ def test_import_seed_songs_orders_playlist_rels_most_recent_first(user, deep_hou
     Track.objects.import_seed_songs(
         user,
         [
-            {"title": "First", "artist": "Artist A", "youtube_video_id": "id1", "genre_name": "House"},
-            {"title": "Second", "artist": "Artist B", "youtube_video_id": "id2", "genre_name": "Deep House"},
+            {
+                "title": "First",
+                "artist": "Artist A",
+                "youtube_video_id": "id1",
+                "musicbrainz_recording_id": _mbid("id1"),
+                "genre_name": "House",
+            },
+            {
+                "title": "Second",
+                "artist": "Artist B",
+                "youtube_video_id": "id2",
+                "musicbrainz_recording_id": _mbid("id2"),
+                "genre_name": "Deep House",
+            },
         ],
     )
 
@@ -222,13 +290,20 @@ def test_import_seed_songs_large_batch(user, deep_house):
             "title": f"Track {index}",
             "artist": f"Artist {index % 25}",
             "youtube_video_id": f"vid{index}",
+            "musicbrainz_recording_id": _mbid(f"vid{index}"),
             "genre_name": "Deep House" if index % 3 == 0 else ("House" if index % 3 == 1 else "Electronic"),
         }
         for index in range(entry_count)
     ]
     # A handful of unmatched entries mixed in should still be skipped.
     data.append(
-        {"title": "Unmatched", "artist": "Nobody", "youtube_video_id": "novid", "genre_name": "Not A Real Genre"}
+        {
+            "title": "Unmatched",
+            "artist": "Nobody",
+            "youtube_video_id": "novid",
+            "musicbrainz_recording_id": _mbid("novid"),
+            "genre_name": "Not A Real Genre",
+        }
     )
 
     # The `artists` M2M write is a single `bulk_create` against its auto-generated through
@@ -273,9 +348,27 @@ def test_import_seed_songs_genre_change_positions_match_per_track_moves(user, de
     Track.objects.import_seed_songs(
         user,
         [
-            {"title": "Kept", "artist": "A", "youtube_video_id": "kept", "genre_name": "House"},
-            {"title": "First", "artist": "A", "youtube_video_id": "first", "genre_name": "Deep House"},
-            {"title": "Second", "artist": "A", "youtube_video_id": "second", "genre_name": "Electronic"},
+            {
+                "title": "Kept",
+                "artist": "A",
+                "youtube_video_id": "kept",
+                "musicbrainz_recording_id": _mbid("kept"),
+                "genre_name": "House",
+            },
+            {
+                "title": "First",
+                "artist": "A",
+                "youtube_video_id": "first",
+                "musicbrainz_recording_id": _mbid("first"),
+                "genre_name": "Deep House",
+            },
+            {
+                "title": "Second",
+                "artist": "A",
+                "youtube_video_id": "second",
+                "musicbrainz_recording_id": _mbid("second"),
+                "genre_name": "Electronic",
+            },
         ],
     )
 
@@ -295,9 +388,21 @@ def test_import_seed_songs_genre_change_positions_match_per_track_moves(user, de
 
 @pytest.mark.django_db
 def test_import_seed_songs_shifts_existing_positions_for_new_tracks(user, house):
-    kept = {"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "abc123", "genre_name": "house"}
+    kept = {
+        "title": "Your Love",
+        "artist": "Frankie Knuckles",
+        "youtube_video_id": "abc123",
+        "musicbrainz_recording_id": _mbid("abc123"),
+        "genre_name": "house",
+    }
     Track.objects.import_seed_songs(user, [kept])
-    new = {"title": "Can You Feel It", "artist": "Larry Heard", "youtube_video_id": "def456", "genre_name": "house"}
+    new = {
+        "title": "Can You Feel It",
+        "artist": "Larry Heard",
+        "youtube_video_id": "def456",
+        "musicbrainz_recording_id": _mbid("def456"),
+        "genre_name": "house",
+    }
 
     Track.objects.import_seed_songs(user, [kept, new])
 
@@ -312,7 +417,12 @@ def test_import_seed_songs_shifts_existing_positions_for_new_tracks(user, house)
 @pytest.mark.django_db
 def test_import_seed_songs_repeated_video_id_with_genre_flip_keeps_rels_unique(user, deep_house):
     electronic, house, deep = deep_house
-    song = {"title": "Your Love", "artist": "Frankie Knuckles", "youtube_video_id": "abc123"}
+    song = {
+        "title": "Your Love",
+        "artist": "Frankie Knuckles",
+        "youtube_video_id": "abc123",
+        "musicbrainz_recording_id": _mbid("abc123"),
+    }
     Track.objects.import_seed_songs(user, [{**song, "genre_name": "deep house"}])
 
     Track.objects.import_seed_songs(user, [{**song, "genre_name": "house"}, {**song, "genre_name": "deep house"}])
@@ -333,10 +443,17 @@ def test_import_seed_songs_stores_unplayable_reason_on_insert(user, house):
                 "title": "Blocked",
                 "artist": "Someone",
                 "youtube_video_id": "abc123",
+                "musicbrainz_recording_id": _mbid("abc123"),
                 "genre_name": "House",
                 "youtube_unplayable_reason": "not_embeddable",
             },
-            {"title": "Fine", "artist": "Someone", "youtube_video_id": "def456", "genre_name": "House"},
+            {
+                "title": "Fine",
+                "artist": "Someone",
+                "youtube_video_id": "def456",
+                "musicbrainz_recording_id": _mbid("def456"),
+                "genre_name": "House",
+            },
         ],
     )
 
@@ -355,6 +472,7 @@ def test_import_seed_songs_updates_unplayable_reason_on_matched_track(user, hous
                 "title": "Song",
                 "artist": "Someone",
                 "youtube_video_id": "abc123",
+                "musicbrainz_recording_id": _mbid("abc123"),
                 "genre_name": "House",
                 "youtube_unplayable_reason": "private",
             }
@@ -374,8 +492,72 @@ def test_import_seed_songs_clears_unplayable_reason_when_null_or_omitted(user, h
 
     Track.objects.import_seed_songs(
         user,
-        [{"title": "Song", "artist": "Someone", "youtube_video_id": "abc123", "genre_name": "House", **extra}],
+        [
+            {
+                "title": "Song",
+                "artist": "Someone",
+                "youtube_video_id": "abc123",
+                "musicbrainz_recording_id": _mbid("abc123"),
+                "genre_name": "House",
+                **extra,
+            }
+        ],
     )
 
     existing.refresh_from_db()
     assert existing.youtube_unplayable_reason is None
+
+
+def _song(title, video_id, mbid, genre_name="House"):
+    return {
+        "title": title,
+        "artist": "Someone",
+        "youtube_video_id": video_id,
+        "musicbrainz_recording_id": mbid,
+        "genre_name": genre_name,
+    }
+
+
+MBID_A = "11111111-1111-1111-1111-111111111111"
+MBID_B = "22222222-2222-2222-2222-222222222222"
+
+
+@pytest.mark.django_db
+def test_import_seed_songs_keeps_track_when_video_id_changes(user, house):
+    Track.objects.import_seed_songs(user, [_song("Song", "old_video", MBID_A)])
+    track = Track.objects.get(user=user)
+
+    Track.objects.import_seed_songs(user, [_song("Song", "new_video", MBID_A)])
+
+    assert list(Track.objects.filter(user=user).values_list("pk", "youtube_video_id")) == [(track.pk, "new_video")]
+
+
+@pytest.mark.django_db
+def test_import_seed_songs_two_recordings_sharing_a_video_are_two_tracks(user, house):
+    result = Track.objects.import_seed_songs(user, [_song("A", "shared", MBID_A), _song("B", "shared", MBID_B)])
+
+    assert result == {"imported": 2, "skipped": 0}
+    assert set(Track.objects.filter(user=user).values_list("title", flat=True)) == {"A", "B"}
+
+
+@pytest.mark.django_db
+def test_import_seed_songs_adopts_legacy_track_and_stamps_mbid(user, house):
+    legacy = Track.objects.create(user=user, title="Old", genre=house, youtube_video_id="abc123")
+
+    Track.objects.import_seed_songs(user, [_song("New", "abc123", MBID_A), _song("Other", "abc123", MBID_B)])
+
+    legacy.refresh_from_db()
+    assert str(legacy.musicbrainz_recording_id) == MBID_A
+    assert legacy.title == "New"
+    assert Track.objects.get(user=user, musicbrainz_recording_id=MBID_B).pk != legacy.pk
+
+
+@pytest.mark.django_db
+def test_import_seed_songs_deletes_stale_and_keeps_locked(user, house):
+    stale = Track.objects.create(user=user, title="Stale", musicbrainz_recording_id=MBID_A)
+    locked = Track.objects.create(user=user, title="Locked", musicbrainz_recording_id=MBID_B, is_manually_edited=True)
+
+    Track.objects.import_seed_songs(user, [_song("Fresh", "fresh", "33333333-3333-3333-3333-333333333333")])
+
+    assert not Track.objects.filter(pk=stale.pk).exists()
+    assert Track.objects.filter(pk=locked.pk).exists()

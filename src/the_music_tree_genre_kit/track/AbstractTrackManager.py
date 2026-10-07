@@ -1,4 +1,5 @@
 from typing import TYPE_CHECKING, Any, TypeVar
+from uuid import UUID
 
 from django.apps import apps
 from django.conf import settings
@@ -227,13 +228,16 @@ class AbstractTrackManager(StandardResourceManager[T]):
     @transaction.atomic
     def import_seed_songs(self, user: User, data: list[dict[str, Any]], actor: Any = None) -> dict[str, int]:
         """
-        Upserts a flat list of seed songs by `youtube_video_id`, mirroring
-        `AbstractCriteriaManager.import_criteria_tree`'s upsert (not wipe-then-seed)
-        semantics: an existing track whose `youtube_video_id` matches an incoming
-        entry is updated in place instead of deleted and recreated, a track whose
-        `youtube_video_id` no longer appears in `data` is deleted, and a new entry is
-        inserted. On a concrete model that declares `youtube_unplayable_reason`, each
-        inserted or matched track gets the entry's value (omitted = null = playable).
+        Upserts a flat list of seed songs by `musicbrainz_recording_id` (the stable
+        MusicBrainz recording MBID), mirroring `AbstractCriteriaManager.import_criteria_tree`'s
+        upsert-by-`wikidata_id` (not wipe-then-seed) semantics: an existing track whose MBID
+        matches an incoming entry is updated in place instead of deleted and recreated (its
+        `youtube_video_id` may change upstream without losing the track), an entry with no
+        MBID match adopts an existing track with a null MBID and the same `youtube_video_id`
+        (stamping the MBID onto it - the legacy backfill path), an existing track matched by
+        neither path is deleted, and any other entry is inserted. On a concrete model that
+        declares `youtube_unplayable_reason`, each inserted or matched track gets the entry's value (omitted = null =
+        playable).
         On a concrete model that declares `is_manually_edited` (e.g. a
         video-linkable subtype like `YoutubeTrack`), a matched track with that flag
         set keeps its current `genre` untouched by the import - an admin re-tag always
@@ -263,7 +267,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
         needs one `save()` each - Django's `bulk_create` refuses multi-table inherited models, and every concrete
         `Track` subclass is one.
 
-        ponytail: matched (non-new) tracks only refresh `title`/`genre` - `artists`
+        ponytail: matched (non-new) tracks only refresh `title`/`youtube_video_id`/`genre` - `artists`
         isn't re-synced for them, only set on insert. Revisit if upstream artist-name
         corrections need to propagate onto already-imported rows.
         """
@@ -276,13 +280,16 @@ class AbstractTrackManager(StandardResourceManager[T]):
         def _is_locked(track: T) -> bool:
             return has_manual_edit_field and getattr(track, "is_manually_edited", False)
 
-        existing_by_video_id: dict[str, T] = {track.youtube_video_id: track for track in self.filter(user=user)}
-
-        if not data:
-            for track in existing_by_video_id.values():
-                if not _is_locked(track):
-                    self.delete_instance_with_checking_album_and_artists_potential_deletion(track)
-            return {"imported": 0, "skipped": 0}
+        existing_tracks = list(self.filter(user=user))
+        existing_by_mbid: dict[UUID, T] = {
+            track.musicbrainz_recording_id: track
+            for track in existing_tracks
+            if track.musicbrainz_recording_id is not None
+        }
+        # ponytail: adopts pre-MBID tracks in place on first sight; drop once every consumer has synced.
+        legacy_by_video_id: dict[str, T] = {
+            track.youtube_video_id: track for track in existing_tracks if track.musicbrainz_recording_id is None
+        }
 
         criteria_by_lower_name: dict[str, Any] = {}
         for criteria in criteria_model.objects.filter(user=user):
@@ -295,27 +302,28 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 matched_entries.append((entry, genre))
 
         skipped = len(data) - len(matched_entries)
-        matched_video_ids = {entry[SongSeedFields.YOUTUBE_VIDEO_ID] for entry, _genre in matched_entries}
-
-        for video_id, track in existing_by_video_id.items():
-            if video_id not in matched_video_ids and not _is_locked(track):
-                self.delete_instance_with_checking_album_and_artists_potential_deletion(track)
-
-        if not matched_entries:
-            return {"imported": 0, "skipped": skipped}
 
         new_entries: list[tuple[dict[str, Any], Any]] = []
-        # Keyed by track: an entry repeating a video id must diff against the track's original genre.
+        # Keyed by track: an entry repeating a recording must diff against the track's original genre.
         genre_changes: dict[Any, tuple[T, Any]] = {}
+        matched_track_pks: set[Any] = set()
         updated_count = 0
         for entry, genre in matched_entries:
-            existing_track = existing_by_video_id.get(entry[SongSeedFields.YOUTUBE_VIDEO_ID])
+            mbid = UUID(str(entry[SongSeedFields.MUSICBRAINZ_RECORDING_ID]))
+            update_fields = [Fields.TITLE, SongSeedFields.YOUTUBE_VIDEO_ID]
+            existing_track = existing_by_mbid.get(mbid)
             if existing_track is None:
-                new_entries.append((entry, genre))
-                continue
+                existing_track = legacy_by_video_id.pop(entry[SongSeedFields.YOUTUBE_VIDEO_ID], None)
+                if existing_track is None:
+                    new_entries.append((entry, genre))
+                    continue
+                existing_track.musicbrainz_recording_id = mbid
+                existing_by_mbid[mbid] = existing_track
+                update_fields.append(SongSeedFields.MUSICBRAINZ_RECORDING_ID)
 
+            matched_track_pks.add(existing_track.pk)
             existing_track.title = entry[SongSeedFields.TITLE]
-            update_fields = [Fields.TITLE]
+            existing_track.youtube_video_id = entry[SongSeedFields.YOUTUBE_VIDEO_ID]
             if has_unplayable_reason_field:
                 # Omitted means playable, so a video fixed upstream clears its flag on the next sync.
                 existing_track.youtube_unplayable_reason = entry.get(SongSeedFields.YOUTUBE_UNPLAYABLE_REASON)
@@ -333,7 +341,14 @@ class AbstractTrackManager(StandardResourceManager[T]):
 
             updated_count += 1
 
+        for track in existing_tracks:
+            if track.pk not in matched_track_pks and not _is_locked(track):
+                self.delete_instance_with_checking_album_and_artists_potential_deletion(track)
+
         self._bulk_update_genre_playlists(user, list(genre_changes.values()))
+
+        if not new_entries:
+            return {"imported": updated_count, "skipped": skipped}
 
         unique_artist_names = list(dict.fromkeys(entry[SongSeedFields.ARTIST] for entry, _ in new_entries))
         artists_by_name = dict(
@@ -355,10 +370,11 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 user=user,
                 title=entry[SongSeedFields.TITLE],
                 genre=genre,
-                # `youtube_video_id` isn't a field on the abstract Track model, only on
-                # concrete video-linkable subclasses - valid only when settings.TRACK_MODEL
-                # is/extends such a subclass.
+                # `youtube_video_id` and `musicbrainz_recording_id` aren't fields on the abstract
+                # Track model, only on concrete video-linkable subclasses - valid only when
+                # settings.TRACK_MODEL is/extends such a subclass.
                 youtube_video_id=entry[SongSeedFields.YOUTUBE_VIDEO_ID],
+                musicbrainz_recording_id=entry[SongSeedFields.MUSICBRAINZ_RECORDING_ID],
             )
             if has_unplayable_reason_field:
                 instance.youtube_unplayable_reason = entry.get(SongSeedFields.YOUTUBE_UNPLAYABLE_REASON)
