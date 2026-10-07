@@ -12,8 +12,8 @@ from the_music_tree_genre_kit.track.Track import Track
 class SongsImportMixin[T: Track]:
     """
     Adds a `songs/import` action accepting an arbitrary flat list of
-    {"title", "artist", "youtube_video_id", "genre_name"} entries, replacing all of the
-    current user's tracks. Mix into an `AppModelViewSet[T]` subclass for a track viewset.
+    {"title", "artist", "youtube_video_id", "musicbrainz_recording_id", "genre_name"} entries
+    (plus an optional "youtube_unplayable_reason"), replacing all of the current user's tracks. Mix into an `AppModelViewSet[T]` subclass for a track viewset.
     """
 
     model_class: type[T]

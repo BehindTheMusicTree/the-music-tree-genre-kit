@@ -95,6 +95,7 @@ class Album(PrivateUniqueResource):
 class Track(KitTrack):
     track = PrivateOneToOneField(KitTrack, on_delete=models.CASCADE, parent_link=True, related_name="fixture_track")
     youtube_video_id = models.CharField(max_length=32, blank=True, default="")
+    musicbrainz_recording_id = models.UUIDField(null=True, unique=True)
     is_manually_edited = models.BooleanField(default=False)
     youtube_unplayable_reason = models.CharField(
         max_length=32, choices=YoutubeUnplayableReason.choices, null=True, blank=True, default=None
