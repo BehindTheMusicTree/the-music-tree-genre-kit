@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-10-07
+
 ### Breaking
 
 - `import_seed_songs` / `songs/import` entries now require `musicbrainz_recording_id` (UUID), and the concrete track model must declare a `musicbrainz_recording_id` field (e.g. `UUIDField(null=True, unique=True)`), next to `youtube_video_id`. Importers must send the MusicBrainz recording MBID with every song.
