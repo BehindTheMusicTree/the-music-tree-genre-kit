@@ -82,13 +82,6 @@ that always requires an explicit `queryset` — see its docstring for why),
 `detailed_tracks.py` / `minimum.py`. These are assembled by consumers into their own serializer
 classes; this package does not define full serializers that hit a concrete `Criteria` table.
 
-### Song import
-
-`view/viewset/track/SongsImportMixin.py` adds a `songs/import` action that replaces the owner's
-tracks from a request-body list via `AbstractTrackManager.import_seed_songs`, matching each entry's
-`genre_name` case-insensitively against the owner's own criteria (unmatched entries are skipped
-rather than creating a genre-less track). Opt-in mixin for a consumer's viewset.
-
 ## Contributing conventions (see CONTRIBUTING.md for full detail)
 
 - Strict Gitflow. No direct commits to `main` or `develop` — everything goes through a PR.
