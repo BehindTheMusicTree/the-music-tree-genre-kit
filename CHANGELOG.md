@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-10-08
+
 ### Removed
 
 - The seed-song import: `AbstractTrackManager.import_seed_songs` (and its private `_bulk_update_genre_playlists` helper), `SongsImportMixin` (`songs/import`), and `SongSeedEntrySerializer` / `SongSeedFields` (`serializer/model/track/input/song_seed/`), with their tests. Only `grow-the-music-tree-api` used it, and it now owns a Postgres-specific bulk import of its own. `YoutubeUnplayableReason` stays.
