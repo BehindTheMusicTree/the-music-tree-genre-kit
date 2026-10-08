@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-10-08
+
 ### Changed
 
 - `Track.title` max length raised from 256 to 2048 (migration `0010_track_title_len_2048`): real MusicBrainz titles run up to ~1060 chars. The kit owns no artist-name field, so `ARTIST_NAME_LEN_MAX` is consumer-side only.
