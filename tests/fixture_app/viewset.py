@@ -5,7 +5,6 @@ from tests.fixture_app.models import Criteria, CriteriaPlaylist, Track, TrackPla
 from the_music_tree_genre_kit.serializer.model.criteria.output.simple import build_criteria_simple_serializer
 from the_music_tree_genre_kit.view.viewset.AbstractCriteriaViewSet import AbstractCriteriaViewSet
 from the_music_tree_genre_kit.view.viewset.playlist.PlaylistTracksActionMixin import PlaylistTracksActionMixin
-from the_music_tree_genre_kit.view.viewset.track.SongsImportMixin import SongsImportMixin
 
 
 class CriteriaViewSet(AbstractCriteriaViewSet[Criteria]):
@@ -17,7 +16,7 @@ class CriteriaViewSet(AbstractCriteriaViewSet[Criteria]):
         )
 
 
-class TrackViewSet(SongsImportMixin[Track], AppModelViewSet[Track]):
+class TrackViewSet(AppModelViewSet[Track]):
     def __init__(self, **kwargs):
         super().__init__(model_class=Track, **kwargs)
 
