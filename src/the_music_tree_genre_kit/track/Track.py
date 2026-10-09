@@ -70,7 +70,6 @@ class Track(TrackablePlayCount):
     class Meta:
         app_label = "the_music_tree_genre_kit"
         indexes = [
-            models.Index(fields=["user", Fields.TITLE]),
             models.Index(fields=["user", Fields.GENRE]),
             models.Index(fields=["user", Fields.ALBUM]),
         ]
