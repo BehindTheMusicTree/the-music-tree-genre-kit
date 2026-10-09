@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-10-09
+
 ### Removed
 
 - Dropped the unused `(user, title)` index on `Track` (migration `0011_remove_track_user_title_index`, `DROP INDEX CONCURRENTLY` on Postgres). It was never scanned, and the longest grow title (2701 bytes) sat 3 bytes under the btree row limit, so a longer one would have failed a whole songs import.
