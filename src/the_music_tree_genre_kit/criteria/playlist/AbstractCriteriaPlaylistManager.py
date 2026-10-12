@@ -9,7 +9,6 @@ from the_music_tree_genre_kit.base.bulk_mti import bulk_create_mti
 
 from .AbstractCriteriaPlaylist import AbstractCriteriaPlaylist
 from .CriterialessPlaylistNames import CriterialessPlaylistNames
-from .Fields import Fields
 
 if TYPE_CHECKING:
     from the_music_tree_genre_kit.criteria.AbstractCriteria import AbstractCriteria
@@ -19,8 +18,7 @@ T = TypeVar("T", bound=AbstractCriteriaPlaylist)
 
 class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
     """
-    Owns the tree-structure logic (root propagation) and the track-touching
-    primitives (track rels, criteria-less transfer) that
+    Owns the track-touching primitives (track rels, criteria-less transfer) that
     used to be duplicated line-for-line between grow and hear. Fully
     concrete: track-touching methods are built on `track_playlist_rel_model`/
     `track_model`, plain class attributes wired by the concrete app's manager
@@ -39,24 +37,13 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
 
     def bulk_create_for_criteria(self, criteria_instances: list[AbstractCriteria]) -> None:
         """
-        Bulk-creates one playlist per given criteria, mirroring the criteria
-        tree's parent/root structure. `criteria_instances` must be in
-        pre-order (a criteria's parent already present before it), which is
-        how `AbstractCriteriaManager.import_criteria_tree` builds its list --
-        meant to be called from a consumer's `_on_bulk_created` override.
-
-        Parent/root are resolved from the in-memory criteria tree instead of
-        the per-instance DB lookups `AbstractCriteriaPlaylist._set_parent`/
-        `_set_root` normally do -- except a parent/root that predates this
-        batch (a partial reimport whose new node attaches under an
-        already-existing criteria), which falls back to a DB lookup since it
-        has no in-memory playlist to reuse.
+        Bulk-creates one playlist per given criteria -- meant to be called
+        from a consumer's `_on_bulk_created` override.
         """
         if not criteria_instances:
             return
 
         playlists: list[T] = []
-        playlist_by_criteria_pk: dict[Any, T] = {}
 
         for criteria in criteria_instances:
             playlist: T = self.model(user=criteria.user, criteria=criteria, type=criteria.type)
@@ -65,28 +52,9 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
             playlist.uuid = pk
             playlist.pk = pk
 
-            playlist.parent = (
-                self._resolve_by_criteria_id(playlist_by_criteria_pk, criteria.parent_id, user=criteria.user)
-                if criteria.parent_id
-                else None
-            )
-            playlist.root = (
-                playlist
-                if criteria.is_root
-                else self._resolve_by_criteria_id(playlist_by_criteria_pk, criteria.root_id, user=criteria.user)
-            )
-
-            playlist_by_criteria_pk[criteria.pk] = playlist
             playlists.append(playlist)
 
         bulk_create_mti(playlists, using=self.db)
-
-    def _resolve_by_criteria_id(self, playlist_by_criteria_pk: dict[Any, T], criteria_id: Any, *, user: Any) -> T:
-        playlist = playlist_by_criteria_pk.get(criteria_id)
-        if playlist is not None:
-            return playlist
-
-        return self.get(user=user, criteria_id=criteria_id)
 
     def get_direct_tracks(self, instance: T) -> QuerySet:
         track_ids = self.track_playlist_rel_model.objects.filter(playlist=instance).values_list("track_id", flat=True)
@@ -122,22 +90,6 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
             .first()
         )
 
-    def update_instance(self, instance: T, **kwargs) -> T:
-        original_root = instance.root
-        updated_instance: T = super().update_instance(instance, **kwargs)
-        if original_root != updated_instance.root:
-            self.update_descendants_root(instance=updated_instance, root=updated_instance.root)
-        return updated_instance
-
-    def update_instance_and_children_root(self, instance: T, root: T) -> None:
-        instance.root = root
-        instance.save(update_fields=[Fields.ROOT])
-        self.update_descendants_root(instance=instance, root=root)
-
-    def update_descendants_root(self, instance: T, root: T) -> None:
-        for child in instance.children.all():
-            self.update_instance_and_children_root(instance=child, root=root)
-
     def transfer_direct_tracks_to_criterialess_playlist(self, direct_tracks: QuerySet, criteria_playlist: T) -> None:
         criterialess_playlist = self.get(user=criteria_playlist.user, criteria=None, type=criteria_playlist.type)
 
@@ -155,10 +107,3 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
         )
 
         direct_tracks_rels_in_criteria_playlist.filter(position__isnull=True).update(playlist=criterialess_playlist)
-
-    def make_playlist_root(self, playlist: T) -> None:
-        playlist.parent = None
-        playlist.root = playlist
-        playlist.save(update_fields=[Fields.PARENT, Fields.ROOT])
-
-        self.update_descendants_root(instance=playlist, root=playlist)
