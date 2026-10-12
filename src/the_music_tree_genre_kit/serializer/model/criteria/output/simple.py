@@ -20,13 +20,14 @@ def build_criteria_simple_serializer(
         CriteriaOutputFieldKey.PARENT.value,
         CriteriaOutputFieldKey.CREATED_ON.value,
         CriteriaOutputFieldKey.SIDE.value,
+        CriteriaOutputFieldKey.WIKIDATA_ID.value,
         CriteriaOutputFieldKey.SUMMARY.value,
         CriteriaOutputFieldKey.TREE_NAME.value,
         CriteriaOutputFieldKey.PRIMARY_PARENTS.value,
         CriteriaOutputFieldKey.SECONDARY_PARENTS.value,
     ]
 
-    # `side` is a real column only on the concrete Genre subtype (see
+    # `side` and `wikidata_id` are real columns only on the concrete Genre subtype (see
     # `AbstractGenreCriteria`), not on the shared `AbstractCriteria` table -- when the
     # model doesn't have it natively, mix in the reverse-accessor resolver instead.
     has_own_side_field = any(

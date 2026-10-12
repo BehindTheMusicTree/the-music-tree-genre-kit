@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `build_criteria_simple_serializer` now exposes `wikidata_id` (the genre's QID or `LOCAL:` key, `None` for non-genre criteria), resolved through the `genre` reverse accessor like `side`. Lets tree clients key per-root styling on a stable id.
+
 ## [0.40.0] - 2026-10-09
 
 ### Removed
