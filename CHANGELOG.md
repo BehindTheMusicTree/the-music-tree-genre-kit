@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.42.0] - 2026-10-12
+
 ### Breaking
 
 - `AbstractCriteriaPlaylist.parent`/`root` are no longer stored FKs: they are read-only properties derived from the criteria tree (`criteria.parent.criteria_playlist`, `criteria.root.criteria_playlist`), and `children` is a property querying `criteria__parent`. Consumers must add a migration dropping the `parent_id`/`root_id` columns, and replace `select_related`/filter paths on `parent`/`root` with `criteria__parent__criteria_playlist`/`criteria__root__criteria_playlist`.
