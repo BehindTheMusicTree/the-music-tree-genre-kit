@@ -77,7 +77,7 @@ def test_criteria_simple_serializer_resolves_side_from_genre_mti_subtype(db):
     root = Genre(user=user, type=genre_type)
     root._name = "root"
     root.save()
-    genre = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
+    genre = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP, wikidata_id="Q9778")
     genre._name = "child"
     genre.save()
 
@@ -85,6 +85,7 @@ def test_criteria_simple_serializer_resolves_side_from_genre_mti_subtype(db):
     data = serializer_class(genre.criteria_ptr).data
 
     assert data["side"] == CriteriaSide.POP
+    assert data["wikidata_id"] == "Q9778"
 
 
 def test_criteria_simple_serializer_side_is_none_for_non_genre_criteria(criteria_tree):
@@ -94,6 +95,7 @@ def test_criteria_simple_serializer_side_is_none_for_non_genre_criteria(criteria
     data = serializer_class(root).data
 
     assert data["side"] is None
+    assert data["wikidata_id"] is None
 
 
 def test_criteria_simple_serializer_summary_defaults_to_none(criteria_tree):
