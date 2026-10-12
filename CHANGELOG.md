@@ -17,6 +17,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `filtering/`: shared `CriteriaFilterSet`, `CriteriaPlaylistFilterSet`, `ManualPlaylistFilterSet`, `PlaylistFilterSet` and `CriteriaNameFilter`, previously duplicated in grow-api and hear-api. Requires api-kit 0.10.0.
+
+### Fixed
+
+- Manual-playlist and playlist `name` filters look up the `_name` column; the `name` property is not an ORM field.
+
 ## [0.42.0] - 2026-10-12
 
 ### Breaking
