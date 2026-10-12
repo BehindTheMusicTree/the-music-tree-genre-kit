@@ -259,13 +259,13 @@ def test_bulk_create_for_criteria_creates_playlists_matching_criteria_tree(user,
     grandchild_playlist = CriteriaPlaylist.objects.get(criteria=grandchild)
 
     assert root_playlist.parent is None
-    assert root_playlist.root_id == root_playlist.pk
+    assert root_playlist.root == root_playlist
 
-    assert child_playlist.parent_id == root_playlist.pk
-    assert child_playlist.root_id == root_playlist.pk
+    assert child_playlist.parent == root_playlist
+    assert child_playlist.root == root_playlist
 
-    assert grandchild_playlist.parent_id == child_playlist.pk
-    assert grandchild_playlist.root_id == root_playlist.pk
+    assert grandchild_playlist.parent == child_playlist
+    assert grandchild_playlist.root == root_playlist
 
 
 @pytest.mark.django_db
@@ -299,8 +299,45 @@ def test_bulk_create_for_criteria_resolves_root_that_predates_the_batch(user, ge
     root_playlist = CriteriaPlaylist.objects.get(criteria=root)
     child_playlist = CriteriaPlaylist.objects.get(criteria=child)
 
-    assert child_playlist.parent_id == root_playlist.pk
-    assert child_playlist.root_id == root_playlist.pk
+    assert child_playlist.parent == root_playlist
+    assert child_playlist.root == root_playlist
+
+
+@pytest.mark.django_db
+def test_import_criteria_tree_moving_a_criteria_moves_its_playlist(user, genre_type, monkeypatch):
+    monkeypatch.setattr(
+        GenreManager,
+        "_on_bulk_created",
+        lambda self, instances, actor=None: CriteriaPlaylist.objects.bulk_create_for_criteria(instances),
+    )
+    house = {"name": "House", "id": "Q186024", "children": []}
+    Genre.objects.import_criteria_tree(
+        user,
+        {
+            "tree_name": "canonical",
+            "tree": [
+                {"name": "Electronic", "id": "Q9759", "children": [house]},
+                {"name": "Dance", "id": "Q1", "children": []},
+            ],
+        },
+    )
+
+    Genre.objects.import_criteria_tree(
+        user,
+        {
+            "tree_name": "canonical",
+            "tree": [
+                {"name": "Electronic", "id": "Q9759", "children": []},
+                {"name": "Dance", "id": "Q1", "children": [house]},
+            ],
+        },
+    )
+
+    dance_playlist = CriteriaPlaylist.objects.get(criteria__in=Genre.objects.filter(user=user, _name="Dance"))
+    house_playlist = CriteriaPlaylist.objects.get(criteria__in=Genre.objects.filter(user=user, _name="House"))
+    assert house_playlist.parent == dance_playlist
+    assert house_playlist.root == dance_playlist
+    assert list(dance_playlist.children) == [house_playlist]
 
 
 @pytest.mark.django_db

@@ -28,7 +28,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     Owns the pure tree-structure logic for criteria (ascendant refresh, root
     propagation, primary-parent track moves), plus the criteria-playlist
     orchestration around deletion (direct-track transfer to the criteria-less
-    playlist, child reparenting) built on the sibling
+    playlist) built on the sibling
     AbstractCriteriaPlaylistManager reached via `instance.criteria_playlist`.
     Side effects outside that (playlists, file metadata, etc.) are left to
     subclasses via the `_on_created`/`_on_parent_changed`/`_on_renamed`/
@@ -332,17 +332,6 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             playlist_manager.transfer_direct_tracks_to_criterialess_playlist(
                 direct_tracks=direct_tracks, criteria_playlist=criteria_playlist
             )
-
-        if criteria_playlist.children.exists():
-            for child_playlist in criteria_playlist.children.all():
-                # `delete_instance` already spliced the child criteria onto its new main parent.
-                new_parent = child_playlist.criteria.parent
-                if new_parent is None:
-                    playlist_manager.make_playlist_root(child_playlist)
-                    continue
-                child_playlist.parent = new_parent.criteria_playlist
-                child_playlist.save(update_fields=[Fields.PARENT])
-                playlist_manager.update_instance_and_children_root(child_playlist, child_playlist.parent.root)
 
     def _create_without_ascendant_refresh(self, actor: Any = None, **kwargs) -> T:
         criteria_type = self._get_criteria_type()
