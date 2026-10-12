@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.43.1] - 2026-10-13
+
 ### Fixed
 
 - Bump `the-music-tree-api-kit` to v0.10.1: `ForeignKeyFilter` errors (e.g. `parent` on criteria-playlist filtersets) are reported under the public query param instead of the internal ORM path.
