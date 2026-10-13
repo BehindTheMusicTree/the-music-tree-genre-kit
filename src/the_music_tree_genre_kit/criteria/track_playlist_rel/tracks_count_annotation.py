@@ -9,11 +9,13 @@ def tracks_count_annotation() -> Coalesce:
     """
     Per-playlist track count for `.annotate(...)` on a Playlist queryset. Correlated, so only
     the page's rows are counted: a joined COUNT ... GROUP BY aggregates every playlist first.
+    COUNT(*) rather than COUNT(pk) so Postgres counts from the playlist index (index-only scan)
+    instead of fetching every rel row from the heap.
     """
     count = (
         TrackPlaylistRel._default_manager.filter(**{Fields.PLAYLIST: OuterRef("pk")})
         .order_by()
         .values(Fields.PLAYLIST)
-        .annotate(count=Count("pk"))
+        .annotate(count=Count("*"))
     )
     return Coalesce(Subquery(count.values("count")), 0)
