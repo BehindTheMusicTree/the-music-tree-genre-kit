@@ -16,6 +16,7 @@ from the_music_tree_genre_kit.serializer.model.criteria.input.Fields import Fiel
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields as TreeImportFields
 
 from .AbstractCriteria import AbstractCriteria
+from .CriteriaSide import CriteriaSide
 from .CriteriaTreeName import CriteriaTreeName
 from .Fields import Fields
 from .type.CriteriaType import CriteriaType
@@ -622,20 +623,32 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 criteria._name = node.get(InputFields.NAME_PUBLIC)
                 criteria.root = root if root is not None else criteria
                 new_instances.append(criteria)
-                if hasattr(criteria, "_validate_side"):
-                    criteria._validate_side()
+                if hasattr(criteria, "_validate_side_placement"):
+                    criteria._validate_side_placement()
                 if parent is None:
                     top_level_instances.append(criteria)
                 pending_parent_refs.append((criteria, parent is None, primary_refs, secondary_refs))
                 build(node.get(InputFields.CHILDREN) or [], criteria, root if root is not None else criteria)
 
         build(tree_data, None, None)
+        self._validate_single_pop_child_per_root(new_instances)
         try:
             bulk_create_mti(new_instances, using=self.db)
         except IntegrityError as e:
             self._raise_for_known_constraint(e)
         self._finish_import(user, new_instances, top_level_instances, pending_parent_refs, actor=actor)
         return {"created_count": len(new_instances), "updated_count": 0, "deleted_count": 0}
+
+    def _validate_single_pop_child_per_root(self, planned_instances: list[T]) -> None:
+        if not self._model_has_side_field():
+            return
+        roots_with_pop_child: set[Any] = set()
+        for criteria in planned_instances:
+            if getattr(criteria, Fields.SIDE) != CriteriaSide.POP:
+                continue
+            if criteria.root_id in roots_with_pop_child:
+                raise self.model.second_pop_child_exception()  # type: ignore[attr-defined]
+            roots_with_pop_child.add(criteria.root_id)
 
     def _raise_for_known_constraint(self, error: IntegrityError) -> None:
         error_message = str(error)
@@ -753,8 +766,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     criteria.last_seen_run = run
                     new_instances.append(criteria)
 
-                if hasattr(criteria, "_validate_side"):
-                    criteria._validate_side()
+                if hasattr(criteria, "_validate_side_placement"):
+                    criteria._validate_side_placement()
 
                 if parent is None:
                     top_level_instances.append(criteria)
@@ -770,6 +783,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     build(children, criteria, child_root)
 
         build(tree_data, None, None)
+        self._validate_single_pop_child_per_root(matched_instances + new_instances)
 
         stale_queryset = (
             scoped_queryset.filter(source=CriteriaSource.PIPELINE, is_manually_edited=False)
@@ -812,7 +826,9 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         try:
             bulk_create_mti(new_instances, using=self.db)
-            for criteria in matched_instances:
+            # Pop rows last: a pop child moving to core must be saved before its successor's
+            # save-time uniqueness check sees the DB.
+            for criteria in sorted(matched_instances, key=lambda c: getattr(c, Fields.SIDE, None) == CriteriaSide.POP):
                 if model_has_manual_edit_fields and criteria.is_manually_edited:
                     continue  # locked: nothing was mutated above, nothing to persist
                 # Pass `update_fields` explicitly: `AbstractCriteria._prepare_save` calls

@@ -186,21 +186,78 @@ def test_pop_side_on_non_root_child_raises(user, genre_type):
         grandchild.save()
 
 
+def _save_genre(user, genre_type, name, parent=None, side=None):
+    genre = Genre(user=user, type=genre_type, parent=parent, side=side)
+    genre._name = name
+    genre.save()
+    return genre
+
+
 @pytest.mark.django_db
-def test_multiple_pop_side_siblings_allowed(user, genre_type):
-    root = Genre(user=user, type=genre_type)
-    root._name = "root"
-    root.save()
+def test_second_pop_side_sibling_raises(user, genre_type):
+    root = _save_genre(user, genre_type, "root")
+    _save_genre(user, genre_type, "first-pop", parent=root, side=CriteriaSide.POP)
 
-    first_pop_child = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
-    first_pop_child._name = "first-pop"
-    first_pop_child.save()
+    with pytest.raises(AppValidationException) as exc_info:
+        _save_genre(user, genre_type, "second-pop", parent=root, side=CriteriaSide.POP)
 
-    second_pop_child = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
-    second_pop_child._name = "second-pop"
-    second_pop_child.save()
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.REFERENCE_INVALID
+    assert Genre.objects.filter(root=root, side=CriteriaSide.POP).count() == 1
 
-    assert Genre.objects.filter(root=root, side=CriteriaSide.POP).count() == 2
+
+@pytest.mark.django_db
+def test_resaving_existing_pop_child_allowed(user, genre_type):
+    root = _save_genre(user, genre_type, "root")
+    pop_child = _save_genre(user, genre_type, "pop", parent=root, side=CriteriaSide.POP)
+
+    Genre.objects.update_instance(pop_child, name="pop-renamed")
+
+    assert Genre.objects.get(pk=pop_child.pk).side == CriteriaSide.POP
+
+
+@pytest.mark.django_db
+def test_new_pop_child_allowed_after_previous_moved_to_core(user, genre_type):
+    root = _save_genre(user, genre_type, "root")
+    old_pop_child = _save_genre(user, genre_type, "old-pop", parent=root, side=CriteriaSide.POP)
+    Genre.objects.update_instance(old_pop_child, side=CriteriaSide.CORE)
+
+    new_pop_child = _save_genre(user, genre_type, "new-pop", parent=root, side=CriteriaSide.POP)
+
+    assert list(Genre.objects.filter(root=root, side=CriteriaSide.POP)) == [new_pop_child]
+
+
+def _electronic_tree(first_side, second_side):
+    return {
+        "tree_name": "canonical",
+        "tree": [
+            {
+                "name": "Electronic",
+                "id": "Q9759",
+                "children": [
+                    {"name": "First", "id": "LOCAL:first", "side": first_side, "children": []},
+                    {"name": "Second", "id": "LOCAL:second", "side": second_side, "children": []},
+                ],
+            }
+        ],
+    }
+
+
+@pytest.mark.django_db
+def test_import_with_two_pop_siblings_raises(user, genre_type):
+    with pytest.raises(AppValidationException) as exc_info:
+        Genre.objects.import_criteria_tree(user, _electronic_tree("pop", "pop"))
+
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.REFERENCE_INVALID
+    assert not Genre.objects.filter(user=user, side=CriteriaSide.POP).exists()
+
+
+@pytest.mark.django_db
+def test_import_moves_pop_side_between_existing_siblings(user, genre_type):
+    Genre.objects.import_criteria_tree(user, _electronic_tree("pop", None))
+
+    Genre.objects.import_criteria_tree(user, _electronic_tree(None, "pop"))
+
+    assert list(Genre.objects.filter(user=user, side=CriteriaSide.POP).values_list("_name", flat=True)) == ["Second"]
 
 
 @pytest.mark.django_db

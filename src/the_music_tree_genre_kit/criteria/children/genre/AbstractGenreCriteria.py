@@ -32,9 +32,9 @@ class AbstractGenreCriteria(models.Model):
     `side` column on the shared `Criteria` table at all -- so "side is genre-only" is
     now guaranteed by the schema, not by a runtime type check like the old
     `AbstractCriteria._validate_side` used to enforce. This mixin only re-validates
-    the one rule MTI cannot express structurally: placement (pop only on a root's
-    direct child). A root may have zero, one, or several pop children -- sibling
-    uniqueness is no longer enforced.
+    the two rules MTI cannot express structurally: placement (pop only on a root's
+    direct child) and uniqueness (a root has at most one pop child; every pop-side
+    genre of that root lives under it).
 
     This class has no `parent`/`root`/`pk` fields of its own -- it relies entirely on
     the concrete class's inherited `AbstractCriteria` fields being present at runtime.
@@ -44,9 +44,9 @@ class AbstractGenreCriteria(models.Model):
     """
     Meaningful only when this criteria is a root criteria's direct child
     (`parent_id == root_id`); ignored elsewhere. Null/unset means "core" (the
-    required, non-pop branch); `CriteriaSide.POP` marks a pop/crossover branch --
-    a root may have zero, one, or several pop children. See `_validate_side` for
-    the placement constraint enforced on save.
+    required, non-pop branch); `CriteriaSide.POP` marks the root's single
+    pop/crossover branch -- a root has zero or one pop child. See `_validate_side`
+    for the placement and uniqueness constraints enforced on save.
     """
 
     wikidata_id = AppCharField(max_length=32, null=True, blank=True, db_column=Fields.WIKIDATA_ID)
@@ -110,6 +110,19 @@ class AbstractGenreCriteria(models.Model):
         pk: Any
 
     def _validate_side(self) -> None:
+        self._validate_side_placement()
+        if self.side != CriteriaSide.POP:
+            return
+        other_pop_child_exists = (
+            type(self).objects.filter(root_id=self.root_id, side=CriteriaSide.POP).exclude(pk=self.pk).exists()
+        )
+        if other_pop_child_exists:
+            raise self.second_pop_child_exception()
+
+    def _validate_side_placement(self) -> None:
+        """Import calls this alone per node: the DB holds the pre-import tree, so uniqueness is
+        checked over the whole planned tree instead (`AbstractCriteriaManager._validate_single_pop_child_per_root`).
+        """
         if self.side != CriteriaSide.POP:
             return
 
@@ -120,6 +133,14 @@ class AbstractGenreCriteria(models.Model):
                 message=_('side="pop" is only valid on a direct child of a root criteria'),
                 field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
             )
+
+    @staticmethod
+    def second_pop_child_exception() -> AppValidationException:
+        return AppValidationException(
+            field_name=Fields.SIDE,
+            message=_('A root criteria may have only one direct child with side="pop"'),
+            field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
+        )
 
     def _prepare_save(self, ctx: SaveContext) -> dict:
         kwargs = super()._prepare_save(ctx)  # type: ignore[misc]
