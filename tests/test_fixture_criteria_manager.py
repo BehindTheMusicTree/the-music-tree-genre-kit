@@ -186,21 +186,44 @@ def test_pop_side_on_non_root_child_raises(user, genre_type):
         grandchild.save()
 
 
+def _save_genre(user, genre_type, name, parent=None, side=None):
+    genre = Genre(user=user, type=genre_type, parent=parent, side=side)
+    genre._name = name
+    genre.save()
+    return genre
+
+
 @pytest.mark.django_db
-def test_multiple_pop_side_siblings_allowed(user, genre_type):
-    root = Genre(user=user, type=genre_type)
-    root._name = "root"
-    root.save()
+def test_second_pop_side_sibling_raises(user, genre_type):
+    root = _save_genre(user, genre_type, "root")
+    _save_genre(user, genre_type, "first-pop", parent=root, side=CriteriaSide.POP)
 
-    first_pop_child = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
-    first_pop_child._name = "first-pop"
-    first_pop_child.save()
+    with pytest.raises(AppValidationException) as exc_info:
+        _save_genre(user, genre_type, "second-pop", parent=root, side=CriteriaSide.POP)
 
-    second_pop_child = Genre(user=user, type=genre_type, parent=root, side=CriteriaSide.POP)
-    second_pop_child._name = "second-pop"
-    second_pop_child.save()
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.REFERENCE_INVALID
+    assert Genre.objects.filter(root=root, side=CriteriaSide.POP).count() == 1
 
-    assert Genre.objects.filter(root=root, side=CriteriaSide.POP).count() == 2
+
+@pytest.mark.django_db
+def test_resaving_existing_pop_child_allowed(user, genre_type):
+    root = _save_genre(user, genre_type, "root")
+    pop_child = _save_genre(user, genre_type, "pop", parent=root, side=CriteriaSide.POP)
+
+    Genre.objects.update_instance(pop_child, name="pop-renamed")
+
+    assert Genre.objects.get(pk=pop_child.pk).side == CriteriaSide.POP
+
+
+@pytest.mark.django_db
+def test_new_pop_child_allowed_after_previous_moved_to_core(user, genre_type):
+    root = _save_genre(user, genre_type, "root")
+    old_pop_child = _save_genre(user, genre_type, "old-pop", parent=root, side=CriteriaSide.POP)
+    Genre.objects.update_instance(old_pop_child, side=CriteriaSide.CORE)
+
+    new_pop_child = _save_genre(user, genre_type, "new-pop", parent=root, side=CriteriaSide.POP)
+
+    assert list(Genre.objects.filter(root=root, side=CriteriaSide.POP)) == [new_pop_child]
 
 
 @pytest.mark.django_db

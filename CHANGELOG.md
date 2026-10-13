@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `AbstractGenreCriteria` allows at most one `side="pop"` direct child per root again: saving a second one raises `AppValidationException` (`reference_invalid`) on `side`. Re-saving the existing pop child, or adding a new one after the old one moves to core, still works. Tests cover all three cases.
+
 ## [0.43.2] - 2026-10-13
 
 ### Improved
