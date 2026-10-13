@@ -110,6 +110,19 @@ class AbstractGenreCriteria(models.Model):
         pk: Any
 
     def _validate_side(self) -> None:
+        self._validate_side_placement()
+        if self.side != CriteriaSide.POP:
+            return
+        other_pop_child_exists = (
+            type(self).objects.filter(root_id=self.root_id, side=CriteriaSide.POP).exclude(pk=self.pk).exists()
+        )
+        if other_pop_child_exists:
+            raise self.second_pop_child_exception()
+
+    def _validate_side_placement(self) -> None:
+        """Import calls this alone per node: the DB holds the pre-import tree, so uniqueness is
+        checked over the whole planned tree instead (`AbstractCriteriaManager._validate_single_pop_child_per_root`).
+        """
         if self.side != CriteriaSide.POP:
             return
 
@@ -121,15 +134,13 @@ class AbstractGenreCriteria(models.Model):
                 field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
             )
 
-        other_pop_child_exists = (
-            type(self).objects.filter(root_id=self.root_id, side=CriteriaSide.POP).exclude(pk=self.pk).exists()
+    @staticmethod
+    def second_pop_child_exception() -> AppValidationException:
+        return AppValidationException(
+            field_name=Fields.SIDE,
+            message=_('A root criteria may have only one direct child with side="pop"'),
+            field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
         )
-        if other_pop_child_exists:
-            raise AppValidationException(
-                field_name=Fields.SIDE,
-                message=_('A root criteria may have only one direct child with side="pop"'),
-                field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
-            )
 
     def _prepare_save(self, ctx: SaveContext) -> dict:
         kwargs = super()._prepare_save(ctx)  # type: ignore[misc]

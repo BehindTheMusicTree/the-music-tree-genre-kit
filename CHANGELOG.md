@@ -19,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- `AbstractGenreCriteria` allows at most one `side="pop"` direct child per root again: saving a second one raises `AppValidationException` (`reference_invalid`) on `side`. Re-saving the existing pop child, or adding a new one after the old one moves to core, still works. Tests cover all three cases.
+- `AbstractGenreCriteria` allows at most one `side="pop"` direct child per root again: saving a second one raises `AppValidationException` (`reference_invalid`) on `side`. `import_criteria_tree` checks the rule over the whole incoming tree before writing, and saves pop children last, so an import can move the pop role from one child to another. Re-saving the existing pop child, or adding a new one after the old one moves to core, still works. Consumers whose data has a root with several pop children must fix it before upgrading. Tests cover single saves and imports.
 
 ## [0.43.2] - 2026-10-13
 

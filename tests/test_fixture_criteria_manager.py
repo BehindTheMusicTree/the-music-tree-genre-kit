@@ -226,6 +226,40 @@ def test_new_pop_child_allowed_after_previous_moved_to_core(user, genre_type):
     assert list(Genre.objects.filter(root=root, side=CriteriaSide.POP)) == [new_pop_child]
 
 
+def _electronic_tree(first_side, second_side):
+    return {
+        "tree_name": "canonical",
+        "tree": [
+            {
+                "name": "Electronic",
+                "id": "Q9759",
+                "children": [
+                    {"name": "First", "id": "LOCAL:first", "side": first_side, "children": []},
+                    {"name": "Second", "id": "LOCAL:second", "side": second_side, "children": []},
+                ],
+            }
+        ],
+    }
+
+
+@pytest.mark.django_db
+def test_import_with_two_pop_siblings_raises(user, genre_type):
+    with pytest.raises(AppValidationException) as exc_info:
+        Genre.objects.import_criteria_tree(user, _electronic_tree("pop", "pop"))
+
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.REFERENCE_INVALID
+    assert not Genre.objects.filter(user=user, side=CriteriaSide.POP).exists()
+
+
+@pytest.mark.django_db
+def test_import_moves_pop_side_between_existing_siblings(user, genre_type):
+    Genre.objects.import_criteria_tree(user, _electronic_tree("pop", None))
+
+    Genre.objects.import_criteria_tree(user, _electronic_tree(None, "pop"))
+
+    assert list(Genre.objects.filter(user=user, side=CriteriaSide.POP).values_list("_name", flat=True)) == ["Second"]
+
+
 @pytest.mark.django_db
 def test_import_criteria_tree_calls_on_bulk_created_once_with_full_tree(user, genre_type, monkeypatch):
     tree_data = {
