@@ -74,6 +74,54 @@ def test_tracks_action_pages_rels_in_play_order(user, playlist):
     assert response.data["results"] == [{"position": 1, "track": str(newest.uuid)}]
 
 
+@pytest.fixture
+def ordered_tracks(user, playlist):
+    """Three tracks in play order; the last one is unpositioned (sorts after positioned rels)."""
+    tracks = [Track.objects.create(user=user) for _ in range(3)]
+    for track in tracks:
+        TrackPlaylistRel.objects.create(user=user, playlist=playlist, track=track)
+    for track, position in zip(tracks, (1, 2, None), strict=True):
+        TrackPlaylistRel.objects.filter(playlist=playlist, track=track).update(position=position)
+    return tracks
+
+
+def _get_tracks(user, playlist, **params):
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client.get(f"/criteria-playlists/{playlist.uuid}/tracks/", params)
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("start", [0, 1, 2])
+def test_tracks_action_from_starts_at_track(user, playlist, ordered_tracks, start):
+    response = _get_tracks(user, playlist, **{"from": str(ordered_tracks[start].uuid)})
+
+    assert response.status_code == 200
+    assert [rel["track"] for rel in response.data["results"]] == [str(t.uuid) for t in ordered_tracks[start:]]
+
+
+@pytest.mark.django_db
+def test_tracks_action_from_absent_track_is_404(user, playlist, ordered_tracks):
+    outsider = Track.objects.create(user=user)
+
+    assert _get_tracks(user, playlist, **{"from": str(outsider.uuid)}).status_code == 404
+
+
+@pytest.mark.django_db
+def test_tracks_action_from_malformed_uuid_is_400(user, playlist, ordered_tracks):
+    assert _get_tracks(user, playlist, **{"from": "not-a-uuid"}).status_code == 400
+
+
+@pytest.mark.django_db
+def test_tracks_action_from_paginates(user, playlist, ordered_tracks):
+    first_page = _get_tracks(user, playlist, page_size=1, **{"from": str(ordered_tracks[1].uuid)})
+    second_page = _get_tracks(user, playlist, page_size=1, page=2, **{"from": str(ordered_tracks[1].uuid)})
+
+    assert first_page.data["overallTotal"] == 2
+    assert first_page.data["results"] == [{"position": 2, "track": str(ordered_tracks[1].uuid)}]
+    assert second_page.data["results"] == [{"position": None, "track": str(ordered_tracks[2].uuid)}]
+
+
 @pytest.mark.django_db
 def test_tracks_count_annotation_counts_rels(user, playlist):
     TrackPlaylistRel.objects.create(user=user, playlist=playlist, track=Track.objects.create(user=user))
