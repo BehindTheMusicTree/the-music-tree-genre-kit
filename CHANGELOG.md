@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.46.1] - 2026-10-14
+
 ### Changed
 
 - Bump `the-music-tree-api-kit` to v0.10.2: its exception handler maps DRF `NotFound` to 404 (code 3001, `"code": "not_found"`, detail kept) and other unhandled DRF `APIException`s to their own status, so `tracks?from=<absent track>` returns 404 instead of 500 in consumers.
