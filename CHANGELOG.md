@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.45.0] - 2026-10-14
+
+### Added
+
+- `AbstractTrackManager._is_playable(instance)` hook (default `True`): criteria playlists only hold playable tracks. `create` skips the genre-playlist rels of an unplayable track; `update_instance` adds them when a track becomes playable and removes them (renumbering positions) when it becomes unplayable, and changes no rels on a genre change while unplayable. `_on_track_genre_changed` still fires on every genre change. Consumers whose tracks are always playable (hear-api) need no change. Tests cover each transition.
+
 ## [0.44.0] - 2026-10-13
 
 ### Changed
