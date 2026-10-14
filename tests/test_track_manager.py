@@ -153,3 +153,68 @@ def test_delete_instance_raises_because_playlists_with_positions_is_undefined(us
 
     with pytest.raises(AttributeError, match="playlists_with_positions"):
         Track.objects.delete_instance(track)
+
+
+UNPLAYABLE_TITLE = "Unplayable"
+
+
+@pytest.fixture
+def playable_unless_titled_unplayable(monkeypatch):
+    monkeypatch.setattr(Track.objects, "_is_playable", lambda instance: instance.title != UNPLAYABLE_TITLE)
+
+
+@pytest.mark.django_db
+def test_create_unplayable_track_adds_no_playlist_rels(user, genre_tree, playable_unless_titled_unplayable):
+    _root, child = genre_tree
+
+    track = Track.objects.create(user=user, genre=child, title=UNPLAYABLE_TITLE)
+
+    assert not TrackPlaylistRel.objects.filter(track=track).exists()
+
+
+@pytest.mark.django_db
+def test_update_instance_track_becoming_playable_joins_genre_playlists(
+    user, genre_tree, playable_unless_titled_unplayable
+):
+    root, child = genre_tree
+    track = Track.objects.create(user=user, genre=child, title=UNPLAYABLE_TITLE)
+
+    updated = Track.objects.update_instance(track, title="Playable")
+
+    assert TrackPlaylistRel.objects.filter(playlist=child.criteria_playlist, track=updated).exists()
+    assert TrackPlaylistRel.objects.filter(playlist=root.criteria_playlist, track=updated).exists()
+
+
+@pytest.mark.django_db
+def test_update_instance_track_becoming_unplayable_leaves_genre_playlists_and_renumbers(
+    user, genre_tree, playable_unless_titled_unplayable
+):
+    root, child = genre_tree
+    # New rels are prepended, so `staying` sits behind `leaving` in both playlists.
+    staying = Track.objects.create(user=user, genre=child, title="First")
+    leaving = Track.objects.create(user=user, genre=child, title="Second")
+    old_positions = {rel.playlist_id: rel.position for rel in TrackPlaylistRel.objects.filter(track=staying)}
+
+    Track.objects.update_instance(leaving, title=UNPLAYABLE_TITLE)
+
+    assert not TrackPlaylistRel.objects.filter(track=leaving).exists()
+    for playlist in (child.criteria_playlist, root.criteria_playlist):
+        rel = TrackPlaylistRel.objects.get(playlist=playlist, track=staying)
+        assert rel.position == old_positions[playlist.pk] - 1
+
+
+@pytest.mark.django_db
+def test_update_instance_genre_change_while_unplayable_adds_no_rels(
+    user, genre_tree, playable_unless_titled_unplayable, monkeypatch
+):
+    root, child = genre_tree
+    track = Track.objects.create(user=user, genre=child, title=UNPLAYABLE_TITLE)
+    genre_changes = []
+    monkeypatch.setattr(
+        Track.objects, "_on_track_genre_changed", lambda instance, old_genre, actor: genre_changes.append(old_genre)
+    )
+
+    updated = Track.objects.update_instance(track, genre=root)
+
+    assert not TrackPlaylistRel.objects.filter(track=updated).exists()
+    assert genre_changes == [child]
