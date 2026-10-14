@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.46.0] - 2026-10-14
+
 ### Added
 
 - `PlaylistTracksActionMixin.tracks` accepts `?from=<track uuid>`: the list starts at that track's relation (inclusive) and keeps the play order (position ascending, unpositioned last, then pk), so a client can play a playlist from a given track in one request instead of walking pages. Returns 404 (`{"detail": "Track <uuid> is not in this playlist."}`) when the track is not in the playlist, and 400 (`{"from": ["Must be a track UUID."]}`) when the value is not a UUID. Without the param, behaviour is unchanged. Tests cover starting from the first, a middle and the last (unpositioned) track, an absent track, a malformed value and pagination.
