@@ -57,13 +57,8 @@ class AbstractTrackManager(StandardResourceManager[T]):
             )
             track_playlist_rels_to_update.update(position=F("position") - 1)
 
-    def _update_genre_playlists(self, instance: T, old_genre):
-        old_playlists = self._genre_playlists(instance, old_genre)
-        new_playlists = self._genre_playlists(instance, instance.genre)
-
-        for playlist_pk in new_playlists.keys() - old_playlists.keys():
-            TrackPlaylistRel.objects.create(user=instance.user, playlist=new_playlists[playlist_pk], track=instance)
-        for playlist_pk in old_playlists.keys() - new_playlists.keys():
+    def _remove_from_playlists(self, instance: T, playlists: dict[Any, Any], old_genre) -> None:
+        for playlist_pk, playlist in playlists.items():
             # Genreless tracks from before 0.29 may lack their genreless-playlist rel.
             if (
                 old_genre is None
@@ -72,9 +67,27 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 ).exists()
             ):
                 continue
-            TrackPlaylistRel.objects.delete_instance(
-                user=instance.user, playlist=old_playlists[playlist_pk], track=instance
-            )
+            TrackPlaylistRel.objects.delete_instance(user=instance.user, playlist=playlist, track=instance)
+
+    def _update_genre_playlists(self, instance: T, old_genre):
+        old_playlists = self._genre_playlists(instance, old_genre)
+        new_playlists = self._genre_playlists(instance, instance.genre)
+
+        for playlist_pk in new_playlists.keys() - old_playlists.keys():
+            TrackPlaylistRel.objects.create(user=instance.user, playlist=new_playlists[playlist_pk], track=instance)
+        self._remove_from_playlists(
+            instance,
+            {pk: old_playlists[pk] for pk in old_playlists.keys() - new_playlists.keys()},
+            old_genre,
+        )
+
+    def _is_playable(self, instance: T) -> bool:
+        """
+        Hook: whether `instance` may be a member of its genre playlists. Unplayable tracks
+        stay out of them. Always `True` by default; a concrete app whose tracks can lack a
+        playable source overrides it.
+        """
+        return True
 
     def _model_has_field(self, name: str) -> bool:
         return any(field.name == name for field in self.model._meta.get_fields())
@@ -102,7 +115,8 @@ class AbstractTrackManager(StandardResourceManager[T]):
             if artists:
                 instance.artists.set(artists)
 
-            self._add_to_genre_playlists(instance)
+            if self._is_playable(instance):
+                self._add_to_genre_playlists(instance)
 
         return instance
 
@@ -120,13 +134,25 @@ class AbstractTrackManager(StandardResourceManager[T]):
                 old_album = None
 
             old_genre = old_instance.genre
+            # Evaluated before the update: `old_instance` may be the object that gets mutated.
+            was_playable = self._is_playable(old_instance)
             # list() makes a copy of the QuerySet before the deletion
             old_artists_list = list(old_instance.artists.all())
 
             updated_instance: T = super().update_instance(old_instance, **kwargs)
 
-            if old_genre != updated_instance.genre:
-                self._update_genre_playlists(updated_instance, old_genre=old_genre)
+            genre_changed = old_genre != updated_instance.genre
+            is_playable = self._is_playable(updated_instance)
+            if was_playable and is_playable:
+                if genre_changed:
+                    self._update_genre_playlists(updated_instance, old_genre=old_genre)
+            elif is_playable:
+                self._add_to_genre_playlists(updated_instance)
+            elif was_playable:
+                self._remove_from_playlists(
+                    updated_instance, self._genre_playlists(updated_instance, old_genre), old_genre
+                )
+            if genre_changed:
                 self._on_track_genre_changed(updated_instance, old_genre=old_genre, actor=actor)
 
             if old_album and updated_instance.album and old_album != updated_instance.album:
