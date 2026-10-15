@@ -1,6 +1,6 @@
 [project]
 name = "the-music-tree-genre-kit"
-version = "0.46.1"
+version = "0.46.2"
 description = "Shared genre/tag/criteria/tree Django library for hear-the-music-tree-api and grow-the-music-tree-api"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -9,12 +9,12 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "Django==5.2.8",
-    "djangorestframework==3.15.1",
+    "Django>=5.2.8,<5.3",
+    "djangorestframework>=3.15.1,<4",
     # Pinned by tag rather than commit SHA to avoid uv's git-ref conflict when other
     # repos (e.g. grow-the-music-tree-api) also pin api-kit by tag — uv.lock still
     # records the resolved commit hash.
-    "the-music-tree-api-kit @ git+https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git@v0.10.2",
+    "the-music-tree-api-kit @ git+https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git@v0.10.3",
 ]
 
 [project.optional-dependencies]

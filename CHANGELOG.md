@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.46.2] - 2026-10-15
+
+### Changed
+
+- `Django` and `djangorestframework` are now ranges (`>=5.2.8,<5.3`, `>=3.15.1,<4`) instead of exact pins; `the-music-tree-api-kit` repinned to v0.10.3.
+
 ## [0.46.1] - 2026-10-14
 
 ### Changed
