@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.47.0] - 2026-10-15
+
 ### Added
 
 - `Track` index on `(genre, uuid)` (`track_genre_uuid_idx`) for keyset pagination of a genre's tracks; the plain `genre_id` FK index is dropped as redundant (`db_index=False`). Migration `0012` builds and drops both `CONCURRENTLY` (non-atomic, Postgres) so the track table isn't locked; consumers must run `migrate`.
