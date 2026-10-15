@@ -45,6 +45,7 @@ class Track(TrackablePlayCount):
     genre = PrivateForeignKey(
         settings.CRITERIA_MODEL,
         on_delete=models.DO_NOTHING,
+        db_index=False,
         null=True,
         blank=True,
         related_name=Fields.TRACKS_OF_CRITERIA_RELATED_NAME,
@@ -72,6 +73,7 @@ class Track(TrackablePlayCount):
         indexes = [
             models.Index(fields=["user", Fields.GENRE]),
             models.Index(fields=["user", Fields.ALBUM]),
+            models.Index(fields=[Fields.GENRE, "uuid"], name="track_genre_uuid_idx"),
         ]
 
     def __str__(self) -> str:
