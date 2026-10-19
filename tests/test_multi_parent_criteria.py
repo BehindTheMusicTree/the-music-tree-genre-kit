@@ -231,3 +231,14 @@ def test_import_flags_unaccepted_root_until_parented_or_locked(user, genre_type)
     Genre.objects.filter(user=user, wikidata_id="Q15724583").update(is_unaccepted_root=False, is_manually_edited=True)
     import_tree(user, "canonical", tree)
     assert not Genre.objects.get(user=user, wikidata_id="Q15724583").is_unaccepted_root
+
+
+@pytest.mark.django_db
+def test_import_post_apply_check_ignores_same_qid_in_other_tree(user, genre_type):
+    import_tree(user, "regional", [{"name": "Fusion", "id": "Q1", "children": []}])
+    import_tree(
+        user,
+        "canonical",
+        [{"name": "Rock", "id": "Q11399", "children": [{"name": "Fusion", "id": "Q1", "children": []}]}],
+    )
+    assert Genre.objects.filter(user=user, wikidata_id="Q1").count() == 2

@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.47.1] - 2026-10-19
+
+### Fixed
+
+- Tree import's post-apply check is scoped to the imported `tree_name`; a QID also present in another tree no longer fails it with "Post-apply state does not match the imported payload".
+
 ## [0.47.0] - 2026-10-15
 
 ### Added
