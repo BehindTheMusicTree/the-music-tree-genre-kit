@@ -842,7 +842,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         self._finish_import(user, new_instances, top_level_instances, pending_parent_refs, actor=actor)
 
-        actual_seen_count = self.filter(user=user, wikidata_id__in=processed_keys).count()
+        actual_seen_count = scoped_queryset.filter(wikidata_id__in=processed_keys).count()
         if actual_seen_count != len(processed_keys):
             raise AppValidationException(
                 field_name=TreeImportFields.TREE,
