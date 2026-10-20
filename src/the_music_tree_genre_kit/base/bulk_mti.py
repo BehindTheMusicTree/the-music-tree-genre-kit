@@ -57,8 +57,9 @@ def _raw_insert_level(level_model: type[models.Model], instances: list[models.Mo
     ]
 
     # Real multi-row INSERT instead of executemany (which issues one round-trip per row by
-    # default), chunked to stay under Postgres's bound-parameter limit.
-    chunk_size = max(1, POSTGRES_MAX_BOUND_PARAMS // len(fields))
+    # default), chunked to stay under the backend's bound-parameter limit (Postgres
+    # leaves max_query_params unset).
+    chunk_size = max(1, (connection.features.max_query_params or POSTGRES_MAX_BOUND_PARAMS) // len(fields))
     with connection.cursor() as cursor:
         for chunk_start in range(0, len(rows), chunk_size):
             chunk = rows[chunk_start : chunk_start + chunk_size]

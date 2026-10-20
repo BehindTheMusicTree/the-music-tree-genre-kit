@@ -36,6 +36,15 @@ class CriteriaTreeNodeSerializer(AppInputSerializer):
             )
         return super().to_internal_value(data)
 
+    def validate(self, attrs):
+        if attrs.get("summary_source_url") and not attrs.get("summary"):
+            raise AppValidationException(
+                field_name="summary",
+                message="summary is required when summary_source_url is set",
+                field_validation_error_code=FieldValidationErrorCode.REQUIRED,
+            )
+        return attrs
+
     def validate_children(self, value):
         # Handle None values by converting to empty list
         if value is None:
