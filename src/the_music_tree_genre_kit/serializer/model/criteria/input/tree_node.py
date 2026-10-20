@@ -1,6 +1,6 @@
 from django.conf import settings
 from django.core.validators import RegexValidator
-from rest_framework.serializers import BooleanField, ChoiceField, DictField
+from rest_framework.serializers import BooleanField, ChoiceField, DictField, URLField
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 from the_music_tree_api_kit.serializer.AppInputSerializer import AppInputSerializer
@@ -16,6 +16,8 @@ class CriteriaTreeNodeSerializer(AppInputSerializer):
     children = AppListField(child=DictField(), required=False, default=list, allow_null=True)
     side = ChoiceField(choices=CriteriaSide.choices, required=False, allow_null=True)
     summary = AppCharField(required=False, allow_null=True, allow_blank=True)
+    description = AppCharField(required=False, allow_null=True, allow_blank=True)
+    summary_source_url = URLField(max_length=500, required=False, allow_null=True, allow_blank=True)
     id = AppCharField(required=False, allow_null=True, validators=[RegexValidator(r"^(Q\d+|LOCAL:[a-z0-9-]+)$")])
     primary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
     secondary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)

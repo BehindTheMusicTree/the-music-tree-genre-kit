@@ -17,6 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.48.0] - 2026-10-20
+
+### Added
+
+- `AbstractGenreCriteria` gains `description` (`TextField`, Wikidata `schema:description`, English) and `summary_source_url` (`URLField`, set only when `summary` is the Wikipedia intro), both nullable. Tree nodes accept optional `description` and `summary_source_url` next to `summary`. Consumers must generate a migration for their concrete `Genre`.
+
+### Fixed
+
+- Tree import now saves `summary`, `description` and `summary_source_url` from each node on unlocked genre rows (previously `summary` was accepted but dropped); a node without a value nulls it. Locked (`is_manually_edited`) rows are untouched. Tested.
+
 ## [0.47.1] - 2026-10-19
 
 ### Fixed
