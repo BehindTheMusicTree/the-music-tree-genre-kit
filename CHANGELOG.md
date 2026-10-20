@@ -17,6 +17,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `CriteriaTreeNodeSerializer` rejects a node with `summary_source_url` set and a blank `summary` (`REQUIRED` on `summary`), so a tree import can no longer store attribution without the text it attributes. Tested.
+- `bulk_create_mti` sizes insert chunks from the backend's `connection.features.max_query_params` (999 on SQLite), falling back to Postgres' 65535 only when the backend sets no limit. Large bulk inserts no longer overflow SQLite's parameter limit. Tested.
+
 ## [0.48.0] - 2026-10-20
 
 ### Added
