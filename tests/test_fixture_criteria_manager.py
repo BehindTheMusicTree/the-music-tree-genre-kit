@@ -748,3 +748,60 @@ def test_import_adopts_legacy_unkeyed_pipeline_row_by_name(user, genre_type):
     adopted = Genre.objects.get(user=user)
     assert adopted.pk == legacy.pk
     assert adopted.wikidata_id == "Q9759" and adopted._name == "Electronic"
+
+
+def _import_house(user, **house_extra):
+    Genre.objects.import_criteria_tree(
+        user,
+        {
+            "tree_name": "canonical",
+            "tree": [
+                {
+                    "name": "Electronic",
+                    "id": "Q9759",
+                    "children": [{"name": "House", "id": "Q186024", "children": [], **house_extra}],
+                }
+            ],
+        },
+    )
+    return Genre.objects.get(user=user, wikidata_id="Q186024")
+
+
+@pytest.fixture
+def stub_playlists(user, monkeypatch):
+    bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
+    monkeypatch.setattr(
+        GenreManager,
+        "_on_bulk_created",
+        lambda self, instances, actor=None: CriteriaPlaylist.objects.bulk_create_for_criteria(instances),
+    )
+
+
+@pytest.mark.django_db
+def test_import_saves_summary_description_and_source_url_then_nulls_them(user, genre_type, tag_type, stub_playlists):
+    texts = {
+        "summary": "House is a genre.",
+        "description": "music genre",
+        "summary_source_url": "https://en.wikipedia.org/wiki/House_music",
+    }
+    house = _import_house(user, **texts)
+    assert (house.summary, house.description, house.summary_source_url) == tuple(texts.values())
+
+    house = _import_house(user, **{**texts, "summary": "Updated."})
+    assert house.summary == "Updated."
+
+    house = _import_house(user)
+    assert (house.summary, house.description, house.summary_source_url) == (None, None, None)
+
+
+@pytest.mark.django_db
+def test_locked_genre_keeps_admin_summary_across_reimport(user, genre_type, tag_type, stub_playlists):
+    house = _import_house(user)
+    Genre.objects.filter(pk=house.pk).update(is_manually_edited=True)
+    Genre.objects.filter(pk=house.pk).update(summary="Admin text.")
+
+    house = _import_house(
+        user, summary="Wiki text.", description="music genre", summary_source_url="https://en.wikipedia.org/wiki/X"
+    )
+
+    assert (house.summary, house.description, house.summary_source_url) == ("Admin text.", None, None)
