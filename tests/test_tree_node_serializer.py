@@ -118,3 +118,20 @@ def test_to_internal_value_omits_summary_when_not_provided():
     validated = _serializer().to_internal_value({"name": "House"})
 
     assert "summary" not in validated
+
+
+def test_validate_rejects_summary_source_url_without_summary():
+    with pytest.raises(AppValidationException) as exc_info:
+        _serializer().run_validation(
+            {"name": "House", "summary": "", "summary_source_url": "https://en.wikipedia.org/wiki/House_music"}
+        )
+
+    assert exc_info.value.field_validation_error_code == FieldValidationErrorCode.REQUIRED
+
+
+def test_validate_accepts_summary_source_url_with_summary():
+    validated = _serializer().run_validation(
+        {"name": "House", "summary": "Wiki intro.", "summary_source_url": "https://en.wikipedia.org/wiki/House_music"}
+    )
+
+    assert validated["summary_source_url"] == "https://en.wikipedia.org/wiki/House_music"
