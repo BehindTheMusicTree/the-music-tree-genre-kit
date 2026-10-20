@@ -19,4 +19,6 @@ class Fields(PrivateUniqueResourceFields):
     SIDE = "side"
     IS_UNACCEPTED_ROOT = "is_unaccepted_root"
     SUMMARY = "summary"
+    DESCRIPTION = "description"
+    SUMMARY_SOURCE_URL = "summary_source_url"
     WIKIDATA_ID = "wikidata_id"

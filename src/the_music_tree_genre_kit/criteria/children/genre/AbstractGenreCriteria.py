@@ -99,6 +99,18 @@ class AbstractGenreCriteria(models.Model):
     Recomputed on every import of an unlocked row.
     """
 
+    description = models.TextField(null=True, blank=True, db_column=Fields.DESCRIPTION)
+    """
+    One-line Wikidata `schema:description` (English, CC0), copied from the imported node.
+    Recomputed on every import of an unlocked row; a node without one nulls it.
+    """
+
+    summary_source_url = models.URLField(max_length=500, null=True, blank=True, db_column=Fields.SUMMARY_SOURCE_URL)
+    """
+    Set only when `summary` is the English Wikipedia intro (CC BY-SA): the article URL to
+    attribute. Null for an admin-written summary. Recomputed on every import of an unlocked row.
+    """
+
     class Meta:
         abstract = True
 

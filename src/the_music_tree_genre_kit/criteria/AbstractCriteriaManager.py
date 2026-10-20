@@ -705,6 +705,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         criteria_type = self._get_criteria_type()
         model_has_side_field = self._model_has_side_field()
         model_has_unaccepted_root_field = self._model_has_field(Fields.IS_UNACCEPTED_ROOT)
+        model_has_description_fields = self._model_has_field(Fields.DESCRIPTION)
 
         new_instances: list[T] = []
         matched_instances: list[T] = []
@@ -717,6 +718,9 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 extra_kwargs = {Fields.SIDE: node.get(InputFields.SIDE)} if model_has_side_field else {}
                 if model_has_unaccepted_root_field:
                     extra_kwargs[Fields.IS_UNACCEPTED_ROOT] = bool(node.get(InputFields.IS_UNACCEPTED_ROOT))
+                if model_has_description_fields:
+                    for field_name in (Fields.SUMMARY, Fields.DESCRIPTION, Fields.SUMMARY_SOURCE_URL):
+                        extra_kwargs[field_name] = node.get(field_name) or None
                 node_name = node.get(InputFields.NAME_PUBLIC)
                 key = node[InputFields.ID]
                 matched_criteria = existing_by_key.get(key)
@@ -823,6 +827,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             matched_update_fields.append("has_name_conflict")
         if model_has_unaccepted_root_field:
             matched_update_fields.append(Fields.IS_UNACCEPTED_ROOT)
+        if model_has_description_fields:
+            matched_update_fields.extend([Fields.SUMMARY, Fields.DESCRIPTION, Fields.SUMMARY_SOURCE_URL])
 
         try:
             bulk_create_mti(new_instances, using=self.db)
