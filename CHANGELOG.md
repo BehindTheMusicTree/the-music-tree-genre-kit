@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.48.1] - 2026-10-20
+
 ### Fixed
 
 - `CriteriaTreeNodeSerializer` rejects a node with `summary_source_url` set and a blank `summary` (`REQUIRED` on `summary`), so a tree import can no longer store attribution without the text it attributes. Tested.
