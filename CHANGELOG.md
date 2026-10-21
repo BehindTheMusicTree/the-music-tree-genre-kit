@@ -17,6 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.49.0] - 2026-10-22
+
+### Added
+
+- `AbstractGenreCriteria.is_umbrella`: tree-import nodes accept `is_umbrella` (an umbrella genre only groups sub-genres, so no track belongs to it directly). It is rewritten on every import, locked rows included, since the curation list is its source of truth. A node with `is_umbrella` and no children is rejected, as a leaf cannot be an umbrella. Tested via the import manager and the tree endpoint.
+
+### Breaking
+
+- Concrete `Genre` models need a migration adding `is_umbrella = BooleanField(default=False)`.
+
 ## [0.48.1] - 2026-10-20
 
 ### Fixed

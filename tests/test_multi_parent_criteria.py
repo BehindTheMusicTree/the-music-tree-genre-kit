@@ -214,6 +214,19 @@ def test_import_flags_name_conflict_instead_of_failing(user, make, tag_type):
 
 
 @pytest.mark.django_db
+def test_import_flags_umbrella_and_rewrites_it_even_on_locked_rows(user, genre_type):
+    tree = [{"name": "Techno", "id": "Q170611", "is_umbrella": True, "children": [{"name": "Acid techno", "id": "Q1"}]}]
+    import_tree(user, "canonical", tree)
+    assert Genre.objects.get(user=user, wikidata_id="Q170611").is_umbrella
+    assert not Genre.objects.get(user=user, wikidata_id="Q1").is_umbrella
+
+    Genre.objects.filter(user=user, wikidata_id="Q170611").update(is_manually_edited=True)
+    tree[0]["is_umbrella"] = False
+    import_tree(user, "canonical", tree)
+    assert not Genre.objects.get(user=user, wikidata_id="Q170611").is_umbrella
+
+
+@pytest.mark.django_db
 def test_import_flags_unaccepted_root_until_parented_or_locked(user, genre_type):
     tree = [
         {"name": "Rock", "id": "Q11399", "children": []},

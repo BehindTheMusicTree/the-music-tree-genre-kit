@@ -99,6 +99,14 @@ class AbstractGenreCriteria(models.Model):
     Recomputed on every import of an unlocked row.
     """
 
+    is_umbrella = models.BooleanField(default=False)
+    """
+    Copied from the imported node's `is_umbrella`: a genuine genre node that only groups
+    sub-genres (e.g. techno), so no track may be assigned to it directly -- a track belongs to one
+    of its descendants. Always rewritten from the import, never locked by `is_manually_edited`,
+    since the curation list in grow is its source of truth. Never set on a leaf.
+    """
+
     description = models.TextField(null=True, blank=True, db_column=Fields.DESCRIPTION)
     """
     One-line Wikidata `schema:description` (English, CC0), copied from the imported node.
