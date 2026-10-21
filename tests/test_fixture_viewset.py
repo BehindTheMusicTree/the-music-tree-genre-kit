@@ -73,6 +73,25 @@ def test_import_tree_creates_criteria(api_client, criteria_type):
     assert names == {"root", "child"}
 
 
+def test_import_tree_rejects_umbrella_leaf(api_client, criteria_type):
+    payload = {"tree_name": "canonical", "tree": [{"name": "root", "is_umbrella": True, "children": []}]}
+
+    response = api_client.post("/criteria/tree/import/", payload, format="json")
+
+    assert response.status_code == 400
+
+
+def test_import_tree_accepts_umbrella_with_children(api_client, criteria_type):
+    payload = {
+        "tree_name": "canonical",
+        "tree": [{"name": "root", "is_umbrella": True, "children": [{"name": "child", "children": []}]}],
+    }
+
+    response = api_client.post("/criteria/tree/import/", payload, format="json")
+
+    assert response.status_code == 201
+
+
 def test_import_tree_replaces_existing_criteria(api_client, user, criteria_type):
     stale = Criteria(user=user, type=criteria_type)
     stale._name = "stale"

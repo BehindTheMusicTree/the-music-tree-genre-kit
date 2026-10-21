@@ -180,6 +180,14 @@ class TreeField(AppListField):
                 if validated_node[Fields.CHILDREN] is None:
                     validated_node[Fields.CHILDREN] = []
 
+                # Checked here, not in the node serializer: that one never sees the children (see above).
+                if validated_node.get(Fields.IS_UMBRELLA) and not validated_node[Fields.CHILDREN]:
+                    raise AppValidationException(
+                        field_name=Fields.CHILDREN,
+                        message=f"Umbrella node {validated_node.get(Fields.NAME_PUBLIC)!r} must have at least one child",
+                        field_validation_error_code=FieldValidationErrorCode.TREE_MALFORMED,
+                    )
+
                 validated_data.append(validated_node)
             except Exception as e:
                 # Only propagate validation errors for specific cases
