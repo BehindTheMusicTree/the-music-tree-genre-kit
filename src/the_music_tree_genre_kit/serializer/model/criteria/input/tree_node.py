@@ -22,6 +22,7 @@ class CriteriaTreeNodeSerializer(AppInputSerializer):
     primary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
     secondary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
     is_unaccepted_root = BooleanField(required=False, default=False)
+    is_umbrella = BooleanField(required=False, default=False)
 
     def __init__(self, structure_field_name: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
