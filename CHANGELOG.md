@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Reparenting a criteria with many tracks no longer times out: tracks gained by new ascendants are inserted with one position shift and one `bulk_create` per ascendant (`_bulk_prepend_track_rels`) instead of a full-playlist renumbering per track, and `update_positions_to_fill_deleted_ones` / `move_tracks_to_playlist_beginning` renumber with `bulk_update`. Tests cover position parity with per-track creation and constant query counts.
+
 ## [0.49.0] - 2026-10-22
 
 ### Added
