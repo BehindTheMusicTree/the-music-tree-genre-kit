@@ -1,5 +1,7 @@
 import pytest
 from django.contrib.auth import get_user_model
+from django.db import connection
+from django.test.utils import CaptureQueriesContext
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 
@@ -812,9 +814,6 @@ def test_reparent_query_count_is_independent_of_track_count(user, genre_type, ta
     bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
 
     def count_reparent_queries(track_count):
-        from django.db import connection
-        from django.test.utils import CaptureQueriesContext
-
         def genre(name, parent=None):
             criteria = Criteria(user=user, type=genre_type, parent=parent)
             criteria._name = name
