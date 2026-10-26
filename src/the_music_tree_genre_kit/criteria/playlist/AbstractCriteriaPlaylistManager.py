@@ -2,7 +2,7 @@ import uuid
 from typing import TYPE_CHECKING, Any, TypeVar
 
 from django.db import models
-from django.db.models import QuerySet
+from django.db.models import F, QuerySet
 from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
 
 from the_music_tree_genre_kit.base.bulk_mti import bulk_create_mti
@@ -62,6 +62,26 @@ class AbstractCriteriaPlaylistManager(StandardResourceManager[T]):
 
     def _create_track_rel(self, *, user: Any, playlist: T, track: Any) -> None:
         self.track_playlist_rel_model(user=user, playlist=playlist, track=track).save()
+
+    def _bulk_prepend_track_rels(self, *, user: Any, playlist: T, tracks: list[Any]) -> None:
+        """
+        Set-based equivalent of `_create_track_rel` per track: one shift of the playlist's positioned rels
+        plus one insert, instead of a full-playlist renumbering per track.
+        """
+        rel_model = self.track_playlist_rel_model
+        present_ids = set(rel_model.objects.filter(playlist=playlist).values_list("track_id", flat=True))
+        missing = [track for track in tracks if track.pk not in present_ids]
+        if not missing:
+            return
+        rel_model.objects.filter(user=user, playlist=playlist, position__isnull=False).update(
+            position=F("position") + len(missing)
+        )
+        rel_model.objects.bulk_create(
+            [
+                rel_model(user=user, playlist=playlist, track=track, position=position)
+                for position, track in enumerate(reversed(missing), 1)
+            ]
+        )
 
     def _delete_track_rels_and_fill_positions(self, *, instance: T, tracks: QuerySet) -> None:
         self.track_playlist_rel_model.objects.filter(playlist=instance, track__in=tracks).delete()

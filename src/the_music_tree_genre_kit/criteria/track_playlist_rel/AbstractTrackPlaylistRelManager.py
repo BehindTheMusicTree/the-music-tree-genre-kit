@@ -34,9 +34,12 @@ class AbstractTrackPlaylistRelManager(StandardResourceManager[T]):
             .order_by(Fields.POSITION)
         )
 
+        changed = []
         for i, relation in enumerate(tracks_positions_ordered_asc, 1):
-            relation.position = i
-            relation.save(update_fields=[Fields.POSITION])
+            if relation.position != i:
+                relation.position = i
+                changed.append(relation)
+        self.bulk_update(changed, [Fields.POSITION], batch_size=1000)
 
     def delete_instance(self, user: Any, playlist: Any, track: Any) -> None:
         track_playlist_rel: T = self.get(user=user, playlist=playlist, track=track)
@@ -52,10 +55,11 @@ class AbstractTrackPlaylistRelManager(StandardResourceManager[T]):
             position=F(Fields.POSITION) + source_rels.count()
         )
 
-        for i, relation in enumerate(source_rels.order_by(Fields.POSITION), 1):
+        moved = list(source_rels.order_by(Fields.POSITION))
+        for i, relation in enumerate(moved, 1):
             relation.playlist = target_playlist
             relation.position = i
-            relation.save(update_fields=[Fields.POSITION, Fields.PLAYLIST])
+        self.bulk_update(moved, [Fields.POSITION, Fields.PLAYLIST], batch_size=1000)
 
     def get_ordered_relations_for_playlist(self, playlist: Any) -> QuerySet[T]:
         """
