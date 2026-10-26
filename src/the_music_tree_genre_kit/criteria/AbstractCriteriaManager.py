@@ -178,7 +178,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             return
 
         playlist_manager = type(instance.criteria_playlist).objects
-        tracks = list(playlist_manager.get_direct_tracks(instance.criteria_playlist))
+        tracks = list(playlist_manager.get_direct_tracks(instance.criteria_playlist).select_related("genre"))
 
         for ascendant_id in gained_ids:
             playlist_manager._bulk_prepend_track_rels(

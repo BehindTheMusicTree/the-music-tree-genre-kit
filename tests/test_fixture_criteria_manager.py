@@ -805,3 +805,31 @@ def test_locked_genre_keeps_admin_summary_across_reimport(user, genre_type, tag_
     )
 
     assert (house.summary, house.description, house.summary_source_url) == ("Admin text.", None, None)
+
+
+@pytest.mark.django_db
+def test_reparent_query_count_is_independent_of_track_count(user, genre_type, tag_type):
+    bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
+
+    def count_reparent_queries(track_count):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+
+        def genre(name, parent=None):
+            criteria = Criteria(user=user, type=genre_type, parent=parent)
+            criteria._name = name
+            criteria.save()
+            CriteriaPlaylist.objects.create(user=user, type=genre_type, criteria=criteria)
+            return criteria
+
+        root = genre(f"root{track_count}")
+        old_parent = genre(f"old{track_count}", root)
+        new_parent = genre(f"new{track_count}", root)
+        moved = genre(f"moved{track_count}", old_parent)
+        for _ in range(track_count):
+            Track.objects.create(user=user, genre=moved)
+        with CaptureQueriesContext(connection) as queries:
+            Criteria.objects.update_instance(moved, parent=new_parent)
+        return len(queries.captured_queries)
+
+    assert count_reparent_queries(2) == count_reparent_queries(8)
