@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- `CriteriaFilterSet`'s `name` filter orders matches by relevance (exact, then prefix, then contains) instead of alphabetically, so a capped search page keeps short exact matches such as "Techno" ahead of "Acid techno". Test covers the ranking.
+
 ## [0.50.1] - 2026-10-26
 
 ### Fixed

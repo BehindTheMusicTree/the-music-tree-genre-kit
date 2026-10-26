@@ -69,6 +69,15 @@ def test_criteria_filterset_name_and_parent(user):
     assert _names(CriteriaFilterSet, Criteria.objects.all(), parent=str(fiesta.pk)) == {"Punk"}
 
 
+def test_criteria_filterset_name_ranks_exact_then_prefix_then_contains(user):
+    for name in ["Acid techno", "Techno kayō", "Ambient techno", "Techno", "Pop"]:
+        _criteria(user, name)
+
+    ranked = [c.name for c in _qs(CriteriaFilterSet, Criteria.objects.all(), {"name": "techno"})]
+
+    assert ranked == ["Techno", "Techno kayō", "Acid techno", "Ambient techno"]
+
+
 def test_criteria_filterset_rejects_blank_name(user):
     with pytest.raises(AppValidationException):
         _qs(CriteriaFilterSet, Criteria.objects.all(), {"name": ""})
