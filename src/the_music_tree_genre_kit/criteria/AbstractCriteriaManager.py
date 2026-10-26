@@ -178,15 +178,12 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             return
 
         playlist_manager = type(instance.criteria_playlist).objects
-        rel_model = playlist_manager.track_playlist_rel_model
         tracks = list(playlist_manager.get_direct_tracks(instance.criteria_playlist))
 
         for ascendant_id in gained_ids:
-            playlist = new_ascendants[ascendant_id].criteria_playlist
-            present_ids = set(rel_model.objects.filter(playlist=playlist).values_list("track_id", flat=True))
-            for track in tracks:
-                if track.pk not in present_ids:
-                    playlist_manager._create_track_rel(user=instance.user, playlist=playlist, track=track)
+            playlist_manager._bulk_prepend_track_rels(
+                user=instance.user, playlist=new_ascendants[ascendant_id].criteria_playlist, tracks=tracks
+            )
 
         if not lost_ids:
             return
