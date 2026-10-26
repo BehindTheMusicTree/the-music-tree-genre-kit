@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.50.1] - 2026-10-26
+
+### Fixed
+
+- Reparenting a criteria no longer fetches each moved track's genre with its own query when ascendants are lost.
+
 ## [0.50.0] - 2026-10-26
 
 ### Fixed
