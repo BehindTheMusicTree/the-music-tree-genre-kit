@@ -14,7 +14,7 @@ dependencies = [
     # Pinned by tag rather than commit SHA to avoid uv's git-ref conflict when other
     # repos (e.g. grow-the-music-tree-api) also pin api-kit by tag — uv.lock still
     # records the resolved commit hash.
-    "the-music-tree-api-kit @ git+https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git@v0.10.4",
+    "the-music-tree-api-kit @ git+https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git@v0.11.0",
 ]
 
 [project.optional-dependencies]
