@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.51.1] - 2026-10-27
+
 ### Changed
 
 - Updated `the-music-tree-api-kit` to v0.11.0, where a plain `save()` persists every changed field instead of only `updated_on`. Removed the obsolete workaround comment in `AbstractCriteriaManager` (the explicit `update_fields` there is still the cheaper write).
