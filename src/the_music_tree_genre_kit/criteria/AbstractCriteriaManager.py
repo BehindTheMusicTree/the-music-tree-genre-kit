@@ -842,11 +842,6 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             for criteria in sorted(matched_instances, key=lambda c: getattr(c, Fields.SIDE, None) == CriteriaSide.POP):
                 if model_has_manual_edit_fields and criteria.is_manually_edited:
                     continue  # locked: nothing was mutated above, nothing to persist
-                # Pass `update_fields` explicitly: `AbstractCriteria._prepare_save` calls
-                # `_set_root()`, and when root changes, `BaseModel.save()` (the-music-tree-api-kit)
-                # restricts the UPDATE to only the fields it saw explicitly modified via
-                # `ctx.add_modified_field` -- silently dropping our plain attribute assignments
-                # (name/parent/side) above unless we list them here too.
                 criteria.save(update_fields=matched_update_fields)
             # is_umbrella mirrors the curation list, not an admin edit, so a locked row still follows it.
             for is_umbrella in (True, False):
