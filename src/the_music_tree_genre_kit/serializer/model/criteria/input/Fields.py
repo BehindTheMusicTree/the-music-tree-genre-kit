@@ -10,6 +10,7 @@ class Fields:
     SECONDARY_PARENTS = "secondary_parents"
     IS_UNACCEPTED_ROOT = "is_unaccepted_root"
     IS_UMBRELLA = "is_umbrella"
+    SCENE = "scene"
     SUMMARY = "summary"
     DESCRIPTION = "description"
     SUMMARY_SOURCE_URL = "summary_source_url"

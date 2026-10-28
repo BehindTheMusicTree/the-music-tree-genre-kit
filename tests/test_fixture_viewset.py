@@ -92,6 +92,14 @@ def test_import_tree_accepts_umbrella_with_children(api_client, criteria_type):
     assert response.status_code == 201
 
 
+def test_import_tree_rejects_unknown_scene(api_client, criteria_type):
+    payload = {"tree_name": "canonical", "tree": [{"name": "root", "scene": "mainstream", "children": []}]}
+
+    response = api_client.post("/criteria/tree/import/", payload, format="json")
+
+    assert response.status_code == 400
+
+
 def test_import_tree_replaces_existing_criteria(api_client, user, criteria_type):
     stale = Criteria(user=user, type=criteria_type)
     stale._name = "stale"

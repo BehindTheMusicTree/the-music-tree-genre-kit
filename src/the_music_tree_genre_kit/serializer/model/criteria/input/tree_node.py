@@ -7,6 +7,7 @@ from the_music_tree_api_kit.serializer.AppInputSerializer import AppInputSeriali
 from the_music_tree_api_kit.serializer.field.AppCharField import AppCharField
 from the_music_tree_api_kit.serializer.field.AppListField import AppListField
 
+from the_music_tree_genre_kit.criteria.children.genre.CriteriaScene import CriteriaScene
 from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields
 
@@ -23,6 +24,7 @@ class CriteriaTreeNodeSerializer(AppInputSerializer):
     secondary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
     is_unaccepted_root = BooleanField(required=False, default=False)
     is_umbrella = BooleanField(required=False, default=False)
+    scene = ChoiceField(choices=CriteriaScene.choices, required=False, allow_null=True)
 
     def __init__(self, structure_field_name: str, *args, **kwargs):
         super().__init__(*args, **kwargs)

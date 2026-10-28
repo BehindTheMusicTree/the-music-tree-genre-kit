@@ -703,9 +703,11 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         model_has_side_field = self._model_has_side_field()
         model_has_unaccepted_root_field = self._model_has_field(Fields.IS_UNACCEPTED_ROOT)
         model_has_umbrella_field = self._model_has_field(Fields.IS_UMBRELLA)
+        model_has_scene_field = self._model_has_field(Fields.SCENE)
         model_has_description_fields = self._model_has_field(Fields.DESCRIPTION)
 
         locked_umbrella_by_pk: dict[Any, bool] = {}
+        locked_scene_by_pk: dict[Any, str | None] = {}
         new_instances: list[T] = []
         matched_instances: list[T] = []
         processed_keys: set[str] = set()
@@ -719,6 +721,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     extra_kwargs[Fields.IS_UNACCEPTED_ROOT] = bool(node.get(InputFields.IS_UNACCEPTED_ROOT))
                 if model_has_umbrella_field:
                     extra_kwargs[Fields.IS_UMBRELLA] = bool(node.get(InputFields.IS_UMBRELLA))
+                if model_has_scene_field:
+                    extra_kwargs[Fields.SCENE] = node.get(InputFields.SCENE)
                 if model_has_description_fields:
                     for field_name in (Fields.SUMMARY, Fields.DESCRIPTION, Fields.SUMMARY_SOURCE_URL):
                         extra_kwargs[field_name] = node.get(field_name) or None
@@ -742,6 +746,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     is_locked = model_has_manual_edit_fields and criteria.is_manually_edited
                     if is_locked and model_has_umbrella_field:
                         locked_umbrella_by_pk[criteria.pk] = extra_kwargs[Fields.IS_UMBRELLA]
+                    if is_locked and model_has_scene_field:
+                        locked_scene_by_pk[criteria.pk] = extra_kwargs[Fields.SCENE]
                     if not is_locked:
                         criteria.parent = parent
                         for field_name, value in extra_kwargs.items():
@@ -832,6 +838,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             matched_update_fields.append(Fields.IS_UNACCEPTED_ROOT)
         if model_has_umbrella_field:
             matched_update_fields.append(Fields.IS_UMBRELLA)
+        if model_has_scene_field:
+            matched_update_fields.append(Fields.SCENE)
         if model_has_description_fields:
             matched_update_fields.extend([Fields.SUMMARY, Fields.DESCRIPTION, Fields.SUMMARY_SOURCE_URL])
 
@@ -848,6 +856,10 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 locked_pks = [pk for pk, value in locked_umbrella_by_pk.items() if value is is_umbrella]
                 if locked_pks:
                     self.filter(pk__in=locked_pks).update(is_umbrella=is_umbrella)
+            # Same for scene: it mirrors the curation list, so a locked row follows it too.
+            for scene in set(locked_scene_by_pk.values()):
+                locked_pks = [pk for pk, value in locked_scene_by_pk.items() if value == scene]
+                self.filter(pk__in=locked_pks).update(scene=scene)
         except IntegrityError as e:
             self._raise_for_known_constraint(e)
 
