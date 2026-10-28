@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-10-28
+
 ### Added
 
 - Optional `scene` (`commercial` | `underground`) on a genre tree-import node, stored on `AbstractGenreCriteria.scene`: marks a genre as the commercial or underground branch of its parent so clients can render it specially. Always rewritten from the import, even on a manually edited row, like `is_umbrella`. Tests cover set / rewrite / clear on a locked row and rejection of an unknown value.
