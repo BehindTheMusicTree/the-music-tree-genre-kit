@@ -10,6 +10,7 @@ from the_music_tree_api_kit.field.AppCharField import AppCharField
 from ...CriteriaSide import CriteriaSide
 from ...Fields import Fields
 from ...import_run.ImportRun import ImportRun
+from .CriteriaScene import CriteriaScene
 from .CriteriaSource import CriteriaSource
 
 
@@ -105,6 +106,13 @@ class AbstractGenreCriteria(models.Model):
     sub-genres (e.g. techno), so no track may be assigned to it directly -- a track belongs to one
     of its descendants. Always rewritten from the import, never locked by `is_manually_edited`,
     since the curation list in grow is its source of truth. Never set on a leaf.
+    """
+
+    scene = AppCharField(max_length=16, choices=CriteriaScene.choices, null=True, blank=True, db_column=Fields.SCENE)
+    """
+    Copied from the imported node's `scene`: marks this genre as the commercial or the underground
+    branch of its parent. Always rewritten from the import, never locked by `is_manually_edited`,
+    since the curation list in grow is its source of truth. Null on every other genre.
     """
 
     description = models.TextField(null=True, blank=True, db_column=Fields.DESCRIPTION)
