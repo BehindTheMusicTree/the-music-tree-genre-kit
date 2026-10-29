@@ -135,3 +135,16 @@ def test_validate_accepts_summary_source_url_with_summary():
     )
 
     assert validated["summary_source_url"] == "https://en.wikipedia.org/wiki/House_music"
+
+
+@pytest.mark.parametrize("url", ["ftp://example.com/x", "javascript:alert(1)"])
+def test_validate_rejects_non_http_summary_source_url(url):
+    with pytest.raises(ValidationError):
+        _serializer().run_validation({"name": "House", "summary": "Wiki intro.", "summary_source_url": url})
+
+
+@pytest.mark.parametrize("url", [None, ""])
+def test_validate_accepts_null_and_blank_summary_source_url(url):
+    validated = _serializer().run_validation({"name": "House", "summary_source_url": url})
+
+    assert not validated["summary_source_url"]
