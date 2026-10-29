@@ -12,6 +12,7 @@ from ...Fields import Fields
 from ...import_run.ImportRun import ImportRun
 from .CriteriaScene import CriteriaScene
 from .CriteriaSource import CriteriaSource
+from .validators import HTTP_URL_VALIDATOR
 
 
 class AbstractGenreCriteria(models.Model):
@@ -121,7 +122,9 @@ class AbstractGenreCriteria(models.Model):
     Recomputed on every import of an unlocked row; a node without one nulls it.
     """
 
-    summary_source_url = models.URLField(max_length=500, null=True, blank=True, db_column=Fields.SUMMARY_SOURCE_URL)
+    summary_source_url = models.URLField(
+        max_length=500, null=True, blank=True, db_column=Fields.SUMMARY_SOURCE_URL, validators=[HTTP_URL_VALIDATOR]
+    )
     """
     Set only when `summary` is the English Wikipedia intro (CC BY-SA): the article URL to
     attribute. Null for an admin-written summary. Recomputed on every import of an unlocked row.
