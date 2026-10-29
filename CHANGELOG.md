@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.52.1] - 2026-10-29
+
 ### Fixed
 
 - `summary_source_url` now accepts only `http`/`https` URLs, on both the tree-import node serializer and `AbstractGenreCriteria` (shared `HTTP_URL_VALIDATOR`); Django's default `URLField` schemes also allowed `ftp`/`ftps`, which clients reject. Consumers need to run `makemigrations` to record the new field validator. Tests cover `ftp:`/`javascript:` rejection and https, null and blank acceptance.
