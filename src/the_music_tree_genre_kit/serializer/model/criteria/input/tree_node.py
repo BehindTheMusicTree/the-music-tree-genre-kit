@@ -8,6 +8,7 @@ from the_music_tree_api_kit.serializer.field.AppCharField import AppCharField
 from the_music_tree_api_kit.serializer.field.AppListField import AppListField
 
 from the_music_tree_genre_kit.criteria.children.genre.CriteriaScene import CriteriaScene
+from the_music_tree_genre_kit.criteria.children.genre.validators import HTTP_URL_VALIDATOR
 from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields
 
@@ -18,7 +19,9 @@ class CriteriaTreeNodeSerializer(AppInputSerializer):
     side = ChoiceField(choices=CriteriaSide.choices, required=False, allow_null=True)
     summary = AppCharField(required=False, allow_null=True, allow_blank=True)
     description = AppCharField(required=False, allow_null=True, allow_blank=True)
-    summary_source_url = URLField(max_length=500, required=False, allow_null=True, allow_blank=True)
+    summary_source_url = URLField(
+        max_length=500, required=False, allow_null=True, allow_blank=True, validators=[HTTP_URL_VALIDATOR]
+    )
     id = AppCharField(required=False, allow_null=True, validators=[RegexValidator(r"^(Q\d+|LOCAL:[a-z0-9-]+)$")])
     primary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
     secondary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
