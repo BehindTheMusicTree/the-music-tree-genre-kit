@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- Share agent guidance and correct review assumptions about concrete models and migrations.
+
 ## [0.52.1] - 2026-10-29
 
 ### Fixed

@@ -1,0 +1,9 @@
+{
+  "model-migrations": {
+    "source": ".agents/rules/model-migrations.md",
+    "paths": [
+      "src/the_music_tree_genre_kit/**/*.py",
+      "tests/fixture_app/**/*.py"
+    ]
+  }
+}
