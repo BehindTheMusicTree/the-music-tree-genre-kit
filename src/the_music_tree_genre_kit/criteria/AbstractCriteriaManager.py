@@ -16,6 +16,7 @@ from the_music_tree_genre_kit.serializer.model.criteria.input.Fields import Fiel
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields as TreeImportFields
 
 from .AbstractCriteria import AbstractCriteria
+from .children.genre.CriteriaScene import CriteriaScene
 from .CriteriaSide import CriteriaSide
 from .CriteriaTreeName import CriteriaTreeName
 from .Fields import Fields
@@ -628,6 +629,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 build(node.get(InputFields.CHILDREN) or [], criteria, root if root is not None else criteria)
 
         build(tree_data, None, None)
+        self._validate_scene_split(tree_data)
         self._validate_single_pop_child_per_root(new_instances)
         try:
             bulk_create_mti(new_instances, using=self.db)
@@ -635,6 +637,28 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             self._raise_for_known_constraint(e)
         self._finish_import(user, new_instances, top_level_instances, pending_parent_refs, actor=actor)
         return {"created_count": len(new_instances), "updated_count": 0, "deleted_count": 0}
+
+    def _validate_scene_split(self, tree_data: list[dict]) -> None:
+        """A node with a scene child holds exactly two children: one commercial and one underground.
+
+        Walks the imported tree itself rather than the planned instances: parents are only resolved
+        afterwards, and a locked row keeps its stored parent whatever the tree says.
+        """
+        if not self._model_has_field(Fields.SCENE):
+            return
+
+        def check(nodes: list[dict], parent_name: str) -> None:
+            scenes = [node.get(InputFields.SCENE) for node in nodes]
+            if any(scenes) and sorted(scene or "" for scene in scenes) != [
+                CriteriaScene.COMMERCIAL,
+                CriteriaScene.UNDERGROUND,
+            ]:
+                names = ", ".join(str(node.get(InputFields.NAME_PUBLIC)) for node in nodes)
+                raise self.model.scene_split_exception(parent_name, names)  # type: ignore[attr-defined]
+            for node in nodes:
+                check(node.get(InputFields.CHILDREN) or [], str(node.get(InputFields.NAME_PUBLIC)))
+
+        check(tree_data, "the tree root")
 
     def _validate_single_pop_child_per_root(self, planned_instances: list[T]) -> None:
         if not self._model_has_side_field():
@@ -796,6 +820,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     build(children, criteria, child_root)
 
         build(tree_data, None, None)
+        self._validate_scene_split(tree_data)
         self._validate_single_pop_child_per_root(matched_instances + new_instances)
 
         stale_queryset = (

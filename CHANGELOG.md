@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Tree import rejects a scene split that isn't exactly one commercial and one underground child: when any child of a node has a `scene`, the node must have two children carrying the two scenes. Models with a `scene` field implement `scene_split_exception(parent_name, child_names)` (provided by `AbstractGenreCriteria`). Covered by import tests for a stray third child, a missing underground and two commercial scenes.
+
 ### Changed
 
 - Share agent guidance and correct review assumptions about concrete models and migrations.
