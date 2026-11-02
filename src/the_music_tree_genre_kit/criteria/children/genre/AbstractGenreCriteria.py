@@ -173,6 +173,18 @@ class AbstractGenreCriteria(models.Model):
             field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
         )
 
+    @staticmethod
+    def scene_split_exception(parent_name: str, child_names: str) -> AppValidationException:
+        return AppValidationException(
+            field_name=Fields.SCENE,
+            message=_(
+                '"%(parent)s" has a scene child, so it must have exactly two children, one commercial and '
+                "one underground (got: %(children)s)"
+            )
+            % {"parent": parent_name, "children": child_names},
+            field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
+        )
+
     def _prepare_save(self, ctx: SaveContext) -> dict:
         kwargs = super()._prepare_save(ctx)  # type: ignore[misc]
         self._validate_side()
