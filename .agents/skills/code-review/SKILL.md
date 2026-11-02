@@ -13,12 +13,9 @@ This repo depends on `the-music-tree-api-kit` for all generic, non-genre infrast
 - Reintroduces a class that already exists in api-kit instead of importing it.
 - Imports from `the_music_tree_genre_kit` for something that is actually api-kit's concern, or vice versa — this repo previously had these two boundaries confused and had to be split back apart (see `AbstractCriteria`/`AbstractCriteriaManager` for the correct shape: pure tree-structure logic only, no playlist/file/AFP side effects, extension points exposed as `_on_created`/`_on_parent_changed`/`_on_renamed`/`_on_before_delete` no-op hooks for consumers to override).
 
-## Abstract-base-class pattern
+## Models and ownership
 
-Every model here (`AbstractCriteria`, `AbstractCriteriaLineageRel`, `CriteriaType`) is Django-abstract (`class Meta: abstract = True`) or otherwise ships no concrete migration-bearing model outside the throwaway fixture app. Flag:
-- Any new model added without `abstract = True` unless it is genuinely meant to be a concrete, shipped table (rare — check whether it belongs in `tests/fixture_app/` instead).
-- Hardcoded references to a concrete `User`/app-label string instead of `settings.AUTH_USER_MODEL` or a string like `"self"`/relative model reference that stays valid across consuming services.
-- Business logic (queryset filtering by a concrete FK, side effects tied to a specific consumer's domain like playlists or uploaded tracks) leaking into an abstract base — consumers extend via hooks, not by the base class special-casing them.
+Read `.agents/rules/model-migrations.md`. The package ships concrete tables as well as abstract consumer-implemented models. Check the actual model and intended ownership; do not flag an existing concrete model merely for being concrete. Review hardcoded consumer references and consumer-specific side effects in abstract bases.
 
 ## Style and tooling
 
@@ -30,8 +27,8 @@ Every model here (`AbstractCriteria`, `AbstractCriteriaLineageRel`, `CriteriaTyp
 
 ## Migrations
 
-Two migration trees exist and must both be regenerated together when abstract fields change: `src/the_music_tree_genre_kit/migrations/` (the package's own, near-empty since it ships no concrete tables) and `tests/fixture_app/migrations/` (the throwaway fixture app that actually instantiates the abstract bases, used only to prove they're valid Django in CI). If a PR changes a field/model definition, confirm both migration sets were regenerated — CI's `Fixture makemigrations check` job (`django-admin makemigrations fixture_app the_music_tree_genre_kit --check --dry-run`) is the actual gate, but a stale migration checked in by hand without running that command is easy to miss in review.
+Apply `.agents/rules/model-migrations.md` and run the documented check for both migration histories. Review schema/data compatibility; only require migration changes where Django or the actual operation needs them.
 
 ## Cross-repo dependency pins
 
-`pyproject.toml` pins `the-music-tree-api-kit` via `git+https://...@<sha>`. When reviewing a PR that bumps this pin, confirm it points at a real commit/tag on api-kit's `main` (not a feature branch) and that the corresponding api-kit change has already merged and gone green in its own CI — this repo's CI has no visibility into api-kit's own test suite, only that the pinned commit resolves and imports cleanly.
+`pyproject.toml` pins `the-music-tree-api-kit` via `git+https://...@<tag>`. When reviewing a PR that bumps this pin, confirm the tag resolves to the intended release commit on api-kit's `main` (not a feature branch) and that the corresponding api-kit change has already merged and gone green in its own CI — this repo's CI has no visibility into api-kit's own test suite, only that the pinned commit resolves and imports cleanly.

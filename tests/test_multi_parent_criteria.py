@@ -234,22 +234,62 @@ def test_import_sets_scene_and_rewrites_it_even_on_locked_rows(user, genre_type)
             "id": "LOCAL:core-electronic",
             "children": [
                 {"name": "Electronic dance music", "id": "Q851213", "scene": "commercial"},
-                {"name": "Ambient", "id": "Q1"},
+                {"name": "Underground electronic", "id": "LOCAL:underground", "scene": "underground"},
             ],
         }
     ]
     import_tree(user, "canonical", tree)
     assert Genre.objects.get(user=user, wikidata_id="Q851213").scene == "commercial"
-    assert Genre.objects.get(user=user, wikidata_id="Q1").scene is None
+    assert Genre.objects.get(user=user, wikidata_id="LOCAL:core-electronic").scene is None
 
     Genre.objects.filter(user=user, wikidata_id="Q851213").update(is_manually_edited=True)
     tree[0]["children"][0]["scene"] = "underground"
+    tree[0]["children"][1]["scene"] = "commercial"
     import_tree(user, "canonical", tree)
     assert Genre.objects.get(user=user, wikidata_id="Q851213").scene == "underground"
 
     del tree[0]["children"][0]["scene"]
+    del tree[0]["children"][1]["scene"]
     import_tree(user, "canonical", tree)
     assert Genre.objects.get(user=user, wikidata_id="Q851213").scene is None
+
+
+def _split_tree(*children):
+    return [{"name": "Core electronic", "id": "LOCAL:core-electronic", "children": list(children)}]
+
+
+COMMERCIAL_NODE = {"name": "Electronic dance music", "id": "Q851213", "scene": "commercial"}
+UNDERGROUND_NODE = {"name": "Underground electronic", "id": "LOCAL:underground", "scene": "underground"}
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "children",
+    [
+        [COMMERCIAL_NODE, UNDERGROUND_NODE, {"name": "Techno", "id": "Q170611"}],
+        [COMMERCIAL_NODE, {"name": "Techno", "id": "Q170611"}],
+        [COMMERCIAL_NODE, {**UNDERGROUND_NODE, "scene": "commercial"}],
+    ],
+    ids=["stray-third-child", "missing-underground", "two-commercial"],
+)
+def test_import_rejects_scene_split_that_is_not_one_of_each(user, genre_type, children):
+    with pytest.raises(AppValidationException) as raised:
+        import_tree(user, "canonical", _split_tree(*children))
+
+    assert "Core electronic" in str(raised.value.message)
+    assert not Genre.objects.filter(user=user).exists()
+
+
+@pytest.mark.django_db
+def test_import_accepts_scene_split_with_descendants_under_each_scene(user, genre_type):
+    tree = _split_tree(
+        {**COMMERCIAL_NODE, "children": [{"name": "House", "id": "Q20502"}, {"name": "Trance", "id": "Q170435"}]},
+        {**UNDERGROUND_NODE, "children": [{"name": "Techno", "id": "Q170611"}]},
+    )
+
+    import_tree(user, "canonical", tree)
+
+    assert Genre.objects.filter(user=user).count() == 6
 
 
 @pytest.mark.django_db
