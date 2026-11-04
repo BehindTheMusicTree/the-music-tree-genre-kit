@@ -276,6 +276,13 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 )
             self._require_node_keys(node.get(InputFields.CHILDREN) or [])
 
+    def _node_keys(self, nodes: list[dict]) -> set[str]:
+        keys: set[str] = set()
+        for node in nodes:
+            keys.add(node[InputFields.ID])
+            keys |= self._node_keys(node.get(InputFields.CHILDREN) or [])
+        return keys
+
     def _on_created(self, instance: T, *, actor: Any = None) -> None:
         """Hook: react to a newly created criteria. No-op by default."""
 
@@ -548,6 +555,9 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         criteria is imported as `"<name> (<id>)"` with `has_name_conflict=True` instead of
         failing the run -- see `_disambiguate_conflicting_names`.
 
+        A node whose key is held only by an unlocked pipeline row of the other tree moved between the
+        trees: that row is moved into this tree rather than duplicated, so it keeps its pk and name.
+
         Returns `{"created_count", "updated_count", "deleted_count", "dry_run"}`.
         """
         empty_result = {"created_count": 0, "updated_count": 0, "deleted_count": 0, "dry_run": dry_run}
@@ -715,6 +725,30 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 wikidata_id__isnull=True, source=CriteriaSource.PIPELINE, is_manually_edited=False
             )
         }
+        # A key held by an unlocked pipeline row of the other tree moved between trees: that row is adopted, keeping
+        # its pk (and what references it) and freeing its name, which a namesake created here would otherwise have
+        # to suffix until the other tree's next import deletes the old row.
+        movable_candidates = list(
+            self.filter(
+                user=user,
+                wikidata_id__in=self._node_keys(tree_data) - existing_by_key.keys(),
+                source=CriteriaSource.PIPELINE,
+                is_manually_edited=False,
+                is_excluded=False,
+            ).exclude(tree_name=tree_name)
+        )
+        # Locked descendants are skipped by their tree's imports, so only the old row's delete (which splices them
+        # onto its parents and re-roots them) can repair their parent/root: such a row is left to that path.
+        candidate_pks = [criteria.pk for criteria in movable_candidates]
+        locked_pks = self.filter(user=user, is_manually_edited=True).values("pk")
+        ancestors_of_locked = set(
+            self.lineage_rel_model.objects.filter(
+                ascendant_id__in=candidate_pks, descendant_id__in=locked_pks
+            ).values_list("ascendant_id", flat=True)
+        ) | set(self.filter(root_id__in=candidate_pks, pk__in=locked_pks).values_list(Fields.ROOT, flat=True))
+        movable_by_key: dict[str, T] = {
+            criteria.wikidata_id: criteria for criteria in movable_candidates if criteria.pk not in ancestors_of_locked
+        }
         protected_keys: set[str] = set()
         if model_has_manual_edit_fields:
             protected_keys = {key for key, criteria in existing_by_key.items() if criteria.is_excluded}
@@ -757,6 +791,10 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     matched_criteria = legacy_by_name.pop(node_name.lower(), None)
                     if matched_criteria is not None:
                         matched_criteria.wikidata_id = key
+                if matched_criteria is None:
+                    matched_criteria = movable_by_key.pop(key, None)
+                    if matched_criteria is not None:
+                        matched_criteria.tree_name = tree_name
 
                 if matched_criteria is not None and model_has_manual_edit_fields and matched_criteria.is_excluded:
                     # Admin-excluded: keep it (and its subtree) out of this import entirely.
@@ -854,7 +892,14 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         if deleted_count:
             self._delete_stale_instances(stale_queryset, actor=actor)
 
-        matched_update_fields = [Fields.NAME_INTERNAL, Fields.PARENT, Fields.ROOT, "last_seen_run", "wikidata_id"]
+        matched_update_fields = [
+            Fields.NAME_INTERNAL,
+            Fields.PARENT,
+            Fields.ROOT,
+            Fields.TREE_NAME,
+            "last_seen_run",
+            "wikidata_id",
+        ]
         if model_has_side_field:
             matched_update_fields.append(Fields.SIDE)
         if self._model_has_field("has_name_conflict"):
