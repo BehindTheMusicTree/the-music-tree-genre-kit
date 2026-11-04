@@ -728,15 +728,26 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         # A key held by an unlocked pipeline row of the other tree moved between trees: that row is adopted, keeping
         # its pk (and what references it) and freeing its name, which a namesake created here would otherwise have
         # to suffix until the other tree's next import deletes the old row.
-        movable_by_key: dict[str, T] = {
-            criteria.wikidata_id: criteria
-            for criteria in self.filter(
+        movable_candidates = list(
+            self.filter(
                 user=user,
                 wikidata_id__in=self._node_keys(tree_data) - existing_by_key.keys(),
                 source=CriteriaSource.PIPELINE,
                 is_manually_edited=False,
                 is_excluded=False,
             ).exclude(tree_name=tree_name)
+        )
+        # Locked descendants are skipped by their tree's imports, so only the old row's delete (which splices them
+        # onto its parents and re-roots them) can repair their parent/root: such a row is left to that path.
+        candidate_pks = [criteria.pk for criteria in movable_candidates]
+        locked_pks = self.filter(user=user, is_manually_edited=True).values("pk")
+        ancestors_of_locked = set(
+            self.lineage_rel_model.objects.filter(
+                ascendant_id__in=candidate_pks, descendant_id__in=locked_pks
+            ).values_list("ascendant_id", flat=True)
+        ) | set(self.filter(root_id__in=candidate_pks, pk__in=locked_pks).values_list(Fields.ROOT, flat=True))
+        movable_by_key: dict[str, T] = {
+            criteria.wikidata_id: criteria for criteria in movable_candidates if criteria.pk not in ancestors_of_locked
         }
         protected_keys: set[str] = set()
         if model_has_manual_edit_fields:
@@ -777,13 +788,13 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 key = node[InputFields.ID]
                 matched_criteria = existing_by_key.get(key)
                 if matched_criteria is None:
-                    matched_criteria = movable_by_key.pop(key, None)
-                    if matched_criteria is not None:
-                        matched_criteria.tree_name = tree_name
-                if matched_criteria is None:
                     matched_criteria = legacy_by_name.pop(node_name.lower(), None)
                     if matched_criteria is not None:
                         matched_criteria.wikidata_id = key
+                if matched_criteria is None:
+                    matched_criteria = movable_by_key.pop(key, None)
+                    if matched_criteria is not None:
+                        matched_criteria.tree_name = tree_name
 
                 if matched_criteria is not None and model_has_manual_edit_fields and matched_criteria.is_excluded:
                     # Admin-excluded: keep it (and its subtree) out of this import entirely.

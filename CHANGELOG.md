@@ -19,7 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- A tree import now moves a genre whose key left the other tree into the imported tree, instead of creating a namesake suffixed `"<name> (<id>)"` and flagged `has_name_conflict` until the other tree's next import deleted the old row. The genre keeps its pk, so references to it (song links) survive the move. Only unlocked, non-excluded pipeline rows are moved; a locked one still ends up in both trees. Covered by an import test for a regional genre moving to the canonical tree.
+- A tree import now moves a genre whose key left the other tree into the imported tree, instead of creating a namesake suffixed `"<name> (<id>)"` and flagged `has_name_conflict` until the other tree's next import deleted the old row. The genre keeps its pk, so references to it (song links) survive the move. Only unlocked, non-excluded pipeline rows without a locked descendant are moved; any other row still ends up in both trees until the old one is deleted, which re-parents and re-roots its locked descendants. Covered by an import test for a regional genre moving to the canonical tree.
 
 ## [0.53.0] - 2026-11-02
 
