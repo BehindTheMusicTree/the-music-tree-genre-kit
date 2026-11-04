@@ -488,3 +488,42 @@ def test_tree_import_serializer_validates_cross_tree_links():
             data={"tree_name": "regional", "tree": tree, "cross_tree_secondary_parents": invalid_links}
         )
         assert not serializer.is_valid()
+
+
+@pytest.mark.django_db
+def test_cross_tree_links_reject_a_descendant_and_roll_back_on_dry_run(user, genre_type):
+    import_tree(user, "canonical", [{"name": "Reggae", "id": "Q9794", "children": []}])
+    regional = [{"name": "Jamaican reggae", "id": "Q1", "children": [], "primary_parents": ["Q9794"]}]
+    assert (
+        error_code(
+            lambda: import_with_cross_tree_links(
+                user, "regional", regional, [{"id": "Q9794", "secondary_parents": ["Q1"]}]
+            )
+        )
+        == FieldValidationErrorCode.ANCESTOR_REFERENCE
+    )
+
+    Genre.objects.import_criteria_tree(
+        user,
+        {
+            "tree_name": "regional",
+            "tree": [{"name": "Music of Jamaica", "id": "Q2", "children": []}],
+            "cross_tree_secondary_parents": [{"id": "Q9794", "secondary_parents": ["Q2"]}],
+        },
+        dry_run=True,
+    )
+    assert secondary_parent_keys("Q9794", user) == set()
+
+
+@pytest.mark.django_db
+def test_canonical_reimport_clears_cross_tree_links(user, genre_type):
+    canonical = [{"name": "Reggae", "id": "Q9794", "children": []}]
+    import_tree(user, "canonical", canonical)
+    import_with_cross_tree_links(
+        user,
+        "regional",
+        [{"name": "Music of Jamaica", "id": "Q1", "children": []}],
+        [{"id": "Q9794", "secondary_parents": ["Q1"]}],
+    )
+    import_tree(user, "canonical", canonical)
+    assert secondary_parent_keys("Q9794", user) == set()
