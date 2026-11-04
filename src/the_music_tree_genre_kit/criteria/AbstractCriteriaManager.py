@@ -549,7 +549,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         the regional one, which allows multiple primary parents, references it). Node
         `primary_parents`/`secondary_parents` are refs (wikidata id, else name) to any of the
         user's rows, resolved after all rows exist; a top-level node's first primary ref
-        becomes its `parent`.
+        becomes its `parent`. `data["cross_tree_secondary_parents"]` (optional) lists rows of the other tree, as
+        `{"id": ref, "secondary_parents": [refs]}`, with their secondary parents in this one, see `_link_cross_tree_secondary_parents`.
 
         A node whose name is already taken (case-insensitively) by another of the user's
         criteria is imported as `"<name> (<id>)"` with `has_name_conflict=True` instead of
@@ -588,10 +589,57 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 tree_name=tree_name,
             )
 
+        cross_tree_secondary_parents = data.get(TreeImportFields.CROSS_TREE_SECONDARY_PARENTS) or []
+        if cross_tree_secondary_parents:
+            self._link_cross_tree_secondary_parents(user, tree_name, cross_tree_secondary_parents)
+
         result["dry_run"] = dry_run
         if dry_run:
             transaction.set_rollback(True)
         return result
+
+    def _link_cross_tree_secondary_parents(self, user: Any, tree_name: str, links: list[dict]) -> None:
+        """Replaces, for each row of another tree listed in `links`, its secondary parents in `tree_name` by the listed
+        refs. Its own tree's import cannot set them when it runs first, as these rows may not exist yet. That import
+        replaces all its rows' secondary parents, so this tree's import must follow it. Locked or excluded rows are
+        left untouched, as in their own tree's import. A list rather than a ref-keyed map, as request middleware
+        rewrites nested keys to snake case."""
+
+        def index(queryset) -> tuple[dict[str, T], dict[str, T]]:
+            by_wikidata_id: dict[str, T] = {}
+            by_name: dict[str, T] = {}
+            for criteria in queryset:
+                by_name[criteria.name] = criteria
+                if getattr(criteria, Fields.WIKIDATA_ID, None):
+                    by_wikidata_id[criteria.wikidata_id] = criteria
+            return by_wikidata_id, by_name
+
+        def resolve(by_ref: tuple[dict[str, T], dict[str, T]], ref: str) -> T:
+            by_wikidata_id, by_name = by_ref
+            found = by_wikidata_id.get(ref) or by_name.get(ref)
+            if found is None:
+                raise AppValidationException(
+                    field_name=TreeImportFields.CROSS_TREE_SECONDARY_PARENTS,
+                    message=_("Unknown cross-tree reference: %(ref)s") % {"ref": ref},
+                    field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
+                )
+            return found
+
+        children_by_ref = index(self.filter(user=user).exclude(tree_name=tree_name))
+        parents_by_ref = index(self.filter(user=user, tree_name=tree_name))
+        field = self.model._meta.get_field(Fields.SECONDARY_PARENTS)
+        child_col, parent_col = field.m2m_field_name(), field.m2m_reverse_field_name()
+        has_manual_edit_fields = self._model_has_manual_edit_fields()
+        for link in links:
+            child = resolve(children_by_ref, link[InputFields.ID])
+            parents = [resolve(parents_by_ref, ref) for ref in link[InputFields.SECONDARY_PARENTS]]
+            if has_manual_edit_fields and (child.is_manually_edited or child.is_excluded):
+                continue
+            field.remote_field.through.objects.filter(
+                **{child_col: child.pk, f"{parent_col}__tree_name": tree_name}
+            ).delete()
+            child.secondary_parents.add(*parents)
+            self._validate_parents(child)
 
     def _node_parent_refs(self, node: dict, tree_name: str) -> tuple[list[str], list[str]]:
         primary_refs = node.get(InputFields.PRIMARY_PARENTS) or []
