@@ -10,6 +10,7 @@ class Fields:
     TREE_NAME: str = InputFields.TREE_NAME
     PRIMARY_PARENTS: str = InputFields.PRIMARY_PARENTS
     SECONDARY_PARENTS: str = InputFields.SECONDARY_PARENTS
+    CROSS_TREE_SECONDARY_PARENTS: str = InputFields.CROSS_TREE_SECONDARY_PARENTS
     IS_UNACCEPTED_ROOT: str = InputFields.IS_UNACCEPTED_ROOT
     IS_UMBRELLA: str = InputFields.IS_UMBRELLA
     SCENE: str = InputFields.SCENE

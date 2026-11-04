@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- A tree import takes an optional `crossTreeSecondaryParents` list of `{"id": ref, "secondaryParents": [refs]}`, linking rows of the other tree to secondary parents in the imported one, e.g. a canonical genre to the regional genres it belongs to. The canonical import cannot set these links itself, since it runs before the regional rows exist. Each listed row's secondary parents in the imported tree are replaced; its secondary parents in its own tree are kept, and locked or excluded rows are left untouched. An import without the field keeps the existing links. A list rather than a ref-keyed map, as request middleware rewrites nested keys to snake case. Covered by import and serializer tests.
+
 ## [0.53.1] - 2026-11-04
 
 ### Fixed
