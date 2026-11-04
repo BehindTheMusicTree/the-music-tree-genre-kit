@@ -315,9 +315,99 @@ def test_import_flags_unaccepted_root_until_parented_or_locked(user, genre_type)
 @pytest.mark.django_db
 def test_import_post_apply_check_ignores_same_qid_in_other_tree(user, genre_type):
     import_tree(user, "regional", [{"name": "Fusion", "id": "Q1", "children": []}])
+    # Locked, so the canonical import can't adopt it and the QID ends up in both trees.
+    Genre.objects.filter(user=user, wikidata_id="Q1").update(is_manually_edited=True)
     import_tree(
         user,
         "canonical",
         [{"name": "Rock", "id": "Q11399", "children": [{"name": "Fusion", "id": "Q1", "children": []}]}],
     )
     assert Genre.objects.filter(user=user, wikidata_id="Q1").count() == 2
+
+
+@pytest.mark.django_db
+def test_import_adopts_genre_moved_from_the_other_tree(user, genre_type):
+    import_tree(user, "canonical", [{"name": "Metal", "id": "Q1", "children": []}])
+    regional = [
+        {
+            "name": "Heavy metal",
+            "id": "Q38848",
+            "primary_parents": ["Q1"],
+            "children": [{"name": "Regional metal", "id": "Q2", "children": []}],
+        },
+        {"name": "Folk", "id": "Q3", "children": []},
+    ]
+    import_tree(user, "regional", regional)
+    moved = Genre.objects.get(user=user, wikidata_id="Q38848")
+    locked = Genre.objects.get(user=user, wikidata_id="Q3")
+    Genre.objects.filter(pk=locked.pk).update(is_manually_edited=True)
+
+    canonical = [
+        {
+            "name": "Metal",
+            "id": "Q1",
+            "children": [
+                {"name": "Heavy metal", "id": "Q38848", "children": []},
+                {"name": "Folk", "id": "Q3", "children": []},
+            ],
+        }
+    ]
+    import_tree(user, "canonical", canonical)
+    adopted = Genre.objects.get(user=user, wikidata_id="Q38848")
+    assert (adopted.pk, adopted.tree_name, adopted.name, adopted.has_name_conflict) == (
+        moved.pk,
+        "canonical",
+        "Heavy metal",
+        False,
+    )
+    assert adopted.parent_id == Genre.objects.get(user=user, wikidata_id="Q1").pk
+    assert set(Genre.objects.filter(user=user, wikidata_id="Q3").values_list("tree_name", "_name")) == {
+        ("regional", "Folk"),
+        ("canonical", "Folk (Q3)"),
+    }
+
+    import_tree(
+        user, "regional", [{"name": "Regional metal", "id": "Q2", "primary_parents": ["Q38848"], "children": []}]
+    )
+    assert Genre.objects.get(user=user, wikidata_id="Q38848").pk == moved.pk
+    regional_metal = Genre.objects.get(user=user, wikidata_id="Q2")
+    assert (regional_metal.tree_name, regional_metal.parent.pk) == ("regional", moved.pk)
+
+
+@pytest.mark.django_db
+def test_import_leaves_genre_with_locked_descendant_in_the_other_tree(user, genre_type, tag_type):
+    import_tree(user, "canonical", [{"name": "Metal", "id": "Q1", "children": []}])
+    regional = [
+        {
+            "name": "Heavy metal",
+            "id": "Q38848",
+            "children": [
+                {
+                    "name": "Regional metal",
+                    "id": "Q2",
+                    "children": [{"name": "Local metal", "id": "Q4", "children": []}],
+                }
+            ],
+        }
+    ]
+    import_tree(user, "regional", regional)
+    old = Genre.objects.get(user=user, wikidata_id="Q38848")
+    Genre.objects.filter(user=user, wikidata_id="Q4").update(is_manually_edited=True)
+
+    import_tree(
+        user,
+        "canonical",
+        [{"name": "Metal", "id": "Q1", "children": [{"name": "Heavy metal", "id": "Q38848", "children": []}]}],
+    )
+    assert set(Genre.objects.filter(user=user, wikidata_id="Q38848").values_list("tree_name", "_name")) == {
+        ("regional", "Heavy metal"),
+        ("canonical", "Heavy metal (Q38848)"),
+    }
+
+    bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
+    CriteriaPlaylist.objects.create(user=user, type=genre_type, criteria=old)
+    import_tree(user, "regional", [{"name": "Regional metal", "id": "Q2", "children": []}])
+    regional_metal = Genre.objects.get(user=user, wikidata_id="Q2")
+    local_metal = Genre.objects.get(user=user, wikidata_id="Q4")
+    assert not Genre.objects.filter(pk=old.pk).exists()
+    assert (local_metal.parent_id, local_metal.root_id) == (regional_metal.pk, regional_metal.pk)
