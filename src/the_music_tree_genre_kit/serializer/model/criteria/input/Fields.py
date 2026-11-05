@@ -8,6 +8,7 @@ class Fields:
     TREE_NAME = "tree_name"
     PRIMARY_PARENTS = "primary_parents"
     SECONDARY_PARENTS = "secondary_parents"
+    CROSS_TREE_SECONDARY_PARENTS = "cross_tree_secondary_parents"
     IS_UNACCEPTED_ROOT = "is_unaccepted_root"
     IS_UMBRELLA = "is_umbrella"
     SCENE = "scene"
