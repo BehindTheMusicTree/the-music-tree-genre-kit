@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Preserve complete release notes when Markdown examples contain version headings.
+
 - Prepare releases through reviewed version and changelog changes; CI owns annotated tags and GitHub release publication while consumers keep pinning Git tags.
 
 ### Fixed
