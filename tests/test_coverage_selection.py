@@ -71,6 +71,10 @@ def test_selection_uses_primary_closure_and_preserves_population():
     assert select(root.pk, CriteriaCoverage.AND_DESCENDANTS) == {own.pk, child.pk}
     assert select(right.pk, CriteriaCoverage.AND_DESCENDANTS) == {child.pk}
     assert select(secondary.pk, CriteriaCoverage.AND_DESCENDANTS) == set()
+    restricted = criteria.exclude(pk=root.pk)
+    for coverage in CriteriaCoverage:
+        predicate = criteria_selection_predicate(root.pk, coverage, restricted)
+        assert not scoped.filter(predicate).exists()
     assert select(None, CriteriaCoverage.ONLY) == {genreless.pk}
     assert select(None, CriteriaCoverage.AND_DESCENDANTS) == {genreless.pk}
 
