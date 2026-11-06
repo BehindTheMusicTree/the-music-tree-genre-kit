@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-11-06
+
 ### Added
 
 - Shared genre coverage parsing, primary-closure selection and prepared count summary serializers for consuming APIs.
