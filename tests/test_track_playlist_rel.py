@@ -5,6 +5,7 @@ from django.db.migrations.executor import MigrationExecutor
 from rest_framework.test import APIClient
 
 from tests.fixture_app.models import Criteria, CriteriaPlaylist, Track, TrackPlaylistRel
+from tests.fixture_app.viewset import CriteriaPlaylistViewSet, TrackPlaylistRelSerializer
 from the_music_tree_genre_kit.criteria.playlist.bootstrap_criterialess_playlists_for_user import (
     bootstrap_criterialess_playlists_for_user,
 )
@@ -129,3 +130,31 @@ def test_tracks_count_annotation_counts_rels(user, playlist):
     annotated = CriteriaPlaylist.objects.annotate(n=tracks_count_annotation()).get(pk=playlist.pk)
 
     assert annotated.n == 1
+
+
+@pytest.mark.django_db
+def test_consumer_filters_before_pagination_and_anchor(user, playlist, ordered_tracks, monkeypatch):
+    original = CriteriaPlaylistViewSet.get_track_playlist_rel_queryset
+    monkeypatch.setattr(
+        CriteriaPlaylistViewSet,
+        "get_track_playlist_rel_queryset",
+        lambda self, playlist: original(self, playlist).exclude(track=ordered_tracks[0]),
+    )
+    response = _get_tracks(user, playlist, page_size=1)
+    assert response.data["overallTotal"] == 2
+    assert response.data["results"][0]["track"] == str(ordered_tracks[1].uuid)
+    assert _get_tracks(user, playlist, **{"from": str(ordered_tracks[0].uuid)}).status_code == 404
+
+
+@pytest.mark.django_db
+def test_tracks_serializer_receives_request_context(user, playlist, ordered_tracks, monkeypatch):
+    original = TrackPlaylistRelSerializer.to_representation
+    contexts = []
+
+    def represent(self, instance):
+        contexts.append(self.context)
+        return original(self, instance)
+
+    monkeypatch.setattr(TrackPlaylistRelSerializer, "to_representation", represent)
+    assert _get_tracks(user, playlist).status_code == 200
+    assert contexts and all(context["request"].user == user for context in contexts)

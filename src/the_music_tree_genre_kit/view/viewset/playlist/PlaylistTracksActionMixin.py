@@ -24,17 +24,23 @@ class PlaylistTracksActionMixin:
 
     track_playlist_rel_serializer_class: type[Serializer]
 
+    def get_track_playlist_rel_queryset(self, playlist):
+        """Consumers can restrict tracks before counting, anchoring and pagination."""
+        return TrackPlaylistRel.objects.filter(**{Fields.PLAYLIST: playlist.pk})
+
     @action(detail=True, methods=["get"], url_path="tracks")
     def tracks(self, request, *args, **kwargs):
         playlist = self.get_object()  # type: ignore[attr-defined]
-        queryset = TrackPlaylistRel.objects.filter(**{Fields.PLAYLIST: playlist.pk})
+        queryset = self.get_track_playlist_rel_queryset(playlist)
         from_track = request.query_params.get(FROM_QUERY_PARAM)
         if from_track is not None:
             queryset = queryset.filter(_at_or_after(_anchor_rel(queryset, from_track)))
         queryset = queryset.order_by(F(Fields.POSITION).asc(nulls_last=True), "pk")
         serializer_class = self.track_playlist_rel_serializer_class
         page = self.paginate_queryset(AppModelViewSet._eager_load(serializer_class, queryset))  # type: ignore[attr-defined]
-        return self.get_paginated_response(serializer_class(page, many=True).data)  # type: ignore[attr-defined]
+        return self.get_paginated_response(
+            serializer_class(page, many=True, context=self.get_serializer_context()).data
+        )  # type: ignore[attr-defined]
 
 
 def _anchor_rel(queryset, track_uuid: str) -> TrackPlaylistRel:
