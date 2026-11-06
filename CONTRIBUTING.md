@@ -115,22 +115,20 @@ Releases follow Gitflow, tagged on `main`:
 1. Branch `release/x.y.z` from `develop`.
 2. Bump `version` in `pyproject.toml` and finalize the `[Unreleased]` section of `CHANGELOG.md` on
    that branch. Only bugfixes belong here — no new features.
-3. Open a PR from `release/x.y.z` into `main`; once merged, tag and push:
-
-   ```bash
-   git checkout main
-   git pull origin main
-   git tag vX.Y.Z
-   git push origin vX.Y.Z
-   ```
-
-4. Merge `release/x.y.z` back into `develop` (PR) so the version bump and changelog land there
-   too, then delete the release branch.
+3. Open a PR from `release/x.y.z` into `main`. After the required checks and merge, CI validates
+   the canonical version, matching nonempty changelog and main ancestry, then creates the annotated
+   tag on that exact merged commit. The tag workflow publishes changelog notes as a GitHub Release.
+   This repository continues to be consumed by Git tag; no PyPI publication is introduced.
+4. Integrate the released `main` back into `develop` through a PR, then delete the release branch.
 5. Pin the dependency on `the-music-tree-api-kit` to a tag, never a raw commit SHA — see the `[Unreleased]`/`v0.2.1` changelog entries below for why.
 6. Consumers (`grow-the-music-tree-api`, `hear-the-music-tree-api`) re-pin their dependency on this package to the new tag.
 
 An urgent fix to production code goes through `hotfix/x.y.z` instead: branch from `main`, fix,
-PR into `main`, tag, then PR the same fix back into `develop`.
+PR into `main`, let CI tag and publish, then integrate released `main` back into `develop`.
+
+Initial adoption preserves version 0.54.0 and creates no tag. App access and tag protections are
+activated separately in `github-config` once this contract reaches `main`. Do not create or push
+tags locally. Rerun failed CI publication to recover; an existing release is retained.
 
 ## License & Attribution
 
