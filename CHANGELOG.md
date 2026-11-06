@@ -17,6 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- Playlist tracks expose an overridable queryset hook before pagination and pass request context to nested serializers, with consumer filtering and context tests.
 ### Changed
 
 - Preserve complete release notes when Markdown examples contain version headings.
