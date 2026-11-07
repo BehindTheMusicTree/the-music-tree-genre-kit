@@ -38,7 +38,7 @@ def _genres(user, criteria_type, count):
 
 def _expected_insert_count(row_count, budget):
     return sum(
-        math.ceil(row_count / max(1, budget // len(level._meta.local_fields)))
+        math.ceil(row_count / max(1, budget // len(bulk_mti._insertable_fields(level))))
         for level in bulk_mti._base_first_concrete_chain(Genre)
     )
 
@@ -70,3 +70,12 @@ def test_bulk_create_mti_chunks_by_backend_max_query_params(monkeypatch, user, c
 
     assert _run_counting_inserts(instances) == _expected_insert_count(7, 10)
     assert Genre.objects.filter(pk__in=[instance.pk for instance in instances]).count() == 7
+
+
+def test_bulk_create_mti_skips_generated_fields(user, criteria_type):
+    instances = _genres(user, criteria_type, 2)
+    instances[0]._name = "MiXed Case"
+
+    bulk_create_mti(instances, using="default")
+
+    assert Genre.objects.get(pk=instances[0].pk).folded_name == "mixed case"

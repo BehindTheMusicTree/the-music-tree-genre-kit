@@ -43,9 +43,15 @@ def _base_first_concrete_chain(model: type[models.Model]) -> list[type[models.Mo
 POSTGRES_MAX_BOUND_PARAMS = 65535
 
 
+def _insertable_fields(level_model: type[models.Model]) -> list[models.Field]:
+    # Database-computed columns (GeneratedField) can't be written, and reading their value from an
+    # unsaved instance would trigger a refresh query on a row that doesn't exist yet.
+    return [field for field in level_model._meta.local_fields if not field.generated]
+
+
 def _raw_insert_level(level_model: type[models.Model], instances: list[models.Model], *, using: str) -> None:
     connection = connections[using]
-    fields = level_model._meta.local_fields
+    fields = _insertable_fields(level_model)
     quote = connection.ops.quote_name
     columns = ", ".join(quote(field.column) for field in fields)
     row_placeholder = "(" + ", ".join(["%s"] * len(fields)) + ")"
