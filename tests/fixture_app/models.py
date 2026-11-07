@@ -30,6 +30,10 @@ from the_music_tree_genre_kit.track.YoutubeUnplayableReason import YoutubeUnplay
 
 class Criteria(AbstractCriteria):
     objects: CriteriaManager = CriteriaManager()
+    # Generated column, so bulk_create_mti is exercised against a model that has one.
+    folded_name = models.GeneratedField(
+        expression=Lower(CriteriaFields.NAME_INTERNAL), output_field=models.TextField(), db_persist=True
+    )
 
     class Meta:
         app_label = "fixture_app"

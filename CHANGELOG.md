@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `bulk_create_mti` no longer includes database-generated columns (`GeneratedField`) in its raw `INSERT`; a consumer model with one made every tree import fail with `DoesNotExist`. Covered by a generated column on the fixture `Criteria`.
+
 ## [0.56.0] - 2026-11-06
 
 ### Added
