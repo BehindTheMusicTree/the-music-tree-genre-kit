@@ -17,6 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-11-10
+
+### Added
+
+- `TrackPlaylistRel.genre`: nullable, denormalised copy of `track.genre` (migration `0014`), with a
+  `(playlist, genre, position, id)` index built `CONCURRENTLY` (migration `0015`). It lets a consumer filter a
+  playlist's members by genre from the rel table alone instead of probing the track table once per member.
+  The kit never writes it: the consuming app backfills it and keeps it in sync when a track's genre changes.
+
 ## [0.57.0] - 2026-11-10
 
 ### Added
