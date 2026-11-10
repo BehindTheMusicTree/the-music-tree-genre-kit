@@ -19,6 +19,9 @@ class TrackPlaylistRel(AbstractTrackPlaylistRel):
         indexes = [
             models.Index(fields=["user", Fields.PLAYLIST], name="tpr_user_playlist_idx"),
             models.Index(fields=["user", Fields.TRACK_INTERNAL], name="tpr_user_track_idx"),
+            # Serves `ORDER BY position NULLS LAST, id` per playlist (btree ASC is NULLS LAST), so a tracks page walks
+            # the index and stops at its LIMIT instead of sorting every member.
+            models.Index(fields=[Fields.PLAYLIST, "position", "id"], name="tpr_playlist_position_idx"),
         ]
         constraints = [
             models.UniqueConstraint(fields=[Fields.PLAYLIST, Fields.TRACK_INTERNAL], name="uniq_track_playlist_rel"),
