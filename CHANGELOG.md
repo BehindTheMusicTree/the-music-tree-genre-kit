@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `TrackPlaylistRel` index `tpr_playlist_position_idx` on `(playlist_id, position, id)` (migration `0013`, built `CONCURRENTLY` on PostgreSQL), matching the `ORDER BY position NULLS LAST, id` of the tracks list so a page walks the index and stops at its LIMIT instead of sorting every member of a large playlist. Consumers need no code change; building it on a large database is a deployment step.
+
 ### Changed
 
 - Removed the graphify `merge=graphify` git attribute, which pointed at a machine-specific merge driver; the global agent-config freshness hook keeps the graph fresh.
