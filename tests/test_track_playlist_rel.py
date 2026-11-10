@@ -158,3 +158,14 @@ def test_tracks_serializer_receives_request_context(user, playlist, ordered_trac
     monkeypatch.setattr(TrackPlaylistRelSerializer, "to_representation", represent)
     assert _get_tracks(user, playlist).status_code == 200
     assert contexts and all(context["request"].user == user for context in contexts)
+
+
+@pytest.mark.django_db
+def test_genre_is_nullable_and_stored_on_rel(user, playlist):
+    track = Track.objects.create(user=user)
+    rel = TrackPlaylistRel.objects.create(user=user, playlist=playlist, track=track)
+    assert rel.genre_id is None
+
+    rel.genre = playlist.criteria
+    rel.save()
+    assert TrackPlaylistRel.objects.filter(playlist=playlist, genre=playlist.criteria).count() == 1
