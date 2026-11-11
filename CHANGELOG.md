@@ -29,6 +29,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - Pinned `the-music-tree-api-kit` to `v0.12.0`.
 
+### CI
+
+- Pin the shared release workflows to the lag-tolerant github-workflows commit 79c1362, so tag creation tolerates GitHub read-after-write delays.
+
 ## [0.59.0] - 2026-11-11
 
 Minor bump (below 1.0.0) because of the `### Breaking` hook change below.
