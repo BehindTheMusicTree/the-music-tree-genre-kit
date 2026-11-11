@@ -1173,9 +1173,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         stale_pks = set().union(*(plan.stale_pks for plan in plans))
 
         # Matched rows first, so an existing row keeps its name over a newly imported namesake.
-        renamed_instances = [
-            c for c in matched_instances if not (model_has_manual_edit_fields and c.is_manually_edited)
-        ] + new_instances
+        unlocked_matched = [c for c in matched_instances if not (model_has_manual_edit_fields and c.is_manually_edited)]
+        renamed_instances = unlocked_matched + new_instances
         self._disambiguate_conflicting_names(user, renamed_instances, excluded_pks=stale_pks)
 
         if stale_pks:
@@ -1183,9 +1182,16 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         # The primary parents the matched rows have once the stale rows are spliced out, to tell which ones this
         # import moves.
-        _parent_by_pk, _root_by_pk, old_parents_by_pk = self._load_primary_graph(user.pk)
+        _parent_by_pk, _root_by_pk, old_parents_by_pk = self._load_primary_graph(getattr(user, "pk", None))
 
         matched_update_fields = self._matched_update_fields()
+        # A renamed matched row frees its old name for a new namesake, and the create below runs before the saves.
+        stored_names = dict(
+            self.filter(pk__in=[c.pk for c in unlocked_matched]).values_list("pk", Fields.NAME_INTERNAL)
+        )
+        for criteria in unlocked_matched:
+            if stored_names.get(criteria.pk) != criteria._name:
+                self.filter(pk=criteria.pk).update(**{Fields.NAME_INTERNAL: criteria._name})
         try:
             bulk_create_mti(new_instances, using=self.db)
             # Pop rows last: a pop child moving to core must be saved before its successor's
@@ -1276,7 +1282,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         """Re-propagates the tracks of the imported rows whose primary parents the import changed, exactly as
         `update_instance` does for a one-off reparent: `old_parents_by_pk` is the primary-parent graph before the
         import wrote the rows."""
-        _parent_by_pk, _root_by_pk, new_parents_by_pk = self._load_primary_graph(user.pk)
+        _parent_by_pk, _root_by_pk, new_parents_by_pk = self._load_primary_graph(getattr(user, "pk", None))
         changed = [pk for pk in matched_pks if set(old_parents_by_pk[pk]) != set(new_parents_by_pk[pk])]
         if not changed:
             return

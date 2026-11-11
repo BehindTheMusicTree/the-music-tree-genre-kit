@@ -169,3 +169,22 @@ def test_import_query_count_does_not_grow_with_the_tracks_of_a_moved_genre(user)
     Track.objects.all().delete()
     large = reparent_query_count(user, 30)
     assert large == small
+
+
+@pytest.mark.django_db
+def test_renamed_genre_frees_its_name_for_a_new_namesake_of_the_other_tree(user):
+    run(user, [node("Folk", "Q1")], [])
+
+    run(user, [node("Folk music", "Q1")], [node("Folk", "Q2")])
+
+    assert genre(user, "Q1").name == "Folk music"
+    assert (genre(user, "Q2").name, genre(user, "Q2").has_name_conflict) == ("Folk", False)
+
+
+@pytest.mark.django_db
+def test_primary_graph_of_the_ownerless_canonical_dataset_is_loadable(user):
+    # The fixture models have a mandatory owner, so an ownerless import itself can't run here: this covers the
+    # only owner-dependent lookup of the import (grow's canonical rows have `user IS NULL`).
+    run(user, [node("Metal", "Q1")], [])
+    assert Genre.objects._load_primary_graph(None) == ({}, {}, {})
+    assert len(Genre.objects._load_primary_graph(user.pk)[0]) == 1
