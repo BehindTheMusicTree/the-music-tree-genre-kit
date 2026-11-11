@@ -16,7 +16,8 @@ class CriteriaManager(AbstractCriteriaManager):
 
 
 class GenreManager(AbstractGenreManager, CriteriaManager):
-    pass
+    def _on_bulk_created(self, instances, *, actor=None):
+        self.model._meta.get_field("criteria_playlist").related_model.objects.bulk_create_for_criteria(instances)
 
 
 class ArtistManager(StandardResourceManager):

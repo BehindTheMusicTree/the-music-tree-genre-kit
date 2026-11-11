@@ -406,7 +406,6 @@ def test_import_leaves_genre_with_locked_descendant_in_the_other_tree(user, genr
     }
 
     bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
-    CriteriaPlaylist.objects.create(user=user, type=genre_type, criteria=old)
     import_tree(user, "regional", [{"name": "Regional metal", "id": "Q2", "children": []}])
     regional_metal = Genre.objects.get(user=user, wikidata_id="Q2")
     local_metal = Genre.objects.get(user=user, wikidata_id="Q4")
