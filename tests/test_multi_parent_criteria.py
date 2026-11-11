@@ -10,6 +10,7 @@ from the_music_tree_genre_kit.criteria.playlist.bootstrap_criterialess_playlists
 from the_music_tree_genre_kit.criteria.type.CriteriaType import CriteriaType
 from the_music_tree_genre_kit.criteria.type.CriteriaTypePks import CriteriaTypePks
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.serializer import CriteriaTreeImportSerializer
+from the_music_tree_genre_kit.serializer.model.criteria.input.tree_node import CriteriaTreeNodeSerializer
 
 
 @pytest.fixture
@@ -253,6 +254,82 @@ def test_import_sets_scene_and_rewrites_it_even_on_locked_rows(user, genre_type)
     del tree[0]["children"][1]["scene"]
     import_tree(user, "canonical", tree)
     assert Genre.objects.get(user=user, wikidata_id="Q851213").scene is None
+
+
+IMAGE = {
+    "url": "https://upload.wikimedia.org/a.jpg",
+    "page_url": "https://commons.wikimedia.org/wiki/File:A.jpg",
+    "author": "Jane Doe",
+    "license": "CC BY-SA 4.0",
+    "license_url": "https://creativecommons.org/licenses/by-sa/4.0/",
+}
+
+
+def _genre_image(user, key):
+    genre = Genre.objects.get(user=user, wikidata_id=key)
+    return genre.image_url, genre.image_author, genre.image_license
+
+
+@pytest.mark.django_db
+def test_import_sets_replaces_and_removes_the_image(user, genre_type):
+    tree = [{"name": "Techno", "id": "Q170611", "image": IMAGE, "children": [{"name": "Acid", "id": "Q1"}]}]
+    import_tree(user, "canonical", tree)
+    assert _genre_image(user, "Q170611") == (IMAGE["url"], "Jane Doe", "CC BY-SA 4.0")
+    assert _genre_image(user, "Q1") == (None, None, None)
+
+    tree[0]["image"] = {**IMAGE, "url": "https://upload.wikimedia.org/b.jpg", "author": None}
+    import_tree(user, "canonical", tree)
+    assert _genre_image(user, "Q170611") == ("https://upload.wikimedia.org/b.jpg", None, "CC BY-SA 4.0")
+
+    del tree[0]["image"]
+    import_tree(user, "canonical", tree)
+    assert _genre_image(user, "Q170611") == (None, None, None)
+
+
+@pytest.mark.django_db
+def test_import_rewrites_the_image_even_on_locked_rows(user, genre_type):
+    tree = [
+        {"name": "Techno", "id": "Q170611", "image": IMAGE, "children": [{"name": "Acid", "id": "Q1"}]},
+    ]
+    import_tree(user, "canonical", tree)
+    Genre.objects.filter(user=user, wikidata_id__in=["Q170611", "Q1"]).update(is_manually_edited=True)
+
+    tree[0]["image"] = {**IMAGE, "url": "https://upload.wikimedia.org/b.jpg"}
+    tree[0]["children"][0]["image"] = IMAGE
+    import_tree(user, "canonical", tree)
+    assert _genre_image(user, "Q170611")[0] == "https://upload.wikimedia.org/b.jpg"
+    assert _genre_image(user, "Q1")[0] == IMAGE["url"]
+
+    del tree[0]["image"]
+    import_tree(user, "canonical", tree)
+    assert _genre_image(user, "Q170611") == (None, None, None)
+
+
+@pytest.mark.parametrize(
+    "image",
+    [
+        {**IMAGE, "url": "http://upload.wikimedia.org/a.jpg"},
+        {**IMAGE, "license": ""},
+        {**IMAGE, "extra": 1},
+        "not-an-object",
+    ],
+)
+def test_tree_node_serializer_rejects_an_invalid_image(image):
+    serializer = CriteriaTreeNodeSerializer("tree", data={"name": "Techno", "id": "Q170611", "image": image})
+    with pytest.raises(Exception, match=r"(?i)image"):
+        serializer.is_valid(raise_exception=True)
+
+
+def test_tree_node_serializer_accepts_a_valid_or_null_image():
+    for image in (IMAGE, None):
+        serializer = CriteriaTreeNodeSerializer("tree", data={"name": "Techno", "id": "Q170611", "image": image})
+        assert serializer.is_valid(raise_exception=True)
+
+
+@pytest.mark.django_db
+def test_incomplete_image_hits_the_db_backstop_as_a_validation_error(user, genre_type):
+    with pytest.raises(AppValidationException, match="image needs a url"):
+        import_tree(user, "canonical", [{"name": "Techno", "id": "Q170611", "image": {"url": IMAGE["url"]}}])
 
 
 def _split_tree(*children):

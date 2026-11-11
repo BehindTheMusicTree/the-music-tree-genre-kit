@@ -17,6 +17,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Breaking
+
+- `AbstractGenreCriteria` now inherits `CommonsImage` (api-kit 0.12.0) and carries the five `image_*` columns. A consumer's concrete `Genre` must add `commons_image_complete_constraint("<app>_genre_image_complete")` to its own `Meta.constraints` and migrate the new columns.
+
+### Added
+
+- Tree import reads an optional `image` object (`url`, `page_url`, `author`, `license`, `license_url`) on each node, validated by api-kit's `CommonsImageSerializer`. The image is written on new and unlocked rows, and always rewritten on `is_manually_edited` rows (one `bulk_update`); a node without `image` clears it. An `*_image_complete` constraint violation maps to a validation error on `image`. Models without the columns are unaffected. Tests cover set, replace, remove, locked rows, invalid input and the DB backstop.
+
+### Changed
+
+- Pinned `the-music-tree-api-kit` to `v0.12.0`.
+
 ## [0.59.0] - 2026-11-11
 
 Minor bump (below 1.0.0) because of the `### Breaking` hook change below.

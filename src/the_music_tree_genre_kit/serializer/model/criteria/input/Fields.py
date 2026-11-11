@@ -15,3 +15,4 @@ class Fields:
     SUMMARY = "summary"
     DESCRIPTION = "description"
     SUMMARY_SOURCE_URL = "summary_source_url"
+    IMAGE = "image"

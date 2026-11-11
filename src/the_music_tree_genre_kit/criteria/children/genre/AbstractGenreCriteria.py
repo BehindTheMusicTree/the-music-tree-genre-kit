@@ -3,6 +3,7 @@ from typing import TYPE_CHECKING, Any
 from django.db import models
 from django.utils.translation import gettext as _
 from the_music_tree_api_kit.base.save_context import SaveContext
+from the_music_tree_api_kit.commons_image.CommonsImage import CommonsImage
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 from the_music_tree_api_kit.field.AppCharField import AppCharField
@@ -15,7 +16,7 @@ from .CriteriaSource import CriteriaSource
 from .validators import HTTP_URL_VALIDATOR
 
 
-class AbstractGenreCriteria(models.Model):
+class AbstractGenreCriteria(CommonsImage, models.Model):
     """
     Abstract mixin carrying the `side` column, meant to be combined -- via real Django
     multi-table inheritance in a *consumer* repo -- with that consumer's concrete
@@ -37,6 +38,10 @@ class AbstractGenreCriteria(models.Model):
     the two rules MTI cannot express structurally: placement (pop only on a root's
     direct child) and uniqueness (a root has at most one pop child; every pop-side
     genre of that root lives under it).
+
+    It also carries the five `image_*` Commons columns (from `CommonsImage`). Abstract-Meta inheritance would be
+    silently dropped by the concrete class's own `Meta`, so the consumer's concrete Meta must add
+    `commons_image_complete_constraint("<app>_genre_image_complete")`.
 
     This class has no `parent`/`root`/`pk` fields of its own -- it relies entirely on
     the concrete class's inherited `AbstractCriteria` fields being present at runtime.
