@@ -17,6 +17,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+Next release is a minor bump (0.59.0) because of the `### Breaking` hook change below.
+
+### Added
+
+- `AbstractCriteriaManager.delete_instances(instances, actor=None)`: deletes any number of criteria in one
+  set-based operation per owner. Primary children are spliced onto the deleted rows' primary parents across chains
+  of deleted rows (a child left without a main parent promotes its first additional primary parent, or becomes a
+  root), tracks move to their nearest surviving ancestor (or become genreless), and playlist rels, positions and
+  lineage are fixed with a number of queries that depends on the number of criteria, never on the number of
+  tracks. Tests cover multi-level stale chains, stale roots, regional multi-parent splices, locked descendants,
+  position refill, hook payloads, query count independence and equivalence with sequential leaves-first deletes.
+
+### Changed
+
+- `delete_instance` delegates to `delete_instances`, and the stale-row delete of a tree import (`_delete_stale_instances`)
+  is one `delete_instances` call instead of one `delete_instance` per row with one `track.save()` per song. A tree
+  import that drops many genres no longer fires per-song statement-level triggers once per song.
+
+### Breaking
+
+- `AbstractCriteriaManager._on_track_genre_cleared(track, actor=)` is replaced by the batch hook
+  `_on_tracks_genre_moved(moves, actor=)`, called once before the tracks are updated with `{deleted_pk: new_genre_pk | None}`.
+- `AbstractCriteriaManager._on_before_delete(instance, actor=)` is replaced by the batch hook
+  `_on_before_delete_many(instances, actor=)`, called once with every deleted instance. Both new hooks run inside the
+  delete transaction and are no-ops by default. Consumers overriding the old hooks (grow overrides `_on_before_delete`
+  and `delete_instance`) must port them; hear overrides none of them.
+
 ## [0.58.0] - 2026-11-10
 
 ### Added
