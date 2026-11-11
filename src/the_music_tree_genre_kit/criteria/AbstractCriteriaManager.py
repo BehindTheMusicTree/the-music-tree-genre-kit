@@ -1,9 +1,11 @@
 import uuid
 from collections import defaultdict
+from collections.abc import Iterable, Iterator
 from typing import Any, TypeVar
 
 from django.db import IntegrityError, models, transaction
 from django.db.models import QuerySet
+from django.db.models.functions import Now
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
@@ -14,6 +16,7 @@ from the_music_tree_genre_kit.base.bulk_mti import bulk_create_mti
 from the_music_tree_genre_kit.base.constraint_violation import constraint_violated
 from the_music_tree_genre_kit.serializer.model.criteria.input.Fields import Fields as InputFields
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields as TreeImportFields
+from the_music_tree_genre_kit.track.Fields import Fields as TrackFields
 
 from .AbstractCriteria import AbstractCriteria
 from .children.genre.CriteriaScene import CriteriaScene
@@ -34,7 +37,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     AbstractCriteriaPlaylistManager reached via `instance.criteria_playlist`.
     Side effects outside that (playlists, file metadata, etc.) are left to
     subclasses via the `_on_created`/`_on_parent_changed`/`_on_renamed`/
-    `_on_track_genre_cleared` hooks.
+    `_on_tracks_genre_moved`/`_on_before_delete_many` hooks.
 
     Concrete subclasses must set `lineage_rel_model` to their concrete
     AbstractCriteriaLineageRel subclass, and override `_get_criteria_type`
@@ -62,6 +65,31 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     def _primary_children(self, instance: T) -> QuerySet[T]:
         return self.filter(models.Q(parent=instance) | models.Q(additional_primary_parents=instance)).distinct()
 
+    def _load_primary_graph(self, user_id: Any) -> tuple[dict[Any, Any], dict[Any, Any], dict[Any, list[Any]]]:
+        """One load of the owner's primary-parent graph: `(parent_by_pk, root_by_pk, parents_by_pk)`, where
+        `parents_by_pk` lists each row's main parent first, then its additional primary parents."""
+        parent_by_pk: dict[Any, Any] = {}
+        root_by_pk: dict[Any, Any] = {}
+        for pk, parent_id, root_id in self.filter(user_id=user_id).values_list("pk", Fields.PARENT, Fields.ROOT):
+            parent_by_pk[pk] = parent_id
+            root_by_pk[pk] = root_id
+        parents_by_pk: dict[Any, list[Any]] = {
+            pk: [parent_id] if parent_id else [] for pk, parent_id in parent_by_pk.items()
+        }
+        through, child_col, parent_col = self._through_columns(Fields.ADDITIONAL_PRIMARY_PARENTS)
+        for child_pk, parent_pk in (
+            through.objects.filter(**{f"{child_col}__user_id": user_id})
+            .order_by("pk")
+            .values_list(child_col, parent_col)
+        ):
+            parents_by_pk[child_pk].append(parent_pk)
+        return parent_by_pk, root_by_pk, parents_by_pk
+
+    def _through_columns(self, field_name: str) -> tuple[type[models.Model], str, str]:
+        """The auto-created through model of a self-referential M2M field, with its child and parent FK names."""
+        field = self.model._meta.get_field(field_name)
+        return field.remote_field.through, field.m2m_field_name(), field.m2m_reverse_field_name()
+
     def _refresh_ascendants_of_instance_and_children(self, *instances: T) -> None:
         """`_refresh_ascendants_of_instance` for `instances` and every primary descendant, computed
         in memory from one load of the owner's primary-parent graph: one delete and one bulk insert
@@ -69,16 +97,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         if not instances:
             return
         user_id = instances[0].user_id
-        parents_by_pk: dict[Any, list[Any]] = {
-            pk: [parent_id] if parent_id else []
-            for pk, parent_id in self.filter(user_id=user_id).values_list("pk", Fields.PARENT)
-        }
-        field = self.model._meta.get_field(Fields.ADDITIONAL_PRIMARY_PARENTS)
-        child_col, parent_col = field.m2m_field_name(), field.m2m_reverse_field_name()
-        for child_pk, parent_pk in field.remote_field.through.objects.filter(
-            **{f"{child_col}__user_id": user_id}
-        ).values_list(child_col, parent_col):
-            parents_by_pk[child_pk].append(parent_pk)
+        _parent_by_pk, _root_by_pk, parents_by_pk = self._load_primary_graph(user_id)
 
         children_by_pk: dict[Any, list[Any]] = defaultdict(list)
         for pk, parent_pks in parents_by_pk.items():
@@ -297,8 +316,13 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     def _on_renamed(self, instance: T, *, old_name: str, actor: Any = None) -> None:
         """Hook: react to a criteria being renamed. No-op by default."""
 
-    def _on_track_genre_cleared(self, track: models.Model, *, actor: Any = None) -> None:
-        """Hook: react to a track's genre FK being cleared/reassigned by a root-criteria deletion. No-op by default."""
+    def _on_tracks_genre_moved(self, moves: dict[Any, Any], *, actor: Any = None) -> None:
+        """
+        Hook: react to the tracks of deleted criteria being re-pointed, by `delete_instances`. `moves` maps every
+        deleted criteria's pk to the pk of its nearest surviving ancestor along `parent`, or `None` when none
+        survives (the tracks become genreless). Runs before the tracks are updated, so they still point at the
+        deleted rows and can be counted or listed. No-op by default.
+        """
 
     def _get_direct_tracks(self, instance: T) -> QuerySet:
         """
@@ -310,34 +334,11 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         playlist_manager = type(instance.criteria_playlist).objects
         return playlist_manager.get_direct_tracks(instance.criteria_playlist)
 
-    @transaction.atomic
-    def _on_before_delete(self, instance: T, *, actor: Any = None) -> None:
-        criteria_playlist = instance.criteria_playlist
-        playlist_manager = type(criteria_playlist).objects
-        track_model = playlist_manager.track_model
-
-        genre_tagged_tracks = list(track_model.objects.filter(genre=instance))
-        direct_tracks = self._get_direct_tracks(instance) if instance.is_root else None
-
-        # Tracks re-genred to the main parent below no longer reach the additional primary branches.
-        if genre_tagged_tracks and instance.parent:
-            kept_ids = {instance.parent.pk, *instance.parent.primary_ascendants()}
-            for lost_pk, lost in self._primary_ascendants_by_pk(instance).items():
-                if lost_pk not in kept_ids:
-                    playlist_manager._delete_track_rels_and_fill_positions(
-                        instance=lost.criteria_playlist,
-                        tracks=track_model.objects.filter(pk__in=[track.pk for track in genre_tagged_tracks]),
-                    )
-
-        for track in genre_tagged_tracks:
-            track.genre = instance.parent
-            track.save(update_fields=["genre_id"])
-            self._on_track_genre_cleared(track, actor=actor)
-
-        if instance.is_root:
-            playlist_manager.transfer_direct_tracks_to_criterialess_playlist(
-                direct_tracks=direct_tracks, criteria_playlist=criteria_playlist
-            )
+    def _on_before_delete_many(self, instances: list[T], *, actor: Any = None) -> None:
+        """
+        Hook: react to `instances` about to be deleted by `delete_instances`. The surviving tree and the tracks and
+        playlist rels are already reassigned, the rows themselves are still present. No-op by default.
+        """
 
     def _create_without_ascendant_refresh(self, actor: Any = None, **kwargs) -> T:
         criteria_type = self._get_criteria_type()
@@ -385,57 +386,225 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         return updated_instance
 
-    @transaction.atomic
     def delete_instance(self, instance: T, actor: Any = None) -> None:
+        """Delete one criteria; see `delete_instances`."""
+        self.delete_instances([instance], actor=actor)
+
+    def delete_instances(self, instances: Iterable[T], actor: Any = None) -> None:
         """
-        Delete a criteria and handle tree relationships.
+        Delete criteria and handle tree relationships, as one set-based operation per owner.
 
-        The criteria is spliced out of the primary graph: each primary child (main or
-        additional) gets the deleted criteria's primary parents in its place. A child left
-        without a main parent promotes its first additional primary parent, or becomes a
-        root criteria when it has none. Non-tree side effects (uploaded tracks, playlists)
-        are left to `_on_before_delete`.
+        Each deleted criteria is spliced out of the primary graph: every surviving primary child (main or
+        additional) gets the deleted criteria's primary parents in its place, across chains of deleted
+        criteria. A child left without a main parent promotes its first additional primary parent, or becomes a
+        root criteria when it has none. A deleted criteria's tracks move to its nearest surviving ancestor along
+        `parent` (or become genreless), and leave the playlists of the ancestors they no longer reach. The
+        number of queries depends on the number of criteria, never on the number of tracks.
+
+        Non-tree side effects are left to `_on_tracks_genre_moved` and `_on_before_delete_many`.
         """
-        replacement_parents = instance.primary_parents
-        for child in list(self._primary_children(instance)):
-            new_primary: dict[Any, T] = {}
-            for parent in child.primary_parents:
-                for new_parent in replacement_parents if parent.pk == instance.pk else [parent]:
-                    new_primary.setdefault(new_parent.pk, new_parent)
-            main_parent, *additional = new_primary.values() or [None]
+        by_user: dict[Any, dict[Any, T]] = defaultdict(dict)
+        for instance in instances:
+            by_user[instance.user_id][instance.pk] = instance
+        with transaction.atomic():
+            for user_id, stale_by_pk in by_user.items():
+                self._delete_user_instances(user_id, stale_by_pk, actor=actor)
 
-            child.parent = main_parent
-            child.root = main_parent.root if main_parent else child
-            child.save(update_fields=[Fields.PARENT, Fields.ROOT])
-            child.additional_primary_parents.set(additional)
-            child.secondary_parents.remove(*new_primary.values())
-            self._refresh_ascendants_of_instance_and_children(child)
-            self.update_children_root(child, child.root)
+    def _delete_user_instances(self, user_id: Any, stale_by_pk: dict[Any, T], actor: Any = None) -> None:
+        parent_by_pk, root_by_pk, parents_by_pk = self._load_primary_graph(user_id)
+        # A row already gone from the database is a no-op, like `instance.delete()` on a deleted row.
+        stale_by_pk = {pk: instance for pk, instance in stale_by_pk.items() if pk in parent_by_pk}
+        if not stale_by_pk:
+            return
+        stale = set(stale_by_pk)
 
-        # Model-level tree state must be updated before this hook runs: subclass hooks
-        # (e.g. playlist maintenance) may re-derive fields from the criteria's current
-        # parent/root, so they need the post-reassignment state, not the pre-delete one.
-        self._on_before_delete(instance, actor=actor)
+        new_parents = self._splice_stale_out(stale, parents_by_pk)
+        self._write_spliced_tree(stale, parent_by_pk, root_by_pk, new_parents)
 
-        instance.delete()
+        playlist_model = self.model._meta.get_field("criteria_playlist").related_model
+        playlist_manager = playlist_model.objects
+        track_model = playlist_manager.track_model
+        # `genre` lives on the shared base table: updating through a concrete child would first select every id.
+        base_track_model = track_model._meta.get_field(TrackFields.GENRE).model
+
+        target_by_stale: dict[Any, Any] = {}
+        stale_root_by_stale: dict[Any, Any] = {}
+        for pk in stale:
+            current = pk
+            while True:
+                parent_pk = parent_by_pk[current]
+                if parent_pk is None:
+                    target_by_stale[pk], stale_root_by_stale[pk] = None, current
+                    break
+                if parent_pk not in stale:
+                    target_by_stale[pk], stale_root_by_stale[pk] = parent_pk, None
+                    break
+                current = parent_pk
+
+        tagged = set(
+            base_track_model._base_manager.filter(genre__in=stale)
+            .order_by()
+            .values_list(TrackFields.GENRE, flat=True)
+            .distinct()
+        )
+
+        ascendants_cache: dict[Any, set[Any]] = {}
+
+        def ascendants_of(pk: Any) -> set[Any]:
+            if pk not in ascendants_cache:
+                found: set[Any] = set()
+                frontier = [pk]
+                while frontier:
+                    frontier = [p for node in frontier for p in parents_by_pk[node] if p not in found]
+                    found.update(frontier)
+                ascendants_cache[pk] = found
+            return ascendants_cache[pk]
+
+        # Tracks moved to the target keep only the playlists of the target and its ascendants. Stale playlists
+        # go with their criteria, except a stale root's: the transfer below reads it, and a track that keeps a
+        # genre must already be out of it (a stale root can be an additional primary parent of a node that survives
+        # through another branch). A track's own stale group root keeps its rel, which the transfer moves.
+        stale_roots = {pk for pk in stale_root_by_stale.values() if pk is not None}
+        stales_by_lost: dict[Any, list[Any]] = defaultdict(list)
+        for pk in tagged:
+            target = target_by_stale[pk]
+            kept = {target, *ascendants_of(target)} if target else set()
+            lost = ascendants_of(pk) - kept - (stale - stale_roots) - {stale_root_by_stale[pk]}
+            for lost_pk in lost:
+                stales_by_lost[lost_pk].append(pk)
+        if stales_by_lost:
+            rel_model = playlist_manager.track_playlist_rel_model
+            for playlist in playlist_model.objects.filter(criteria_id__in=list(stales_by_lost)).select_related("user"):
+                removed = rel_model.objects.filter(
+                    playlist=playlist, track__genre__in=stales_by_lost[playlist.criteria_id]
+                ).delete()[0]
+                if removed and playlist.criteria_id not in stale:
+                    rel_model.objects.update_positions_to_fill_deleted_ones(playlist)
+
+        for root_pk in {pk for pk in stale_root_by_stale.values() if pk is not None}:
+            root = stale_by_pk[root_pk]
+            moved_pks = [pk for pk, stale_root in stale_root_by_stale.items() if stale_root == root_pk]
+            playlist_manager.transfer_direct_tracks_to_criterialess_playlist(
+                direct_tracks=track_model.objects.filter(
+                    models.Q(genre__in=moved_pks) | models.Q(pk__in=self._get_direct_tracks(root))
+                ),
+                criteria_playlist=root.criteria_playlist,
+            )
+
+        self._on_tracks_genre_moved(target_by_stale, actor=actor)
+        pks_by_target: dict[Any, list[Any]] = defaultdict(list)
+        for pk in tagged:
+            pks_by_target[target_by_stale[pk]].append(pk)
+        for target, pks in pks_by_target.items():
+            base_track_model._base_manager.filter(genre__in=pks).update(genre_id=target, updated_on=Now())
+
+        # Model-level tree state is updated before this hook runs: subclass hooks (e.g. playlist maintenance)
+        # may re-derive fields from the criteria's current parent/root, so they need the post-reassignment state.
+        self._on_before_delete_many(list(stale_by_pk.values()), actor=actor)
+
+        self.filter(pk__in=stale).delete()
+
+    @staticmethod
+    def _splice_stale_out(stale: set[Any], parents_by_pk: dict[Any, list[Any]]) -> dict[Any, list[Any]]:
+        """New primary parents (main first) of every surviving row that had a deleted primary parent."""
+        replacement: dict[Any, list[Any]] = {}
+
+        def surviving_parents_of(pk: Any) -> list[Any]:
+            if pk not in replacement:
+                replacement[pk] = list(dict.fromkeys(expand(parents_by_pk[pk])))
+            return replacement[pk]
+
+        def expand(parent_pks: list[Any]) -> Iterator[Any]:
+            for parent_pk in parent_pks:
+                if parent_pk in stale:
+                    yield from surviving_parents_of(parent_pk)
+                else:
+                    yield parent_pk
+
+        return {
+            pk: list(dict.fromkeys(expand(parent_pks)))
+            for pk, parent_pks in parents_by_pk.items()
+            if pk not in stale and not stale.isdisjoint(parent_pks)
+        }
+
+    def _write_spliced_tree(
+        self,
+        stale: set[Any],
+        parent_by_pk: dict[Any, Any],
+        root_by_pk: dict[Any, Any],
+        new_parents: dict[Any, list[Any]],
+    ) -> None:
+        """Persist `new_parents`: parent/root columns, additional primary parents, secondary parents and lineage."""
+        if not new_parents:
+            return
+        new_parent_by_pk = {
+            pk: (new_parents[pk][0] if new_parents[pk] else None) if pk in new_parents else parent
+            for pk, parent in parent_by_pk.items()
+            if pk not in stale
+        }
+        new_root_by_pk: dict[Any, Any] = {}
+        for start in new_parent_by_pk:
+            path, current = [], start
+            while current not in new_root_by_pk:
+                parent_pk = new_parent_by_pk[current]
+                if parent_pk is None:
+                    new_root_by_pk[current] = current
+                    break
+                path.append(current)
+                current = parent_pk
+            for node in path:
+                new_root_by_pk[node] = new_root_by_pk[current]
+
+        changed = {
+            pk
+            for pk in new_parent_by_pk
+            if new_parent_by_pk[pk] != parent_by_pk[pk] or new_root_by_pk[pk] != root_by_pk[pk]
+        }
+        rows = list(self.filter(pk__in=changed | new_parents.keys()))
+        now = timezone.now()
+        for row in rows:
+            row.parent_id, row.root_id, row.updated_on = new_parent_by_pk[row.pk], new_root_by_pk[row.pk], now
+        self.bulk_update(
+            [row for row in rows if row.pk in changed], [Fields.PARENT, Fields.ROOT, Fields.UPDATED_ON], batch_size=500
+        )
+
+        through, child_col, parent_col = self._through_columns(Fields.ADDITIONAL_PRIMARY_PARENTS)
+        child_attname = through._meta.get_field(child_col).attname
+        parent_attname = through._meta.get_field(parent_col).attname
+        through.objects.filter(**{f"{child_col}__in": list(new_parents)}).delete()
+        through.objects.bulk_create(
+            [
+                through(**{child_attname: pk, parent_attname: parent_pk})
+                for pk, parent_pks in new_parents.items()
+                for parent_pk in parent_pks[1:]
+            ],
+            batch_size=1000,
+        )
+
+        secondary_through, secondary_child_col, secondary_parent_col = self._through_columns(Fields.SECONDARY_PARENTS)
+        redundant = [
+            pk
+            for pk, child_pk, parent_pk in secondary_through.objects.filter(
+                **{f"{secondary_child_col}__in": list(new_parents)}
+            ).values_list(
+                "pk",
+                secondary_through._meta.get_field(secondary_child_col).attname,
+                secondary_through._meta.get_field(secondary_parent_col).attname,
+            )
+            if parent_pk in new_parents[child_pk]
+        ]
+        secondary_through.objects.filter(pk__in=redundant).delete()
+
+        self._refresh_ascendants_of_instance_and_children(*(row for row in rows if row.pk in new_parents))
 
     def _delete_stale_instances(self, queryset: QuerySet[T], actor: Any = None) -> None:
         """
-        Delete instances dropped from an imported tree by routing each one through
-        `delete_instance`, leaves first, instead of a raw bulk `.delete()`.
-
-        A raw bulk delete skips `_on_before_delete`'s track reparenting: `Track.genre` is
-        `on_delete=DO_NOTHING`, so a track still pointing at a deleted row raises an unhandled
-        `IntegrityError`. Processing leaves first mirrors what repeated one-off deletes would do
-        -- each instance's tracks and child playlists reparent up to its still-live parent
-        (possibly another about-to-be-deleted stale instance, itself processed next) -- so tracks
-        end up reparented to the nearest surviving ancestor, or handed to the criteria-less
-        playlist once a stale root's turn comes, rather than left dangling.
+        Delete instances dropped from an imported tree through `delete_instances`, not a raw bulk `.delete()`:
+        `Track.genre` is `on_delete=DO_NOTHING`, so a track still pointing at a deleted row would raise an
+        unhandled `IntegrityError`. The tracks end up on the nearest surviving ancestor, or on the criteria-less
+        playlist once a stale root is reached, exactly as repeated one-off deletes would leave them.
         """
-        instances = list(queryset)
-        instances.sort(key=lambda instance: instance.ascendants_rels.count(), reverse=True)
-        for instance in instances:
-            self.delete_instance(instance, actor=actor)
+        self.delete_instances(list(queryset), actor=actor)
 
     def get_roots(self, user: Any) -> QuerySet[T]:
         return self.filter(user=user, parent__isnull=True)

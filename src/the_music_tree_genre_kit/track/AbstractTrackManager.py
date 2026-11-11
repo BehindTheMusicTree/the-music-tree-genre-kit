@@ -102,7 +102,7 @@ class AbstractTrackManager(StandardResourceManager[T]):
     def _on_track_genre_changed(self, instance: T, *, old_genre, actor: Any = None) -> None:
         """
         Hook: called whenever `instance.genre` changes via `update_instance` -- distinct from
-        `AbstractCriteriaManager._on_track_genre_cleared`, which only fires when the
+        `AbstractCriteriaManager._on_tracks_genre_moved`, which only fires when the
         track's genre criteria itself gets deleted. No-op by default; a concrete app
         overrides it to log history.
         """
