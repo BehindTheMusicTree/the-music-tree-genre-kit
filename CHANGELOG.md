@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.60.0] - 2026-11-11
+
+Minor bump (below 1.0.0) because of the `### Breaking` Commons image change below.
+
 ### Breaking
 
 - `AbstractGenreCriteria` now inherits `CommonsImage` (api-kit 0.12.0) and carries the five `image_*` columns. A consumer's concrete `Genre` must add `commons_image_complete_constraint("<app>_genre_image_complete")` to its own `Meta.constraints` and migrate the new columns.
