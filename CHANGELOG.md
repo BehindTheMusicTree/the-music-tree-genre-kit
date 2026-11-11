@@ -29,11 +29,26 @@ Next release is a minor bump (0.59.0) because of the `### Breaking` hook change 
   tracks. Tests cover multi-level stale chains, stale roots, regional multi-parent splices, locked descendants,
   position refill, hook payloads, query count independence and equivalence with sequential leaves-first deletes.
 
+- `AbstractCriteriaManager.import_criteria_trees(user, trees, actor=None, dry_run=False, force=False)`: imports
+  several trees (e.g. canonical and regional) in one transaction and returns the counts by `tree_name`.
+  `import_criteria_tree` is now a thin wrapper over it. Tests cover moves in both directions in one run, a key
+  present in both payloads, locked descendants, cross-tree name disambiguation, the per-tree stale guard, dry run,
+  duplicate `tree_name` and query-count independence from the number of tracks.
+
 ### Changed
 
+- A genre moved between trees is moved by one two-tree import: it keeps its pk, name and songs instead of being
+  deleted from one tree and recreated in the other. The trees' stale passes run once, after every move is known,
+  and the whole key-bearing import (match, one stale delete, bulk create, saves) is planned across all trees.
 - `delete_instance` delegates to `delete_instances`, and the stale-row delete of a tree import (`_delete_stale_instances`)
   is one `delete_instances` call instead of one `delete_instance` per row with one `track.save()` per song. A tree
   import that drops many genres no longer fires per-song statement-level triggers once per song.
+
+### Fixed
+
+- A tree import that changes the primary parents of a matched genre now moves its tracks with it: they join the
+  playlists of the ascendants it gained and leave those it lost, as `update_instance` already did. Before, the
+  tracks stayed in the old ascendants' playlists and were missing from the new ones.
 
 ### Breaking
 
