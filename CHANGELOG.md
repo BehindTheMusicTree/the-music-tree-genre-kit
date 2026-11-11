@@ -17,7 +17,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
-Next release is a minor bump (0.59.0) because of the `### Breaking` hook change below.
+## [0.59.0] - 2026-11-11
+
+Minor bump (below 1.0.0) because of the `### Breaking` hook change below.
 
 ### Added
 
