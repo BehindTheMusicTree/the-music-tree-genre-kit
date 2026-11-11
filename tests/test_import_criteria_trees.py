@@ -188,3 +188,11 @@ def test_primary_graph_of_the_ownerless_canonical_dataset_is_loadable(user):
     run(user, [node("Metal", "Q1")], [])
     assert Genre.objects._load_primary_graph(None) == ({}, {}, {})
     assert len(Genre.objects._load_primary_graph(user.pk)[0]) == 1
+
+
+@pytest.mark.django_db
+def test_name_swap_between_matched_rows_is_a_validation_error(user):
+    run(user, [node("A", "Q1"), node("B", "Q2")], [])
+
+    with pytest.raises(AppValidationException):
+        run(user, [node("B", "Q1"), node("A", "Q2")], [])

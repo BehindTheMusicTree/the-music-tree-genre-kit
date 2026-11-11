@@ -1189,10 +1189,10 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         stored_names = dict(
             self.filter(pk__in=[c.pk for c in unlocked_matched]).values_list("pk", Fields.NAME_INTERNAL)
         )
-        for criteria in unlocked_matched:
-            if stored_names.get(criteria.pk) != criteria._name:
-                self.filter(pk=criteria.pk).update(**{Fields.NAME_INTERNAL: criteria._name})
         try:
+            for criteria in unlocked_matched:
+                if stored_names.get(criteria.pk) != criteria._name:
+                    self.filter(pk=criteria.pk).update(**{Fields.NAME_INTERNAL: criteria._name})
             bulk_create_mti(new_instances, using=self.db)
             # Pop rows last: a pop child moving to core must be saved before its successor's
             # save-time uniqueness check sees the DB.
