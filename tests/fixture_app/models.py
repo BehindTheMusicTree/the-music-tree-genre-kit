@@ -2,6 +2,7 @@ from typing import TYPE_CHECKING
 
 from django.db import models
 from django.db.models.functions import Lower
+from the_music_tree_api_kit.commons_image.CommonsImage import commons_image_complete_constraint
 from the_music_tree_api_kit.field.foreign_key.PrivateManyToManyField import PrivateManyToManyField
 from the_music_tree_api_kit.field.foreign_key.PrivateOneToOneField import PrivateOneToOneField
 from the_music_tree_api_kit.private_unique_resource.PrivateUniqueResource import PrivateUniqueResource
@@ -68,6 +69,7 @@ class Genre(AbstractGenreCriteria, Criteria):  # type: ignore[django-manager-mis
 
     class Meta:
         app_label = "fixture_app"
+        constraints = [commons_image_complete_constraint("fixture_app_genre_image_complete")]
 
 
 class Artist(PrivateUniqueResource):

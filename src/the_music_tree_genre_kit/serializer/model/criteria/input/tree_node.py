@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import RegexValidator
 from rest_framework.serializers import BooleanField, ChoiceField, DictField, URLField
+from the_music_tree_api_kit.commons_image.CommonsImageSerializer import CommonsImageSerializer
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 from the_music_tree_api_kit.serializer.AppInputSerializer import AppInputSerializer
@@ -28,6 +29,7 @@ class CriteriaTreeNodeSerializer(AppInputSerializer):
     is_unaccepted_root = BooleanField(required=False, default=False)
     is_umbrella = BooleanField(required=False, default=False)
     scene = ChoiceField(choices=CriteriaScene.choices, required=False, allow_null=True)
+    image = CommonsImageSerializer(required=False, allow_null=True)
 
     def __init__(self, structure_field_name: str, *args, **kwargs):
         super().__init__(*args, **kwargs)
