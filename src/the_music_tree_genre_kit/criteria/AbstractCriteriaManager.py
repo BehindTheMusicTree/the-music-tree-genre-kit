@@ -9,6 +9,8 @@ from django.db.models import QuerySet
 from django.db.models.functions import Now
 from django.utils import timezone
 from django.utils.translation import gettext as _
+from the_music_tree_api_kit.commons_image.Fields import Fields as ImageFields
+from the_music_tree_api_kit.commons_image.helpers import commons_image_kwargs
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
 from the_music_tree_api_kit.exception.validation.FieldValidationErrorCode import FieldValidationErrorCode
 from the_music_tree_api_kit.public_standard_resource.StandardResourceManager import StandardResourceManager
@@ -46,6 +48,7 @@ class _TreeImportPlan:
     pending_parent_refs: list = field(default_factory=list)
     locked_umbrella_by_pk: dict = field(default_factory=dict)
     locked_scene_by_pk: dict = field(default_factory=dict)
+    locked_image_by_pk: dict = field(default_factory=dict)
     stale_pks: set = field(default_factory=set)
 
 
@@ -947,6 +950,13 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 message=_("A criteria name is already used"),
                 field_validation_error_code=FieldValidationErrorCode.NAME_DUPLICATE,
             )
+        image_constraint = f"{self.model._meta.app_label}_genre_image_complete"
+        if constraint_violated(model=self.model, error_message=error_message, constraint_name=image_constraint):
+            raise AppValidationException(
+                field_name=InputFields.IMAGE,
+                message=_("An image needs a url, a page url and a license, or none of them"),
+                field_validation_error_code=FieldValidationErrorCode.REFERENCE_INVALID,
+            )
         # Let other database integrity errors propagate to be handled as system errors
         raise error
 
@@ -1019,6 +1029,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         model_has_umbrella_field = self._model_has_field(Fields.IS_UMBRELLA)
         model_has_scene_field = self._model_has_field(Fields.SCENE)
         model_has_description_fields = self._model_has_field(Fields.DESCRIPTION)
+        model_has_image_fields = self._model_has_field(ImageFields.IMAGE_URL)
         run = plan.run
 
         def build(nodes, parent: T | None, root: T | None):
@@ -1033,6 +1044,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 if model_has_description_fields:
                     for field_name in (Fields.SUMMARY, Fields.DESCRIPTION, Fields.SUMMARY_SOURCE_URL):
                         extra_kwargs[field_name] = node.get(field_name) or None
+                if model_has_image_fields:
+                    extra_kwargs.update(commons_image_kwargs(node.get(InputFields.IMAGE)))
                 node_name = node.get(InputFields.NAME_PUBLIC)
                 key = node[InputFields.ID]
                 matched_criteria = existing_by_key.get(key)
@@ -1059,6 +1072,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                         plan.locked_umbrella_by_pk[criteria.pk] = extra_kwargs[Fields.IS_UMBRELLA]
                     if is_locked and model_has_scene_field:
                         plan.locked_scene_by_pk[criteria.pk] = extra_kwargs[Fields.SCENE]
+                    if is_locked and model_has_image_fields:
+                        plan.locked_image_by_pk[criteria.pk] = {name: extra_kwargs[name] for name in ImageFields.ALL}
                     if not is_locked:
                         criteria.parent = parent
                         for field_name, value in extra_kwargs.items():
@@ -1211,6 +1226,14 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             for scene in set(locked_scene_by_pk.values()):
                 locked_pks = [pk for pk, value in locked_scene_by_pk.items() if value == scene]
                 self.filter(pk__in=locked_pks).update(scene=scene)
+            # Same for the image: it mirrors the pipeline's Commons data, so a locked row follows it too.
+            locked_image_by_pk = {pk: v for plan in plans for pk, v in plan.locked_image_by_pk.items()}
+            if locked_image_by_pk:
+                locked_rows = list(self.filter(pk__in=locked_image_by_pk))
+                for row in locked_rows:
+                    for name, value in locked_image_by_pk[row.pk].items():
+                        setattr(row, name, value)
+                self.bulk_update(locked_rows, list(ImageFields.ALL))
         except IntegrityError as e:
             self._raise_for_known_constraint(e)
 
@@ -1274,6 +1297,8 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
             fields.append(Fields.SCENE)
         if self._model_has_field(Fields.DESCRIPTION):
             fields.extend([Fields.SUMMARY, Fields.DESCRIPTION, Fields.SUMMARY_SOURCE_URL])
+        if self._model_has_field(ImageFields.IMAGE_URL):
+            fields.extend(ImageFields.ALL)
         return fields
 
     def _sync_track_rels_after_import(
