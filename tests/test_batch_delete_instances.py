@@ -242,3 +242,30 @@ def test_delete_instances_query_count_is_independent_of_track_count(genre_type, 
         return len(queries.captured_queries)
 
     assert count_queries(2) == count_queries(40)
+
+
+@pytest.mark.django_db
+def test_track_leaving_a_stale_additional_parent_root_keeps_its_genre_and_stays_out_of_genreless(
+    user, genre_type, make
+):
+    kept_parent, stale_root = make(user, "P"), make(user, "E")
+    stale = make(user, "X", kept_parent, tree_name="regional", additional_primary_parents=[stale_root])
+    track = Track.objects.create(user=user, genre=stale, title="t")
+
+    Criteria.objects.delete_instances([stale_root, stale])
+
+    track.refresh_from_db()
+    assert track.genre == kept_parent
+    assert playlist_has(kept_parent, track) and not genreless_has(user, genre_type, track)
+
+
+@pytest.mark.django_db
+def test_deleting_an_instance_already_gone_is_a_no_op(user, make):
+    root = make(user, "Root")
+    gone = make(user, "Gone", root)
+    stale_copy = Criteria.objects.get(pk=gone.pk)
+    Criteria.objects.delete_instances([gone])
+
+    Criteria.objects.delete_instances([stale_copy])
+
+    assert list(Criteria.objects.filter(user=user)) == [root]

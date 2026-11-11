@@ -411,8 +411,12 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 self._delete_user_instances(user_id, stale_by_pk, actor=actor)
 
     def _delete_user_instances(self, user_id: Any, stale_by_pk: dict[Any, T], actor: Any = None) -> None:
-        stale = set(stale_by_pk)
         parent_by_pk, root_by_pk, parents_by_pk = self._load_primary_graph(user_id)
+        # A row already gone from the database is a no-op, like `instance.delete()` on a deleted row.
+        stale_by_pk = {pk: instance for pk, instance in stale_by_pk.items() if pk in parent_by_pk}
+        if not stale_by_pk:
+            return
+        stale = set(stale_by_pk)
 
         new_parents = self._splice_stale_out(stale, parents_by_pk)
         self._write_spliced_tree(stale, parent_by_pk, root_by_pk, new_parents)
@@ -456,12 +460,17 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 ascendants_cache[pk] = found
             return ascendants_cache[pk]
 
-        # Tracks moved to the target keep only the playlists of the target and its ascendants.
+        # Tracks moved to the target keep only the playlists of the target and its ascendants. Stale playlists
+        # go with their criteria, except a stale root's: the transfer below reads it, and a track that keeps a
+        # genre must already be out of it (a stale root can be an additional primary parent of a node that survives
+        # through another branch). A track's own stale group root keeps its rel, which the transfer moves.
+        stale_roots = {pk for pk in stale_root_by_stale.values() if pk is not None}
         stales_by_lost: dict[Any, list[Any]] = defaultdict(list)
         for pk in tagged:
             target = target_by_stale[pk]
             kept = {target, *ascendants_of(target)} if target else set()
-            for lost_pk in ascendants_of(pk) - stale - kept:
+            lost = ascendants_of(pk) - kept - (stale - stale_roots) - {stale_root_by_stale[pk]}
+            for lost_pk in lost:
                 stales_by_lost[lost_pk].append(pk)
         if stales_by_lost:
             rel_model = playlist_manager.track_playlist_rel_model
@@ -469,7 +478,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 removed = rel_model.objects.filter(
                     playlist=playlist, track__genre__in=stales_by_lost[playlist.criteria_id]
                 ).delete()[0]
-                if removed:
+                if removed and playlist.criteria_id not in stale:
                     rel_model.objects.update_positions_to_fill_deleted_ones(playlist)
 
         for root_pk in {pk for pk in stale_root_by_stale.values() if pk is not None}:
