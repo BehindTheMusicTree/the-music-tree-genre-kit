@@ -1,9 +1,12 @@
 import uuid
 from collections import defaultdict
+from collections.abc import Iterable, Iterator
+from dataclasses import dataclass, field
 from typing import Any, TypeVar
 
 from django.db import IntegrityError, models, transaction
 from django.db.models import QuerySet
+from django.db.models.functions import Now
 from django.utils import timezone
 from django.utils.translation import gettext as _
 from the_music_tree_api_kit.exception.validation.app.AppValidationException import AppValidationException
@@ -14,6 +17,7 @@ from the_music_tree_genre_kit.base.bulk_mti import bulk_create_mti
 from the_music_tree_genre_kit.base.constraint_violation import constraint_violated
 from the_music_tree_genre_kit.serializer.model.criteria.input.Fields import Fields as InputFields
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields as TreeImportFields
+from the_music_tree_genre_kit.track.Fields import Fields as TrackFields
 
 from .AbstractCriteria import AbstractCriteria
 from .children.genre.CriteriaScene import CriteriaScene
@@ -25,6 +29,26 @@ from .type.CriteriaType import CriteriaType
 T = TypeVar("T", bound=AbstractCriteria)
 
 
+@dataclass
+class _TreeImportPlan:
+    """What `AbstractCriteriaManager._plan_tree_with_keys` decided for one tree of an import run."""
+
+    tree_name: str
+    tree_data: list
+    scoped_queryset: QuerySet
+    protected_keys: set[str]
+    pipeline_count_before: int
+    run: Any
+    new_instances: list = field(default_factory=list)
+    matched_instances: list = field(default_factory=list)
+    processed_keys: set[str] = field(default_factory=set)
+    top_level_instances: list = field(default_factory=list)
+    pending_parent_refs: list = field(default_factory=list)
+    locked_umbrella_by_pk: dict = field(default_factory=dict)
+    locked_scene_by_pk: dict = field(default_factory=dict)
+    stale_pks: set = field(default_factory=set)
+
+
 class AbstractCriteriaManager(StandardResourceManager[T]):
     """
     Owns the pure tree-structure logic for criteria (ascendant refresh, root
@@ -34,7 +58,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     AbstractCriteriaPlaylistManager reached via `instance.criteria_playlist`.
     Side effects outside that (playlists, file metadata, etc.) are left to
     subclasses via the `_on_created`/`_on_parent_changed`/`_on_renamed`/
-    `_on_track_genre_cleared` hooks.
+    `_on_tracks_genre_moved`/`_on_before_delete_many` hooks.
 
     Concrete subclasses must set `lineage_rel_model` to their concrete
     AbstractCriteriaLineageRel subclass, and override `_get_criteria_type`
@@ -62,6 +86,31 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     def _primary_children(self, instance: T) -> QuerySet[T]:
         return self.filter(models.Q(parent=instance) | models.Q(additional_primary_parents=instance)).distinct()
 
+    def _load_primary_graph(self, user_id: Any) -> tuple[dict[Any, Any], dict[Any, Any], dict[Any, list[Any]]]:
+        """One load of the owner's primary-parent graph: `(parent_by_pk, root_by_pk, parents_by_pk)`, where
+        `parents_by_pk` lists each row's main parent first, then its additional primary parents."""
+        parent_by_pk: dict[Any, Any] = {}
+        root_by_pk: dict[Any, Any] = {}
+        for pk, parent_id, root_id in self.filter(user_id=user_id).values_list("pk", Fields.PARENT, Fields.ROOT):
+            parent_by_pk[pk] = parent_id
+            root_by_pk[pk] = root_id
+        parents_by_pk: dict[Any, list[Any]] = {
+            pk: [parent_id] if parent_id else [] for pk, parent_id in parent_by_pk.items()
+        }
+        through, child_col, parent_col = self._through_columns(Fields.ADDITIONAL_PRIMARY_PARENTS)
+        for child_pk, parent_pk in (
+            through.objects.filter(**{f"{child_col}__user_id": user_id})
+            .order_by("pk")
+            .values_list(child_col, parent_col)
+        ):
+            parents_by_pk[child_pk].append(parent_pk)
+        return parent_by_pk, root_by_pk, parents_by_pk
+
+    def _through_columns(self, field_name: str) -> tuple[type[models.Model], str, str]:
+        """The auto-created through model of a self-referential M2M field, with its child and parent FK names."""
+        field = self.model._meta.get_field(field_name)
+        return field.remote_field.through, field.m2m_field_name(), field.m2m_reverse_field_name()
+
     def _refresh_ascendants_of_instance_and_children(self, *instances: T) -> None:
         """`_refresh_ascendants_of_instance` for `instances` and every primary descendant, computed
         in memory from one load of the owner's primary-parent graph: one delete and one bulk insert
@@ -69,16 +118,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         if not instances:
             return
         user_id = instances[0].user_id
-        parents_by_pk: dict[Any, list[Any]] = {
-            pk: [parent_id] if parent_id else []
-            for pk, parent_id in self.filter(user_id=user_id).values_list("pk", Fields.PARENT)
-        }
-        field = self.model._meta.get_field(Fields.ADDITIONAL_PRIMARY_PARENTS)
-        child_col, parent_col = field.m2m_field_name(), field.m2m_reverse_field_name()
-        for child_pk, parent_pk in field.remote_field.through.objects.filter(
-            **{f"{child_col}__user_id": user_id}
-        ).values_list(child_col, parent_col):
-            parents_by_pk[child_pk].append(parent_pk)
+        _parent_by_pk, _root_by_pk, parents_by_pk = self._load_primary_graph(user_id)
 
         children_by_pk: dict[Any, list[Any]] = defaultdict(list)
         for pk, parent_pks in parents_by_pk.items():
@@ -297,8 +337,13 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
     def _on_renamed(self, instance: T, *, old_name: str, actor: Any = None) -> None:
         """Hook: react to a criteria being renamed. No-op by default."""
 
-    def _on_track_genre_cleared(self, track: models.Model, *, actor: Any = None) -> None:
-        """Hook: react to a track's genre FK being cleared/reassigned by a root-criteria deletion. No-op by default."""
+    def _on_tracks_genre_moved(self, moves: dict[Any, Any], *, actor: Any = None) -> None:
+        """
+        Hook: react to the tracks of deleted criteria being re-pointed, by `delete_instances`. `moves` maps every
+        deleted criteria's pk to the pk of its nearest surviving ancestor along `parent`, or `None` when none
+        survives (the tracks become genreless). Runs before the tracks are updated, so they still point at the
+        deleted rows and can be counted or listed. No-op by default.
+        """
 
     def _get_direct_tracks(self, instance: T) -> QuerySet:
         """
@@ -310,34 +355,11 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         playlist_manager = type(instance.criteria_playlist).objects
         return playlist_manager.get_direct_tracks(instance.criteria_playlist)
 
-    @transaction.atomic
-    def _on_before_delete(self, instance: T, *, actor: Any = None) -> None:
-        criteria_playlist = instance.criteria_playlist
-        playlist_manager = type(criteria_playlist).objects
-        track_model = playlist_manager.track_model
-
-        genre_tagged_tracks = list(track_model.objects.filter(genre=instance))
-        direct_tracks = self._get_direct_tracks(instance) if instance.is_root else None
-
-        # Tracks re-genred to the main parent below no longer reach the additional primary branches.
-        if genre_tagged_tracks and instance.parent:
-            kept_ids = {instance.parent.pk, *instance.parent.primary_ascendants()}
-            for lost_pk, lost in self._primary_ascendants_by_pk(instance).items():
-                if lost_pk not in kept_ids:
-                    playlist_manager._delete_track_rels_and_fill_positions(
-                        instance=lost.criteria_playlist,
-                        tracks=track_model.objects.filter(pk__in=[track.pk for track in genre_tagged_tracks]),
-                    )
-
-        for track in genre_tagged_tracks:
-            track.genre = instance.parent
-            track.save(update_fields=["genre_id"])
-            self._on_track_genre_cleared(track, actor=actor)
-
-        if instance.is_root:
-            playlist_manager.transfer_direct_tracks_to_criterialess_playlist(
-                direct_tracks=direct_tracks, criteria_playlist=criteria_playlist
-            )
+    def _on_before_delete_many(self, instances: list[T], *, actor: Any = None) -> None:
+        """
+        Hook: react to `instances` about to be deleted by `delete_instances`. The surviving tree and the tracks and
+        playlist rels are already reassigned, the rows themselves are still present. No-op by default.
+        """
 
     def _create_without_ascendant_refresh(self, actor: Any = None, **kwargs) -> T:
         criteria_type = self._get_criteria_type()
@@ -385,57 +407,225 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         return updated_instance
 
-    @transaction.atomic
     def delete_instance(self, instance: T, actor: Any = None) -> None:
+        """Delete one criteria; see `delete_instances`."""
+        self.delete_instances([instance], actor=actor)
+
+    def delete_instances(self, instances: Iterable[T], actor: Any = None) -> None:
         """
-        Delete a criteria and handle tree relationships.
+        Delete criteria and handle tree relationships, as one set-based operation per owner.
 
-        The criteria is spliced out of the primary graph: each primary child (main or
-        additional) gets the deleted criteria's primary parents in its place. A child left
-        without a main parent promotes its first additional primary parent, or becomes a
-        root criteria when it has none. Non-tree side effects (uploaded tracks, playlists)
-        are left to `_on_before_delete`.
+        Each deleted criteria is spliced out of the primary graph: every surviving primary child (main or
+        additional) gets the deleted criteria's primary parents in its place, across chains of deleted
+        criteria. A child left without a main parent promotes its first additional primary parent, or becomes a
+        root criteria when it has none. A deleted criteria's tracks move to its nearest surviving ancestor along
+        `parent` (or become genreless), and leave the playlists of the ancestors they no longer reach. The
+        number of queries depends on the number of criteria, never on the number of tracks.
+
+        Non-tree side effects are left to `_on_tracks_genre_moved` and `_on_before_delete_many`.
         """
-        replacement_parents = instance.primary_parents
-        for child in list(self._primary_children(instance)):
-            new_primary: dict[Any, T] = {}
-            for parent in child.primary_parents:
-                for new_parent in replacement_parents if parent.pk == instance.pk else [parent]:
-                    new_primary.setdefault(new_parent.pk, new_parent)
-            main_parent, *additional = new_primary.values() or [None]
+        by_user: dict[Any, dict[Any, T]] = defaultdict(dict)
+        for instance in instances:
+            by_user[instance.user_id][instance.pk] = instance
+        with transaction.atomic():
+            for user_id, stale_by_pk in by_user.items():
+                self._delete_user_instances(user_id, stale_by_pk, actor=actor)
 
-            child.parent = main_parent
-            child.root = main_parent.root if main_parent else child
-            child.save(update_fields=[Fields.PARENT, Fields.ROOT])
-            child.additional_primary_parents.set(additional)
-            child.secondary_parents.remove(*new_primary.values())
-            self._refresh_ascendants_of_instance_and_children(child)
-            self.update_children_root(child, child.root)
+    def _delete_user_instances(self, user_id: Any, stale_by_pk: dict[Any, T], actor: Any = None) -> None:
+        parent_by_pk, root_by_pk, parents_by_pk = self._load_primary_graph(user_id)
+        # A row already gone from the database is a no-op, like `instance.delete()` on a deleted row.
+        stale_by_pk = {pk: instance for pk, instance in stale_by_pk.items() if pk in parent_by_pk}
+        if not stale_by_pk:
+            return
+        stale = set(stale_by_pk)
 
-        # Model-level tree state must be updated before this hook runs: subclass hooks
-        # (e.g. playlist maintenance) may re-derive fields from the criteria's current
-        # parent/root, so they need the post-reassignment state, not the pre-delete one.
-        self._on_before_delete(instance, actor=actor)
+        new_parents = self._splice_stale_out(stale, parents_by_pk)
+        self._write_spliced_tree(stale, parent_by_pk, root_by_pk, new_parents)
 
-        instance.delete()
+        playlist_model = self.model._meta.get_field("criteria_playlist").related_model
+        playlist_manager = playlist_model.objects
+        track_model = playlist_manager.track_model
+        # `genre` lives on the shared base table: updating through a concrete child would first select every id.
+        base_track_model = track_model._meta.get_field(TrackFields.GENRE).model
+
+        target_by_stale: dict[Any, Any] = {}
+        stale_root_by_stale: dict[Any, Any] = {}
+        for pk in stale:
+            current = pk
+            while True:
+                parent_pk = parent_by_pk[current]
+                if parent_pk is None:
+                    target_by_stale[pk], stale_root_by_stale[pk] = None, current
+                    break
+                if parent_pk not in stale:
+                    target_by_stale[pk], stale_root_by_stale[pk] = parent_pk, None
+                    break
+                current = parent_pk
+
+        tagged = set(
+            base_track_model._base_manager.filter(genre__in=stale)
+            .order_by()
+            .values_list(TrackFields.GENRE, flat=True)
+            .distinct()
+        )
+
+        ascendants_cache: dict[Any, set[Any]] = {}
+
+        def ascendants_of(pk: Any) -> set[Any]:
+            if pk not in ascendants_cache:
+                found: set[Any] = set()
+                frontier = [pk]
+                while frontier:
+                    frontier = [p for node in frontier for p in parents_by_pk[node] if p not in found]
+                    found.update(frontier)
+                ascendants_cache[pk] = found
+            return ascendants_cache[pk]
+
+        # Tracks moved to the target keep only the playlists of the target and its ascendants. Stale playlists
+        # go with their criteria, except a stale root's: the transfer below reads it, and a track that keeps a
+        # genre must already be out of it (a stale root can be an additional primary parent of a node that survives
+        # through another branch). A track's own stale group root keeps its rel, which the transfer moves.
+        stale_roots = {pk for pk in stale_root_by_stale.values() if pk is not None}
+        stales_by_lost: dict[Any, list[Any]] = defaultdict(list)
+        for pk in tagged:
+            target = target_by_stale[pk]
+            kept = {target, *ascendants_of(target)} if target else set()
+            lost = ascendants_of(pk) - kept - (stale - stale_roots) - {stale_root_by_stale[pk]}
+            for lost_pk in lost:
+                stales_by_lost[lost_pk].append(pk)
+        if stales_by_lost:
+            rel_model = playlist_manager.track_playlist_rel_model
+            for playlist in playlist_model.objects.filter(criteria_id__in=list(stales_by_lost)).select_related("user"):
+                removed = rel_model.objects.filter(
+                    playlist=playlist, track__genre__in=stales_by_lost[playlist.criteria_id]
+                ).delete()[0]
+                if removed and playlist.criteria_id not in stale:
+                    rel_model.objects.update_positions_to_fill_deleted_ones(playlist)
+
+        for root_pk in {pk for pk in stale_root_by_stale.values() if pk is not None}:
+            root = stale_by_pk[root_pk]
+            moved_pks = [pk for pk, stale_root in stale_root_by_stale.items() if stale_root == root_pk]
+            playlist_manager.transfer_direct_tracks_to_criterialess_playlist(
+                direct_tracks=track_model.objects.filter(
+                    models.Q(genre__in=moved_pks) | models.Q(pk__in=self._get_direct_tracks(root))
+                ),
+                criteria_playlist=root.criteria_playlist,
+            )
+
+        self._on_tracks_genre_moved(target_by_stale, actor=actor)
+        pks_by_target: dict[Any, list[Any]] = defaultdict(list)
+        for pk in tagged:
+            pks_by_target[target_by_stale[pk]].append(pk)
+        for target, pks in pks_by_target.items():
+            base_track_model._base_manager.filter(genre__in=pks).update(genre_id=target, updated_on=Now())
+
+        # Model-level tree state is updated before this hook runs: subclass hooks (e.g. playlist maintenance)
+        # may re-derive fields from the criteria's current parent/root, so they need the post-reassignment state.
+        self._on_before_delete_many(list(stale_by_pk.values()), actor=actor)
+
+        self.filter(pk__in=stale).delete()
+
+    @staticmethod
+    def _splice_stale_out(stale: set[Any], parents_by_pk: dict[Any, list[Any]]) -> dict[Any, list[Any]]:
+        """New primary parents (main first) of every surviving row that had a deleted primary parent."""
+        replacement: dict[Any, list[Any]] = {}
+
+        def surviving_parents_of(pk: Any) -> list[Any]:
+            if pk not in replacement:
+                replacement[pk] = list(dict.fromkeys(expand(parents_by_pk[pk])))
+            return replacement[pk]
+
+        def expand(parent_pks: list[Any]) -> Iterator[Any]:
+            for parent_pk in parent_pks:
+                if parent_pk in stale:
+                    yield from surviving_parents_of(parent_pk)
+                else:
+                    yield parent_pk
+
+        return {
+            pk: list(dict.fromkeys(expand(parent_pks)))
+            for pk, parent_pks in parents_by_pk.items()
+            if pk not in stale and not stale.isdisjoint(parent_pks)
+        }
+
+    def _write_spliced_tree(
+        self,
+        stale: set[Any],
+        parent_by_pk: dict[Any, Any],
+        root_by_pk: dict[Any, Any],
+        new_parents: dict[Any, list[Any]],
+    ) -> None:
+        """Persist `new_parents`: parent/root columns, additional primary parents, secondary parents and lineage."""
+        if not new_parents:
+            return
+        new_parent_by_pk = {
+            pk: (new_parents[pk][0] if new_parents[pk] else None) if pk in new_parents else parent
+            for pk, parent in parent_by_pk.items()
+            if pk not in stale
+        }
+        new_root_by_pk: dict[Any, Any] = {}
+        for start in new_parent_by_pk:
+            path, current = [], start
+            while current not in new_root_by_pk:
+                parent_pk = new_parent_by_pk[current]
+                if parent_pk is None:
+                    new_root_by_pk[current] = current
+                    break
+                path.append(current)
+                current = parent_pk
+            for node in path:
+                new_root_by_pk[node] = new_root_by_pk[current]
+
+        changed = {
+            pk
+            for pk in new_parent_by_pk
+            if new_parent_by_pk[pk] != parent_by_pk[pk] or new_root_by_pk[pk] != root_by_pk[pk]
+        }
+        rows = list(self.filter(pk__in=changed | new_parents.keys()))
+        now = timezone.now()
+        for row in rows:
+            row.parent_id, row.root_id, row.updated_on = new_parent_by_pk[row.pk], new_root_by_pk[row.pk], now
+        self.bulk_update(
+            [row for row in rows if row.pk in changed], [Fields.PARENT, Fields.ROOT, Fields.UPDATED_ON], batch_size=500
+        )
+
+        through, child_col, parent_col = self._through_columns(Fields.ADDITIONAL_PRIMARY_PARENTS)
+        child_attname = through._meta.get_field(child_col).attname
+        parent_attname = through._meta.get_field(parent_col).attname
+        through.objects.filter(**{f"{child_col}__in": list(new_parents)}).delete()
+        through.objects.bulk_create(
+            [
+                through(**{child_attname: pk, parent_attname: parent_pk})
+                for pk, parent_pks in new_parents.items()
+                for parent_pk in parent_pks[1:]
+            ],
+            batch_size=1000,
+        )
+
+        secondary_through, secondary_child_col, secondary_parent_col = self._through_columns(Fields.SECONDARY_PARENTS)
+        redundant = [
+            pk
+            for pk, child_pk, parent_pk in secondary_through.objects.filter(
+                **{f"{secondary_child_col}__in": list(new_parents)}
+            ).values_list(
+                "pk",
+                secondary_through._meta.get_field(secondary_child_col).attname,
+                secondary_through._meta.get_field(secondary_parent_col).attname,
+            )
+            if parent_pk in new_parents[child_pk]
+        ]
+        secondary_through.objects.filter(pk__in=redundant).delete()
+
+        self._refresh_ascendants_of_instance_and_children(*(row for row in rows if row.pk in new_parents))
 
     def _delete_stale_instances(self, queryset: QuerySet[T], actor: Any = None) -> None:
         """
-        Delete instances dropped from an imported tree by routing each one through
-        `delete_instance`, leaves first, instead of a raw bulk `.delete()`.
-
-        A raw bulk delete skips `_on_before_delete`'s track reparenting: `Track.genre` is
-        `on_delete=DO_NOTHING`, so a track still pointing at a deleted row raises an unhandled
-        `IntegrityError`. Processing leaves first mirrors what repeated one-off deletes would do
-        -- each instance's tracks and child playlists reparent up to its still-live parent
-        (possibly another about-to-be-deleted stale instance, itself processed next) -- so tracks
-        end up reparented to the nearest surviving ancestor, or handed to the criteria-less
-        playlist once a stale root's turn comes, rather than left dangling.
+        Delete instances dropped from an imported tree through `delete_instances`, not a raw bulk `.delete()`:
+        `Track.genre` is `on_delete=DO_NOTHING`, so a track still pointing at a deleted row would raise an
+        unhandled `IntegrityError`. The tracks end up on the nearest surviving ancestor, or on the criteria-less
+        playlist once a stale root is reached, exactly as repeated one-off deletes would leave them.
         """
-        instances = list(queryset)
-        instances.sort(key=lambda instance: instance.ascendants_rels.count(), reverse=True)
-        for instance in instances:
-            self.delete_instance(instance, actor=actor)
+        self.delete_instances(list(queryset), actor=actor)
 
     def get_roots(self, user: Any) -> QuerySet[T]:
         return self.filter(user=user, parent__isnull=True)
@@ -509,22 +699,31 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         return build_tree(None)
 
-    @transaction.atomic
     def import_criteria_tree(
         self, user: Any, data: dict, actor: Any = None, dry_run: bool = False, force: bool = False
     ) -> dict[str, Any]:
         """
-        Imports a tree structure of criteria, replacing all existing criteria.
-        The input should be an array of criteria trees, where each tree follows the format:
+        Imports one tree structure of criteria, replacing the rows of its tree; see `import_criteria_trees`.
+        The input follows the format:
         {
-          "name": "Criteria name",
-          "children": [
-            {
-              "name": "Child criteria name",
-              "children": []
-            }
-          ]
+          "tree_name": "canonical",
+          "tree": [{"id": "Q1", "name": "Criteria name", "children": [{"id": "Q2", "name": "Child", "children": []}]}],
+          "cross_tree_secondary_parents": []
         }
+
+        Returns `{"created_count", "updated_count", "deleted_count", "dry_run"}`.
+        """
+        if not data:
+            return {"created_count": 0, "updated_count": 0, "deleted_count": 0, "dry_run": dry_run}
+        results = self.import_criteria_trees(user, [data], actor=actor, dry_run=dry_run, force=force)
+        return results[data[TreeImportFields.TREE_NAME]]
+
+    @transaction.atomic
+    def import_criteria_trees(
+        self, user: Any, trees: list[dict], actor: Any = None, dry_run: bool = False, force: bool = False
+    ) -> dict[str, dict[str, Any]]:
+        """
+        Imports the given trees of criteria as one run, each a payload as described in `import_criteria_tree`.
 
         Rows with `is_manually_edited=True` (Genre-only, see `AbstractGenreCriteria`) are
         still matched by key so their children keep importing normally, but their own
@@ -535,68 +734,73 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         On a wikidata_id-bearing model (Genre), every node must carry a non-empty `id` (a
         wikidata QID or a synthetic key) -- see `_require_node_keys` -- matching is by that
-        key only, no name fallback. Each applied run is recorded as an `ImportRun`; every
-        row this run creates or updates gets `last_seen_run` set to it, and the stale pass
-        deletes only `source=pipeline` rows (not locked) whose `last_seen_run` isn't this
-        run. A stale-deletion pass that would remove more than
-        `settings.CRITERIA_TREE_IMPORT_STALE_DELETE_MAX_FRACTION` of existing pipeline rows
+        key only, no name fallback. Each applied run records one `ImportRun` per tree; every
+        row this run creates or updates gets `last_seen_run` set to its tree's, and the stale pass
+        deletes only `source=pipeline` rows of the tree (not locked) that no tree of this run matched. A
+        stale-deletion pass that would remove more than
+        `settings.CRITERIA_TREE_IMPORT_STALE_DELETE_MAX_FRACTION` of a tree's existing pipeline rows
         is refused unless `force=True`. `dry_run=True` runs the whole plan-and-apply inside
         this transaction and then rolls it back, so the returned counts reflect what would
         happen without persisting anything.
 
-        `data["tree_name"]` is required: the import only matches, stamps and stale-deletes
-        rows of that tree, so the two trees import independently (canonical first, since
-        the regional one, which allows multiple primary parents, references it). Node
+        Each payload's `tree_name` is required: its import only matches and stamps rows of that tree and
+        stale-deletes the ones missing from it. Node
         `primary_parents`/`secondary_parents` are refs (wikidata id, else name) to any of the
         user's rows, resolved after all rows exist; a top-level node's first primary ref
-        becomes its `parent`. `data["cross_tree_secondary_parents"]` (optional) lists rows of the other tree, as
-        `{"id": ref, "secondary_parents": [refs]}`, with their secondary parents in this one, see `_link_cross_tree_secondary_parents`.
+        becomes its `parent`. A payload's `cross_tree_secondary_parents` (optional) lists rows of another tree, as
+        `{"id": ref, "secondary_parents": [refs]}`, with their secondary parents in its own, see `_link_cross_tree_secondary_parents`.
 
         A node whose name is already taken (case-insensitively) by another of the user's
         criteria is imported as `"<name> (<id>)"` with `has_name_conflict=True` instead of
         failing the run -- see `_disambiguate_conflicting_names`.
 
-        A node whose key is held only by an unlocked pipeline row of the other tree moved between the
-        trees: that row is moved into this tree rather than duplicated, so it keeps its pk and name.
+        A node whose key is held only by an unlocked pipeline row of another tree, and is in no payload of that
+        tree, moved between the trees: that row is moved into this tree rather than duplicated, so it keeps its pk,
+        name and tracks. Importing both trees in one run is what makes a move in either direction safe: the
+        trees' stale passes run once, after every move is known.
 
-        Returns `{"created_count", "updated_count", "deleted_count", "dry_run"}`.
+        The tracks of a matched row whose primary parents changed follow it: they join the playlists of the
+        ascendants it gained and leave those it lost.
+
+        Returns the counts of each tree by `tree_name`, as `{"created_count", "updated_count", "deleted_count", "dry_run"}`.
         """
-        empty_result = {"created_count": 0, "updated_count": 0, "deleted_count": 0, "dry_run": dry_run}
-        if not data:
-            return empty_result
-
-        tree_name: str = data[TreeImportFields.TREE_NAME]
-        tree_data = data[TreeImportFields.TREE]
-
-        model_has_wikidata_id_field = self._model_has_wikidata_id_field()
-        model_has_manual_edit_fields = self._model_has_manual_edit_fields()
-
-        if not model_has_wikidata_id_field:
-            self._delete_stale_instances(self.filter(user=user, tree_name=tree_name), actor=actor)
-            result = self._import_tree_without_keys(
-                user=user,
-                tree_data=tree_data,
-                actor=actor,
-                tree_name=tree_name,
+        trees = [data for data in trees if data]
+        tree_names = [data[TreeImportFields.TREE_NAME] for data in trees]
+        if len(set(tree_names)) != len(tree_names):
+            raise AppValidationException(
+                field_name=TreeImportFields.TREE_NAME,
+                message=_("A tree can only be imported once per run"),
+                field_validation_error_code=FieldValidationErrorCode.DUPLICATE,
             )
+
+        if not self._model_has_wikidata_id_field():
+            results: dict[str, dict[str, Any]] = {}
+            for data in trees:
+                tree_name = data[TreeImportFields.TREE_NAME]
+                self._delete_stale_instances(self.filter(user=user, tree_name=tree_name), actor=actor)
+                results[tree_name] = self._import_tree_without_keys(
+                    user=user, tree_data=data[TreeImportFields.TREE], actor=actor, tree_name=tree_name
+                )
         else:
-            result = self._import_tree_with_keys(
+            results = self._import_trees_with_keys(
                 user=user,
-                tree_data=tree_data,
+                trees=trees,
                 actor=actor,
                 force=force,
-                model_has_manual_edit_fields=model_has_manual_edit_fields,
-                tree_name=tree_name,
+                model_has_manual_edit_fields=self._model_has_manual_edit_fields(),
             )
 
-        cross_tree_secondary_parents = data.get(TreeImportFields.CROSS_TREE_SECONDARY_PARENTS) or []
-        if cross_tree_secondary_parents:
-            self._link_cross_tree_secondary_parents(user, tree_name, cross_tree_secondary_parents)
+        for data in trees:
+            if cross_tree_secondary_parents := data.get(TreeImportFields.CROSS_TREE_SECONDARY_PARENTS) or []:
+                self._link_cross_tree_secondary_parents(
+                    user, data[TreeImportFields.TREE_NAME], cross_tree_secondary_parents
+                )
 
-        result["dry_run"] = dry_run
+        for result in results.values():
+            result["dry_run"] = dry_run
         if dry_run:
             transaction.set_rollback(True)
-        return result
+        return results
 
     def _link_cross_tree_secondary_parents(self, user: Any, tree_name: str, links: list[dict]) -> None:
         """Replaces, for each row of another tree listed in `links`, its secondary parents in `tree_name` by the listed
@@ -746,21 +950,19 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         # Let other database integrity errors propagate to be handled as system errors
         raise error
 
-    def _import_tree_with_keys(
+    def _plan_tree_with_keys(
         self,
         user: Any,
-        tree_data: list,
-        actor: Any,
-        force: bool,
-        model_has_manual_edit_fields: bool,
         tree_name: str,
-    ) -> dict[str, Any]:
-        from django.conf import settings
-
+        tree_data: list,
+        foreign_keys: set[str],
+        model_has_manual_edit_fields: bool,
+    ) -> _TreeImportPlan:
+        """Matches the nodes of one tree to existing rows and builds the rows to create, without writing anything
+        but the tree's `ImportRun`. `foreign_keys` are the keys of the other trees imported in the same run: a row
+        holding one stays in its tree, as that tree's payload matches it."""
         from .children.genre.CriteriaSource import CriteriaSource
         from .import_run.ImportRun import ImportRun
-
-        self._require_node_keys(tree_data)
 
         scoped_queryset = self.filter(user=user, tree_name=tree_name)
         existing_by_key: dict[str, T] = {
@@ -773,13 +975,13 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                 wikidata_id__isnull=True, source=CriteriaSource.PIPELINE, is_manually_edited=False
             )
         }
-        # A key held by an unlocked pipeline row of the other tree moved between trees: that row is adopted, keeping
+        # A key held by an unlocked pipeline row of another tree moved between trees: that row is adopted, keeping
         # its pk (and what references it) and freeing its name, which a namesake created here would otherwise have
         # to suffix until the other tree's next import deletes the old row.
         movable_candidates = list(
             self.filter(
                 user=user,
-                wikidata_id__in=self._node_keys(tree_data) - existing_by_key.keys(),
+                wikidata_id__in=self._node_keys(tree_data) - existing_by_key.keys() - foreign_keys,
                 source=CriteriaSource.PIPELINE,
                 is_manually_edited=False,
                 is_excluded=False,
@@ -797,13 +999,19 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         movable_by_key: dict[str, T] = {
             criteria.wikidata_id: criteria for criteria in movable_candidates if criteria.pk not in ancestors_of_locked
         }
-        protected_keys: set[str] = set()
-        if model_has_manual_edit_fields:
-            protected_keys = {key for key, criteria in existing_by_key.items() if criteria.is_excluded}
 
-        pipeline_count_before = scoped_queryset.filter(source=CriteriaSource.PIPELINE).count()
-
-        run = ImportRun.objects.create(user=user)
+        plan = _TreeImportPlan(
+            tree_name=tree_name,
+            tree_data=tree_data,
+            scoped_queryset=scoped_queryset,
+            protected_keys=(
+                {key for key, criteria in existing_by_key.items() if criteria.is_excluded}
+                if model_has_manual_edit_fields
+                else set()
+            ),
+            pipeline_count_before=scoped_queryset.filter(source=CriteriaSource.PIPELINE).count(),
+            run=ImportRun.objects.create(user=user),
+        )
 
         criteria_type = self._get_criteria_type()
         model_has_side_field = self._model_has_side_field()
@@ -811,14 +1019,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         model_has_umbrella_field = self._model_has_field(Fields.IS_UMBRELLA)
         model_has_scene_field = self._model_has_field(Fields.SCENE)
         model_has_description_fields = self._model_has_field(Fields.DESCRIPTION)
-
-        locked_umbrella_by_pk: dict[Any, bool] = {}
-        locked_scene_by_pk: dict[Any, str | None] = {}
-        new_instances: list[T] = []
-        matched_instances: list[T] = []
-        processed_keys: set[str] = set()
-        top_level_instances: list[T] = []
-        pending_parent_refs: list[tuple[T, bool, list[str], list[str]]] = []
+        run = plan.run
 
         def build(nodes, parent: T | None, root: T | None):
             for node in nodes:
@@ -848,16 +1049,16 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     # Admin-excluded: keep it (and its subtree) out of this import entirely.
                     continue
 
-                processed_keys.add(key)
+                plan.processed_keys.add(key)
                 primary_refs, secondary_refs = self._node_parent_refs(node, tree_name)
                 is_locked = False
                 if matched_criteria is not None:
                     criteria: T = matched_criteria
                     is_locked = model_has_manual_edit_fields and criteria.is_manually_edited
                     if is_locked and model_has_umbrella_field:
-                        locked_umbrella_by_pk[criteria.pk] = extra_kwargs[Fields.IS_UMBRELLA]
+                        plan.locked_umbrella_by_pk[criteria.pk] = extra_kwargs[Fields.IS_UMBRELLA]
                     if is_locked and model_has_scene_field:
-                        locked_scene_by_pk[criteria.pk] = extra_kwargs[Fields.SCENE]
+                        plan.locked_scene_by_pk[criteria.pk] = extra_kwargs[Fields.SCENE]
                     if not is_locked:
                         criteria.parent = parent
                         for field_name, value in extra_kwargs.items():
@@ -865,7 +1066,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                         criteria._name = node_name
                         criteria.root = root if root is not None else criteria
                         criteria.last_seen_run = run
-                    matched_instances.append(criteria)
+                    plan.matched_instances.append(criteria)
                 else:
                     criteria = self.model(
                         user=user,
@@ -887,15 +1088,15 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     criteria.root = root if root is not None else criteria
                     criteria.source = CriteriaSource.PIPELINE
                     criteria.last_seen_run = run
-                    new_instances.append(criteria)
+                    plan.new_instances.append(criteria)
 
                 if hasattr(criteria, "_validate_side_placement"):
                     criteria._validate_side_placement()
 
                 if parent is None:
-                    top_level_instances.append(criteria)
+                    plan.top_level_instances.append(criteria)
                 if not is_locked:
-                    pending_parent_refs.append((criteria, parent is None, primary_refs, secondary_refs))
+                    plan.pending_parent_refs.append((criteria, parent is None, primary_refs, secondary_refs))
 
                 children = node.get(InputFields.CHILDREN) or []
                 if children:
@@ -907,61 +1108,91 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
 
         build(tree_data, None, None)
         self._validate_scene_split(tree_data)
-        self._validate_single_pop_child_per_root(matched_instances + new_instances)
+        self._validate_single_pop_child_per_root(plan.matched_instances + plan.new_instances)
+        return plan
 
-        stale_queryset = (
-            scoped_queryset.filter(source=CriteriaSource.PIPELINE, is_manually_edited=False)
-            .exclude(pk__in=[c.pk for c in matched_instances if c.last_seen_run_id == run.pk])
-            .exclude(wikidata_id__in=protected_keys)
-        )
-        deleted_count = stale_queryset.count()
+    def _import_trees_with_keys(
+        self,
+        user: Any,
+        trees: list[dict],
+        actor: Any,
+        force: bool,
+        model_has_manual_edit_fields: bool,
+    ) -> dict[str, dict[str, Any]]:
+        from django.conf import settings
 
-        if pipeline_count_before > 0 and not force:
-            fraction = deleted_count / pipeline_count_before
-            if fraction > settings.CRITERIA_TREE_IMPORT_STALE_DELETE_MAX_FRACTION:
-                raise AppValidationException(
-                    field_name=TreeImportFields.TREE,
-                    message=_(
-                        "This import would delete %(fraction)d%% of existing pipeline genres; pass force=true "
-                        "to proceed"
+        from .children.genre.CriteriaSource import CriteriaSource
+        from .import_run.ImportRun import ImportRun
+
+        payload_keys: dict[str, set[str]] = {}
+        for data in trees:
+            self._require_node_keys(data[TreeImportFields.TREE])
+            payload_keys[data[TreeImportFields.TREE_NAME]] = self._node_keys(data[TreeImportFields.TREE])
+
+        plans = [
+            self._plan_tree_with_keys(
+                user,
+                data[TreeImportFields.TREE_NAME],
+                data[TreeImportFields.TREE],
+                foreign_keys=set().union(
+                    *(keys for name, keys in payload_keys.items() if name != data[TreeImportFields.TREE_NAME])
+                ),
+                model_has_manual_edit_fields=model_has_manual_edit_fields,
+            )
+            for data in trees
+        ]
+        matched_instances = [criteria for plan in plans for criteria in plan.matched_instances]
+        new_instances = [criteria for plan in plans for criteria in plan.new_instances]
+
+        # A row any tree of this run matched is never stale, whichever tree it was in: it may have just moved.
+        seen_pks = {
+            criteria.pk
+            for plan in plans
+            for criteria in plan.matched_instances
+            if criteria.last_seen_run_id == plan.run.pk
+        }
+        for plan in plans:
+            stale_queryset = (
+                plan.scoped_queryset.filter(source=CriteriaSource.PIPELINE, is_manually_edited=False)
+                .exclude(pk__in=seen_pks)
+                .exclude(wikidata_id__in=plan.protected_keys)
+            )
+            plan.stale_pks = set(stale_queryset.values_list("pk", flat=True))
+            if plan.pipeline_count_before > 0 and not force:
+                fraction = len(plan.stale_pks) / plan.pipeline_count_before
+                if fraction > settings.CRITERIA_TREE_IMPORT_STALE_DELETE_MAX_FRACTION:
+                    raise AppValidationException(
+                        field_name=TreeImportFields.TREE,
+                        message=_(
+                            "This import would delete %(fraction)d%% of existing pipeline genres; pass force=true "
+                            "to proceed"
+                        )
+                        % {"fraction": round(fraction * 100)},
+                        field_validation_error_code=FieldValidationErrorCode.DEFAULT,
                     )
-                    % {"fraction": round(fraction * 100)},
-                    field_validation_error_code=FieldValidationErrorCode.DEFAULT,
-                )
+        stale_pks = set().union(*(plan.stale_pks for plan in plans))
 
         # Matched rows first, so an existing row keeps its name over a newly imported namesake.
-        renamed_instances = [
-            c for c in matched_instances if not (model_has_manual_edit_fields and c.is_manually_edited)
-        ] + new_instances
-        self._disambiguate_conflicting_names(
-            user, renamed_instances, excluded_pks=set(stale_queryset.values_list("pk", flat=True))
+        unlocked_matched = [c for c in matched_instances if not (model_has_manual_edit_fields and c.is_manually_edited)]
+        renamed_instances = unlocked_matched + new_instances
+        self._disambiguate_conflicting_names(user, renamed_instances, excluded_pks=stale_pks)
+
+        if stale_pks:
+            self._delete_stale_instances(self.filter(pk__in=stale_pks), actor=actor)
+
+        # The primary parents the matched rows have once the stale rows are spliced out, to tell which ones this
+        # import moves.
+        _parent_by_pk, _root_by_pk, old_parents_by_pk = self._load_primary_graph(getattr(user, "pk", None))
+
+        matched_update_fields = self._matched_update_fields()
+        # A renamed matched row frees its old name for a new namesake, and the create below runs before the saves.
+        stored_names = dict(
+            self.filter(pk__in=[c.pk for c in unlocked_matched]).values_list("pk", Fields.NAME_INTERNAL)
         )
-
-        if deleted_count:
-            self._delete_stale_instances(stale_queryset, actor=actor)
-
-        matched_update_fields = [
-            Fields.NAME_INTERNAL,
-            Fields.PARENT,
-            Fields.ROOT,
-            Fields.TREE_NAME,
-            "last_seen_run",
-            "wikidata_id",
-        ]
-        if model_has_side_field:
-            matched_update_fields.append(Fields.SIDE)
-        if self._model_has_field("has_name_conflict"):
-            matched_update_fields.append("has_name_conflict")
-        if model_has_unaccepted_root_field:
-            matched_update_fields.append(Fields.IS_UNACCEPTED_ROOT)
-        if model_has_umbrella_field:
-            matched_update_fields.append(Fields.IS_UMBRELLA)
-        if model_has_scene_field:
-            matched_update_fields.append(Fields.SCENE)
-        if model_has_description_fields:
-            matched_update_fields.extend([Fields.SUMMARY, Fields.DESCRIPTION, Fields.SUMMARY_SOURCE_URL])
-
         try:
+            for criteria in unlocked_matched:
+                if stored_names.get(criteria.pk) != criteria._name:
+                    self.filter(pk=criteria.pk).update(**{Fields.NAME_INTERNAL: criteria._name})
             bulk_create_mti(new_instances, using=self.db)
             # Pop rows last: a pop child moving to core must be saved before its successor's
             # save-time uniqueness check sees the DB.
@@ -970,41 +1201,107 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
                     continue  # locked: nothing was mutated above, nothing to persist
                 criteria.save(update_fields=matched_update_fields)
             # is_umbrella mirrors the curation list, not an admin edit, so a locked row still follows it.
+            locked_umbrella_by_pk = {pk: v for plan in plans for pk, v in plan.locked_umbrella_by_pk.items()}
             for is_umbrella in (True, False):
                 locked_pks = [pk for pk, value in locked_umbrella_by_pk.items() if value is is_umbrella]
                 if locked_pks:
                     self.filter(pk__in=locked_pks).update(is_umbrella=is_umbrella)
             # Same for scene: it mirrors the curation list, so a locked row follows it too.
+            locked_scene_by_pk = {pk: v for plan in plans for pk, v in plan.locked_scene_by_pk.items()}
             for scene in set(locked_scene_by_pk.values()):
                 locked_pks = [pk for pk, value in locked_scene_by_pk.items() if value == scene]
                 self.filter(pk__in=locked_pks).update(scene=scene)
         except IntegrityError as e:
             self._raise_for_known_constraint(e)
 
-        self._finish_import(user, new_instances, top_level_instances, pending_parent_refs, actor=actor)
-
-        actual_seen_count = scoped_queryset.filter(wikidata_id__in=processed_keys).count()
-        if actual_seen_count != len(processed_keys):
-            raise AppValidationException(
-                field_name=TreeImportFields.TREE,
-                message=_("Post-apply state does not match the imported payload"),
-                field_validation_error_code=FieldValidationErrorCode.DEFAULT,
-            )
-
-        run.finished_at = timezone.now()
-        run.status = ImportRun.Status.SUCCEEDED
-        run.created_count = len(new_instances)
-        run.updated_count = len(
-            [c for c in matched_instances if not (model_has_manual_edit_fields and c.is_manually_edited)]
+        self._finish_import(
+            user,
+            new_instances,
+            [criteria for plan in plans for criteria in plan.top_level_instances],
+            [pending for plan in plans for pending in plan.pending_parent_refs],
+            actor=actor,
         )
-        run.deleted_count = deleted_count
-        run.save(update_fields=["finished_at", "status", "created_count", "updated_count", "deleted_count"])
+        self._sync_track_rels_after_import(
+            user,
+            old_parents_by_pk,
+            [c.pk for c in matched_instances if not (model_has_manual_edit_fields and c.is_manually_edited)],
+        )
 
-        return {
-            "created_count": run.created_count,
-            "updated_count": run.updated_count,
-            "deleted_count": run.deleted_count,
-        }
+        results: dict[str, dict[str, Any]] = {}
+        for plan in plans:
+            actual_seen_count = plan.scoped_queryset.filter(wikidata_id__in=plan.processed_keys).count()
+            if actual_seen_count != len(plan.processed_keys):
+                raise AppValidationException(
+                    field_name=TreeImportFields.TREE,
+                    message=_("Post-apply state does not match the imported payload"),
+                    field_validation_error_code=FieldValidationErrorCode.DEFAULT,
+                )
+
+            run = plan.run
+            run.finished_at = timezone.now()
+            run.status = ImportRun.Status.SUCCEEDED
+            run.created_count = len(plan.new_instances)
+            run.updated_count = len(
+                [c for c in plan.matched_instances if not (model_has_manual_edit_fields and c.is_manually_edited)]
+            )
+            run.deleted_count = len(plan.stale_pks)
+            run.save(update_fields=["finished_at", "status", "created_count", "updated_count", "deleted_count"])
+            results[plan.tree_name] = {
+                "created_count": run.created_count,
+                "updated_count": run.updated_count,
+                "deleted_count": run.deleted_count,
+            }
+        return results
+
+    def _matched_update_fields(self) -> list[str]:
+        fields = [
+            Fields.NAME_INTERNAL,
+            Fields.PARENT,
+            Fields.ROOT,
+            Fields.TREE_NAME,
+            "last_seen_run",
+            "wikidata_id",
+        ]
+        if self._model_has_side_field():
+            fields.append(Fields.SIDE)
+        if self._model_has_field("has_name_conflict"):
+            fields.append("has_name_conflict")
+        if self._model_has_field(Fields.IS_UNACCEPTED_ROOT):
+            fields.append(Fields.IS_UNACCEPTED_ROOT)
+        if self._model_has_field(Fields.IS_UMBRELLA):
+            fields.append(Fields.IS_UMBRELLA)
+        if self._model_has_field(Fields.SCENE):
+            fields.append(Fields.SCENE)
+        if self._model_has_field(Fields.DESCRIPTION):
+            fields.extend([Fields.SUMMARY, Fields.DESCRIPTION, Fields.SUMMARY_SOURCE_URL])
+        return fields
+
+    def _sync_track_rels_after_import(
+        self, user: Any, old_parents_by_pk: dict[Any, list[Any]], matched_pks: list[Any]
+    ) -> None:
+        """Re-propagates the tracks of the imported rows whose primary parents the import changed, exactly as
+        `update_instance` does for a one-off reparent: `old_parents_by_pk` is the primary-parent graph before the
+        import wrote the rows."""
+        _parent_by_pk, _root_by_pk, new_parents_by_pk = self._load_primary_graph(getattr(user, "pk", None))
+        changed = [pk for pk in matched_pks if set(old_parents_by_pk[pk]) != set(new_parents_by_pk[pk])]
+        if not changed:
+            return
+
+        def ascendant_pks(parents_by_pk: dict[Any, list[Any]], pk: Any) -> set[Any]:
+            found: set[Any] = set()
+            stack = list(parents_by_pk[pk])
+            while stack:
+                parent_pk = stack.pop()
+                if parent_pk not in found:
+                    found.add(parent_pk)
+                    stack.extend(parents_by_pk[parent_pk])
+            return found
+
+        old_ascendant_pks = {pk: ascendant_pks(old_parents_by_pk, pk) for pk in changed}
+        rows = self.in_bulk(set(changed).union(*old_ascendant_pks.values()))
+        for pk in changed:
+            old_ascendants = {ascendant_pk: rows[ascendant_pk] for ascendant_pk in old_ascendant_pks[pk]}
+            self._move_tracks_after_primary_parents_changed(rows[pk], old_ascendants)
 
     def _finish_import(
         self,
