@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.60.2] - 2026-11-12
+
+### Changed
+
+- Pin `the-music-tree-api-kit` to `v0.12.2`, so 401 responses from consumers carry an RFC 6750 `WWW-Authenticate` challenge (`error="invalid_token"` on a rejected Bearer token). No genre-kit code change.
+
 ## [0.60.1] - 2026-11-12
 
 ### Fixed
