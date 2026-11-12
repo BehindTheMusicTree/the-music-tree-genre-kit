@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- `CriteriaTreeNodeSerializer` no longer loses `primary_parents` / `secondary_parents` (and `children`) on non-empty lists: bump `the-music-tree-api-kit` to `v0.12.1`, where `AppListField` stopped turning every non-empty list into `None`. Covered by `tests/test_tree_node_serializer.py`, which fails on `v0.12.0` and passes on `v0.12.1`.
+
 ## [0.60.0] - 2026-11-11
 
 Minor bump (below 1.0.0) because of the `### Breaking` Commons image change below.
