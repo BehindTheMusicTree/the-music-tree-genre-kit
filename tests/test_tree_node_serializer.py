@@ -24,21 +24,39 @@ def test_to_internal_value_accepts_flat_valid_node():
     assert validated["children"] == []
 
 
-def test_to_internal_value_via_full_pipeline_always_drops_children():
-    # AppListField.to_internal_value delegates to `super().to_internal_value(data)`, but the
-    # MRO of `AppListField(AppField, ListField)` resolves that to AppField.to_internal_value,
-    # which unconditionally returns None (see AppField's own docstring: it exists only so
-    # subclasses can call super() without NotImplementedError). ListField's real list-parsing
-    # logic is therefore never reached, so any "children" payload submitted through the full
-    # serializer pipeline is always validated down to `None` -> `[]`, regardless of content.
-    # This is a latent bug in the installed the_music_tree_api_kit dependency, not this repo.
-    # `validate_children`'s own recursive-validation logic is still exercised directly below.
-    validated = _serializer().to_internal_value(
-        {"name": "Electronic", "children": [{"name": "House"}, {"name": "Techno", "children": []}]}
-    )
+def test_to_internal_value_via_full_pipeline_keeps_children():
+    # Regression: AppListField used to resolve `super().to_internal_value` to a sink returning
+    # None (api-kit < 0.13), which silently emptied every list field.
+    children = [{"name": "House"}, {"name": "Techno", "children": []}]
+
+    validated = _serializer().to_internal_value({"name": "Electronic", "children": children})
 
     assert validated["name"] == "Electronic"
-    assert validated["children"] == []
+    assert validated["children"] == children
+
+
+def test_to_internal_value_keeps_primary_and_secondary_parents():
+    validated = _serializer().to_internal_value(
+        {
+            "name": "Music of Ireland",
+            "id": "Q1378776",
+            "primary_parents": ["Q7482056"],
+            "secondary_parents": ["Q188451", "Q8134"],
+        }
+    )
+
+    assert validated["primary_parents"] == ["Q7482056"]
+    assert validated["secondary_parents"] == ["Q188451", "Q8134"]
+
+
+def test_to_internal_value_rejects_blank_parent_id():
+    with pytest.raises(ValidationError) as exc_info:
+        _serializer().to_internal_value({"name": "House", "primary_parents": [""]})
+
+    converted = AppValidationException._detect_and_convert_from_drf_exception(exc_info.value)
+    assert converted is not None
+    assert converted.field == "primary_parents"
+    assert converted.errors["primary_parents"]["code"] == FieldValidationErrorCode.BLANK
 
 
 def test_validate_children_converts_none_to_empty_list():
