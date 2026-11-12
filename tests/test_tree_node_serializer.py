@@ -26,7 +26,7 @@ def test_to_internal_value_accepts_flat_valid_node():
 
 def test_to_internal_value_via_full_pipeline_keeps_children():
     # Regression: AppListField used to resolve `super().to_internal_value` to a sink returning
-    # None (api-kit < 0.13), which silently emptied every list field.
+    # None (api-kit < 0.12.1), which silently emptied every list field.
     children = [{"name": "House"}, {"name": "Techno", "children": []}]
 
     validated = _serializer().to_internal_value({"name": "Electronic", "children": children})
