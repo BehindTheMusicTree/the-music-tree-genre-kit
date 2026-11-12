@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.60.1] - 2026-11-12
+
+### Fixed
+
+- `CriteriaTreeNodeSerializer` no longer loses `primary_parents` / `secondary_parents` (and `children`) on non-empty lists: bump `the-music-tree-api-kit` to `v0.12.1`, where `AppListField` stopped turning every non-empty list into `None`. Covered by `tests/test_tree_node_serializer.py`, which fails on `v0.12.0` and passes on `v0.12.1`.
+
 ## [0.60.0] - 2026-11-11
 
 Minor bump (below 1.0.0) because of the `### Breaking` Commons image change below.
@@ -32,6 +38,10 @@ Minor bump (below 1.0.0) because of the `### Breaking` Commons image change belo
 ### Changed
 
 - Pinned `the-music-tree-api-kit` to `v0.12.0`.
+
+### CI
+
+- Pin the shared release workflows to the lag-tolerant github-workflows commit 79c1362, so tag creation tolerates GitHub read-after-write delays.
 
 ## [0.59.0] - 2026-11-11
 
