@@ -76,6 +76,10 @@ that always requires an explicit `queryset` — see its docstring for why),
 `detailed_tracks.py` / `minimum.py`. These are assembled by consumers into their own serializer
 classes; this package does not define full serializers that hit a concrete `Criteria` table.
 
+### Gold genre-tree contract
+
+`schemas/genre_tree.schema.json` is the contract of the tree import (`CriteriaTreeImportSerializer` / `CriteriaTreeNodeSerializer`) and is owned here. `curationExportedOn` is popped by grow's import, not by these serializers. Schema changes ship in a release before grow bumps and before pipelines updates its vendored copy.
+
 ## Contributing conventions (see CONTRIBUTING.md for full detail)
 
 - Strict Gitflow. No direct commits to `main` or `develop` — everything goes through a PR.
