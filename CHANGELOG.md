@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.61.0] - 2026-11-13
+
+### Added
+
+- The Gold genre-tree JSON Schema (`schemas/genre_tree.schema.json`) now lives here, next to the `CriteriaTreeImportSerializer` / `CriteriaTreeNodeSerializer` that implement its contract. `the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.schema` exposes `GENRE_TREE_SCHEMA_PATH` and `load_genre_tree_schema()`. Test: the serializers' required fields are required by the schema.
+
 ## [0.60.2] - 2026-11-12
 
 ### Changed
