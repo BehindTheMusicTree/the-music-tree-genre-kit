@@ -33,3 +33,12 @@ def test_required_fields_are_required_by_schema(schema):
 
     assert file_required <= set(schema["required"])
     assert node_required <= set(schema["$defs"]["node"]["required"])
+
+
+def test_serializer_fields_are_declared_by_schema(schema):
+    # The schema sets additionalProperties=false, so a serializer field it does not declare would be rejected.
+    file_fields = {_camel(name) for name in CriteriaTreeImportSerializer().fields}
+    node_fields = {_camel(name) for name in CriteriaTreeNodeSerializer(structure_field_name="tree").fields}
+
+    assert file_fields <= set(schema["properties"])
+    assert node_fields <= set(schema["$defs"]["node"]["properties"])
