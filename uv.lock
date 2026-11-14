@@ -429,7 +429,7 @@ dependencies = [
 
 [[package]]
 name = "the-music-tree-genre-kit"
-version = "0.61.0"
+version = "0.62.0"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
