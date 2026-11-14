@@ -29,7 +29,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: mypy
-        run: uv run mypy src
+        run: uv run mypy src packages/genre-graph/src
 
   migration-check:
     name: Fixture makemigrations check
@@ -110,3 +110,35 @@ jobs:
           uv run --with 'psycopg[binary]' pytest
           tests/test_genre_graph_storage.py tests/test_genre_graph_concurrency.py
           --ds=tests.genre_graph_postgres_settings --no-cov --create-db
+
+  pure-graph:
+    name: Pure graph Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.12", "3.14"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Build pure graph distributions
+        run: uv build --package the-music-tree-genre-graph --out-dir dist/genre-graph
+
+      - name: Test installed wheel without Django or workspace imports
+        shell: bash
+        run: |
+          graph_tests=$(mktemp -d)
+          cp tests/test_genre_graph.py tests/test_genre_boundaries.py tests/test_genre_graph_observations.py "$graph_tests/"
+          mkdir -p "$graph_tests/fixtures"
+          cp -R tests/fixtures/genre_graph "$graph_tests/fixtures/"
+          graph_wheel=("$GITHUB_WORKSPACE"/dist/genre-graph/the_music_tree_genre_graph-*.whl)
+          cd "$graph_tests"
+          uv run --no-project --python '${{ matrix.python }}' \
+            --with "${graph_wheel[0]}" --with pytest==8.1.1 \
+            pytest --rootdir=. -c /dev/null -p no:cacheprovider \
+            test_genre_graph.py test_genre_boundaries.py test_genre_graph_observations.py

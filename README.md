@@ -36,8 +36,32 @@ This package owns the JSON Schema of the Gold genre-tree export (`src/the_music_
 The separate [semantic graph v2 contract](docs/genre-graph-v2.md) provides a strict
 schema and in-memory `GenreGraph` validation, canonical boundary evaluation,
 scoped expression selections, attribution normalization and regional ancestry.
+The pure implementation lives in `packages/genre-graph` as `the-music-tree-genre-graph`
+(Python 3.12+, jsonschema only). Import `GenreGraph`, `GraphValidationError` and
+`load_genre_graph_schema` from `the_music_tree_genre_graph`. The Django package depends on it
+through the uv workspace. Local consumers must explicitly provide both package paths; a uv
+workspace source override is local to this repository and is not inherited by Git consumers.
+No released tag yet contains the extracted package, so existing consumer tag pins remain unchanged
+until a separately authorized release. CI tests the installed pure wheel on Python 3.12 and 3.14.
+
 Django storage supports atomic graph replacement, archived revisions, explicit reference-track
 attributions and SQL distinct selections. PostgreSQL tests exercise revision conflicts,
-locked reads and transactional invalidation, including bulk writes and deletion cascades.
+overlapping read-only REPEATABLE READ snapshots and transactional invalidation, including
+bulk writes and deletion cascades. Readers may overlap committed publications without mixing revisions. Use `graph_read_snapshot()` around response reads after authentication; `graph_read_transaction(key=...)` additionally loads a dataset in that snapshot. PostgreSQL snapshots must be outermost, read-only transactions.
+
+Graph nodes retain their identity after retirement. Each removed identity requires an explicit
+`{target: identity | null, provenance: {decisionId, source, rationale}}` decision. Publication
+archives complete assignment sets, remaps in SQL, and unions original, destination and retirement
+evidence atomically. Closure replacement stages and diffs dataset-owned rows rather than rewriting
+unchanged rows. PostgreSQL staging uses COPY and ANALYZE; SQLite is supported explicitly.
+
+`replace_track_attributions` accepts `{identity: [evidence, ...]}`, an `expected_revision`
+graph token and an `expected_assignment_revision` token. `None` creates a song's first assignment
+set; the returned UUID reviews subsequent edits, including edits after an explicit clear. Decisions
+are immutable per dataset: reusing a decision ID with different source/rationale fails. Assignment
+restoration requires both reviewed tokens, an existing ownerless track, and active identities.
+Direct SQL mutations invalidate assignment and membership tokens. Audit and evidence rows reject
+updates and deletes. The evidence migration preserves historical decisions and fails on conflicting
+legacy evidence; populated evidence storage cannot be downgraded to singular provenance.
 API import endpoints and catalogue migrations are still being adapted; the legacy tree
 contract remains separate. See the contract for concurrency and restoration requirements.

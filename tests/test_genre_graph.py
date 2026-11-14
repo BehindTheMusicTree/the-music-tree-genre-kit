@@ -5,8 +5,7 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-
-from the_music_tree_genre_kit.genre_graph import GenreGraph, GraphValidationError
+from the_music_tree_genre_graph import GenreGraph, GraphValidationError
 
 
 @pytest.fixture

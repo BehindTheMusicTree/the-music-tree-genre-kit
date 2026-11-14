@@ -17,6 +17,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Breaking
+
+- Move semantic graph imports and schema into the separate Python 3.12+ `the-music-tree-genre-graph` package. Consumers import from `the_music_tree_genre_graph`; Django storage remains in this package.
+
+### Changed
+
+- Retain permanent graph identities, enforce dataset-owned closure endpoints, and diff staged closure rows with planner statistics. Use nonblocking snapshot reads and independently serialized writes.
+- Publish retirement mappings and complete assignment archives atomically in SQL, retaining merged immutable evidence. Require per-track assignment revision tokens for edits and restoration; reject stale edits, conflicting decision content, inactive references and audit rewrites.
+
 ## [0.62.0] - 2026-11-14
 
 ### Added
