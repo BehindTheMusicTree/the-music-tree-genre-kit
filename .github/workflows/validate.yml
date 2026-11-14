@@ -69,3 +69,44 @@ jobs:
 
       - name: Run pytest
         run: uv run pytest
+
+  graph-postgres:
+    name: Graph PostgreSQL transactions
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: graph_test
+          POSTGRES_PASSWORD: graph_test
+          POSTGRES_DB: graph_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U graph_test -d graph_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      GENRE_GRAPH_TEST_DATABASE: graph_test
+      GENRE_GRAPH_TEST_USER: graph_test
+      GENRE_GRAPH_TEST_HOST: 127.0.0.1
+      GENRE_GRAPH_TEST_PORT: "5432"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.14"
+
+      - name: Sync dependencies
+        run: uv sync --all-extras
+
+      - name: Verify graph migrations and transaction isolation
+        run: >-
+          uv run --with 'psycopg[binary]' pytest
+          tests/test_genre_graph_storage.py tests/test_genre_graph_concurrency.py
+          --ds=tests.genre_graph_postgres_settings --no-cov --create-db

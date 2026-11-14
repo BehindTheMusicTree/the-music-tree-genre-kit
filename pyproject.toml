@@ -1,6 +1,6 @@
 [project]
 name = "the-music-tree-genre-kit"
-version = "0.61.0"
+version = "0.62.0"
 description = "Shared genre/tag/criteria/tree Django library for hear-the-music-tree-api and grow-the-music-tree-api"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -9,6 +9,7 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
+    "jsonschema==4.26.0",
     "Django>=5.2.8,<5.3",
     "djangorestframework>=3.15.1,<4",
     # Pinned by tag rather than commit SHA to avoid uv's git-ref conflict when other

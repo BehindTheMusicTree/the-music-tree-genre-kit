@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/src/the_music_tree_genre_kit/schemas/genre_graph.schema.json",
+  "title": "Semantic genre graph, contract 2",
+  "type": "object",
+  "required": [
+    "contractVersion",
+    "curationExportedOn",
+    "nodes",
+    "relations",
+    "boundaries"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "contractVersion": {
+      "type": "integer",
+      "const": 2
+    },
+    "curationExportedOn": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "nodes": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/node"
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/relation"
+      }
+    },
+    "boundaries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/boundary"
+      }
+    }
+  },
+  "$defs": {
+    "identity": {
+      "type": "string",
+      "pattern": "^(Q[1-9][0-9]*|LOCAL:[a-z0-9]+(?:-[a-z0-9]+)*)$",
+      "maxLength": 255
+    },
+    "provenance": {
+      "type": "object",
+      "required": [
+        "decisionId",
+        "source",
+        "rationale"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "decisionId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "rationale": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "node": {
+      "type": "object",
+      "required": [
+        "id",
+        "name",
+        "kind"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/identity"
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": [
+            "genre",
+            "expression",
+            "overview"
+          ]
+        },
+        "canonicalState": {
+          "enum": [
+            "before_entry",
+            "canonical",
+            "after_exit"
+          ]
+        },
+        "overviewType": {
+          "enum": [
+            "current",
+            "historical"
+          ]
+        },
+        "overviewProvenance": {
+          "$ref": "#/$defs/provenance"
+        },
+        "isUmbrella": {
+          "type": "boolean"
+        },
+        "displayParentId": {
+          "$ref": "#/$defs/identity"
+        },
+        "side": {
+          "type": "string",
+          "enum": [
+            "pop"
+          ]
+        },
+        "isUnacceptedRoot": {
+          "type": "boolean",
+          "const": true
+        },
+        "scene": {
+          "type": "string",
+          "enum": [
+            "commercial",
+            "underground"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "summarySourceUrl": {
+          "type": "string",
+          "minLength": 1
+        },
+        "image": {
+          "type": "object",
+          "properties": {
+            "url": {
+              "type": "string",
+              "pattern": "^https://",
+              "maxLength": 2048
+            },
+            "pageUrl": {
+              "type": "string",
+              "pattern": "^https://",
+              "maxLength": 2048
+            },
+            "author": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "minLength": 1
+            },
+            "license": {
+              "type": "string",
+              "minLength": 1
+            },
+            "licenseUrl": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^https?://",
+              "maxLength": 2048
+            }
+          },
+          "required": [
+            "url",
+            "pageUrl",
+            "author",
+            "license",
+            "licenseUrl"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "genre"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "canonicalState"
+            ]
+          },
+          "else": {
+            "not": {
+              "required": [
+                "canonicalState"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "overview"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "overviewType",
+              "overviewProvenance",
+              "isUmbrella"
+            ]
+          },
+          "else": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "overviewType"
+                  ]
+                },
+                {
+                  "required": [
+                    "overviewProvenance"
+                  ]
+                },
+                {
+                  "required": [
+                    "isUmbrella"
+                  ]
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "relation": {
+      "type": "object",
+      "required": [
+        "childId",
+        "parentId",
+        "type",
+        "provenance"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "childId": {
+          "$ref": "#/$defs/identity"
+        },
+        "parentId": {
+          "$ref": "#/$defs/identity"
+        },
+        "type": {
+          "enum": [
+            "classification",
+            "regional_membership",
+            "expression_style",
+            "anchoring"
+          ]
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    },
+    "boundary": {
+      "type": "object",
+      "required": [
+        "nodeId",
+        "type",
+        "provenance"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "nodeId": {
+          "$ref": "#/$defs/identity"
+        },
+        "type": {
+          "enum": [
+            "entry",
+            "exit"
+          ]
+        },
+        "provenance": {
+          "$ref": "#/$defs/provenance"
+        }
+      }
+    }
+  }
+}

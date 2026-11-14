@@ -17,6 +17,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.62.0] - 2026-11-14
+
+### Added
+
+- Prepare a separate versioned semantic genre-graph contract with canonical entry/exit validation, typed regional memberships, scoped style expressions, selection and attribution normalization. Include bounded boundary provenance, shared-ancestry diagnostics, and structural replays of all 44 previously missed additional-child witnesses. Add separate Django storage with atomic graph replacement, stable concept keys, archived payloads and restorable attribution snapshots, SQL distinct selections/refinement, revision conflicts and locked read transactions. Database triggers invalidate membership tokens for bulk writes and track-deletion cascades; PostgreSQL transaction tests run separately in CI. Consumer imports and catalogue migrations remain to be connected.
+
 ## [0.61.0] - 2026-11-13
 
 ### Added
