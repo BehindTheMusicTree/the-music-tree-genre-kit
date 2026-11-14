@@ -14,6 +14,7 @@ from the_music_tree_genre_kit.genre_graph.models import GenreGraphAttribution, G
 from the_music_tree_genre_kit.genre_graph.storage import (
     GraphRevisionConflict,
     graph_read_transaction,
+    graph_write_transaction,
     replace_graph,
     replace_track_attributions,
     select_tracks,
@@ -153,6 +154,61 @@ def test_e04_read_transaction_keeps_queries_and_tokens_consistent_during_import(
             assert GenreGraphDataset.objects.get(pk=dataset.key).revision == snapshot.revision
         assert future.result(timeout=15) != dataset.revision
     assert titles() == []
+
+
+@pytest.mark.parametrize("mutation", ["update", "delete", "track_delete"])
+def test_e04_bulk_writer_locks_dataset_before_rows_used_by_service(payload, mutation):
+    dataset = replace_graph(key="reference", payload=payload, expected_revision=None)
+    track = Track(title="Reference")
+    Track.objects.bulk_create([track])
+    provenance = {"decisionId": "test", "source": "fixture", "rationale": "test"}
+    replace_track_attributions(
+        key=dataset.key,
+        track_id=track.pk,
+        attributions={"LOCAL:dub": provenance},
+        expected_revision=dataset.revision,
+    )
+    attempted = Event()
+
+    def bulk_write():
+        def mark_attempt(execute, sql, params, many, context):
+            if "FOR UPDATE" in sql or sql.startswith(("UPDATE", "DELETE")):
+                attempted.set()
+            return execute(sql, params, many, context)
+
+        with (
+            connection.execute_wrapper(mark_attempt),
+            graph_write_transaction(key=dataset.key, expected_revision=dataset.revision),
+        ):
+            if mutation == "update":
+                GenreGraphAttribution.objects.filter(track=track).update(
+                    provenance={**provenance, "decisionId": "bulk"}
+                )
+            elif mutation == "delete":
+                GenreGraphAttribution.objects.filter(track=track).delete()
+            else:
+                Track.objects.filter(pk=track.pk).delete()
+
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        with graph_write_transaction(key=dataset.key, expected_revision=dataset.revision):
+            future = pool.submit(in_connection, bulk_write)
+            assert attempted.wait(timeout=10)
+            with pytest.raises(TimeoutError):
+                future.result(timeout=0.1)
+            replace_track_attributions(
+                key=dataset.key,
+                track_id=track.pk,
+                attributions={"LOCAL:french-dub": provenance},
+                expected_revision=dataset.revision,
+            )
+        future.result(timeout=15)
+    if mutation == "update":
+        attribution = GenreGraphAttribution.objects.get(track=track)
+        assert attribution.node.identity == "LOCAL:french-dub"
+        assert attribution.provenance["decisionId"] == "bulk"
+    else:
+        assert not GenreGraphAttribution.objects.filter(track=track).exists()
+    assert Track.objects.filter(pk=track.pk).exists() == (mutation != "track_delete")
 
 
 @pytest.mark.parametrize("first_operation", ["attribute", "transfer"])

@@ -128,6 +128,16 @@ dataset, comme les écrivains, et évite de mélanger deux états sous PostgreSQ
 READ COMMITTED. Garder ce verrou court ; les lecteurs utilisant ce contexte
 se sérialisent entre eux et avec les imports.
 
+Les consommateurs qui écrivent les attributions en lot ou suppriment des tracks
+attribués doivent entrer dans `graph_write_transaction(key=..., expected_revision=...)`
+avant de verrouiller ou modifier les tracks et leurs attributions. Pour plusieurs
+datasets, acquérir ces contextes par ordre de clé. Le service d'attribution prend
+déjà ses verrous dans cet ordre. Les triggers assurent l'invalidation des écritures
+ORM/SQL directes, mais ne peuvent pas corriger leur ordre de verrouillage : sans
+ce contexte, une écriture concurrente peut être annulée par PostgreSQL pour deadlock.
+Le jeton vérifie la version du graphe ; les remplacements d'attributions restent
+sérialisés avec la dernière écriture gagnante, sans CAS par track.
+
 `revision` identifie le graphe ; `membership_revision` invalide les populations.
 Un remplacement du graphe change les deux. Les triggers d'attribution changent
 le second pour les insertions, mises à jour et suppressions, y compris les

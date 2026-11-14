@@ -105,6 +105,20 @@ def graph_read_transaction(*, key: str):
         yield GenreGraphDataset.objects.select_for_update().get(pk=key)
 
 
+@contextmanager
+def graph_write_transaction(*, key: str, expected_revision: UUID):
+    """Lock a reviewed dataset before bulk attribution writes or track deletion.
+
+    Enter before locking tracks or attribution rows. Database invalidation
+    triggers take the dataset lock too; taking it last can deadlock a service
+    writer that already holds it. For multiple datasets, enter in key order.
+    """
+    with graph_read_transaction(key=key) as dataset:
+        if dataset.revision != expected_revision:
+            raise GraphRevisionConflict(f"Graph revision changed for {key}; reload before writing tracks")
+        yield dataset
+
+
 @transaction.atomic
 def restore_graph(*, key: str, revision: UUID, expected_revision: UUID) -> GenreGraphDataset:
     archived = GenreGraphRevision.objects.get(dataset_id=key, revision=revision)

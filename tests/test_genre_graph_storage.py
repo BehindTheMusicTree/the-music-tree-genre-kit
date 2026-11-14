@@ -17,6 +17,7 @@ from the_music_tree_genre_kit.genre_graph.models import (
 from the_music_tree_genre_kit.genre_graph.storage import (
     GraphRevisionConflict,
     effective_attributions,
+    graph_write_transaction,
     replace_graph,
     replace_track_attributions,
     restore_graph,
@@ -79,6 +80,17 @@ def test_e03_idempotent_import_preserves_node_keys_and_assignments(dataset, payl
     assert dict(repeated.nodes.values_list("identity", "pk")) == original
     assert GenreGraphRevision.objects.count() == 1
     assert selected("dub") == {"French dub"}
+
+
+def test_e03_bulk_write_context_rejects_stale_graph_revision(dataset, payload):
+    changed = deepcopy(payload)
+    changed["nodes"][0]["name"] = "Renamed"
+    replace_graph(key=dataset.key, payload=changed, expected_revision=dataset.revision)
+    with (
+        pytest.raises(GraphRevisionConflict, match="reload before writing"),
+        graph_write_transaction(key=dataset.key, expected_revision=dataset.revision),
+    ):
+        pytest.fail("A stale bulk writer must fail before mutation")
 
 
 def test_m01_m03_e09_sql_exact_sets_distinct_counts_and_unclassified_tracks(dataset):
