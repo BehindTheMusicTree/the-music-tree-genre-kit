@@ -111,10 +111,13 @@ géohistoriques et le rejeu de bout en bout restent ouverts chez leurs propriét
 
 `replace_graph(key=..., payload=..., expected_revision=...)` valide le graphe
 avant toute écriture. `None` exige une création ; une révision existante exige
-le jeton relu par le client. Le remplacement conserve les clés des concepts
-inchangés, archive le payload et reconstruit l'index de sélection dans la même
-transaction. Supprimer un concept encore attribué échoue ; aucune attribution
-ni aucun track n'est supprimé pour rendre l'import possible.
+le jeton relu par le client. Le remplacement conserve les clés permanentes des concepts, archive le payload et
+applique les différences de fermeture dans la même transaction. Chaque concept retiré
+exige une décision explicite `{target: identité | null, provenance: {decisionId, source,
+rationale}}`. Le concept reste archivé avec `is_active=False` ; sa réactivation
+réutilise sa clé. Les attributions sont remappées en SQL vers la cible explicite, ou
+retirées pour une cible nulle, en conservant leur historique et toutes les preuves
+d'origine, de destination et de retrait. Aucun track n'est supprimé.
 
 `select_tracks`, `effective_attributions` et `tracks_needing_refinement` utilisent
 des sous-requêtes SQL : ils ne matérialisent pas les populations de tracks en
@@ -123,10 +126,13 @@ et ses critères de jouabilité. Les comptes utilisent les tracks distincts,
 y compris lorsqu'une attribution possède plusieurs chemins.
 
 Pour rendre plusieurs résultats avec leurs jetons, évaluer tous les querysets
-à l'intérieur de `graph_read_transaction(key=...)`. Ce contexte verrouille le
-dataset, comme les écrivains, et évite de mélanger deux états sous PostgreSQL
-READ COMMITTED. Garder ce verrou court ; les lecteurs utilisant ce contexte
-se sérialisent entre eux et avec les imports.
+à l'intérieur de `graph_read_snapshot()`, après l'authentification. Sous PostgreSQL,
+ce contexte ouvre une transaction extérieure REPEATABLE READ, READ ONLY ; les
+lecteurs peuvent se chevaucher et n'empêchent pas une publication concurrente.
+`graph_read_transaction(key=...)` charge aussi le dataset dans cet instantané.
+Les contextes de lecture imbriqués partagent l'instantané ; entrer depuis une
+transaction extérieure non possédée par ce contexte échoue. Matérialiser les résultats
+avant de sortir du contexte : un queryset paresseux ne transporte pas l'instantané.
 
 Les consommateurs qui écrivent les attributions en lot ou suppriment des tracks
 attribués doivent entrer dans `graph_write_transaction(key=..., expected_revision=...)`
@@ -135,8 +141,11 @@ datasets, acquérir ces contextes par ordre de clé. Le service d'attribution pr
 déjà ses verrous dans cet ordre. Les triggers assurent l'invalidation des écritures
 ORM/SQL directes, mais ne peuvent pas corriger leur ordre de verrouillage : sans
 ce contexte, une écriture concurrente peut être annulée par PostgreSQL pour deadlock.
-Le jeton vérifie la version du graphe ; les remplacements d'attributions restent
-sérialisés avec la dernière écriture gagnante, sans CAS par track.
+Le jeton vérifie la version du graphe ; les écritures exigent READ COMMITTED et
+sont interdites dans un instantané de lecture. Chaque jeu d'attributions possède
+aussi un `expected_assignment_revision` : `None` permet sa première création, puis
+le jeton courant est obligatoire, y compris après un effacement explicite. Une
+révision périmée échoue avant d'enregistrer les preuves.
 
 `revision` identifie le graphe ; `membership_revision` invalide les populations.
 Un remplacement du graphe change les deux. Les triggers d'attribution changent
@@ -149,23 +158,41 @@ le modifier directement par ORM ou SQL n'est pas un contrat d'édition du graphe
 Les changements de relations, frontières et types passent par `replace_graph`.
 
 `replace_track_attributions` exige un track sans propriétaire, des identités
-connues, une provenance complète et la révision courante du graphe. Une répétition
-identique ne réécrit rien. Les états précédents et suivants sont archivés avec
+connues, un tableau non vide de preuves par identité, la révision courante du
+graphe et le jeton du jeu d'attributions. Chaque preuve contient `decisionId`,
+`source` et `rationale`. Son contenu est immuable au sein du dataset : réutiliser
+un identifiant avec un autre contenu échoue. Une répétition identique, même avec
+les preuves dans un ordre différent, ne réécrit rien. Les états précédents et suivants sont archivés avec
 leurs identités sémantiques et leur provenance, sans FK vers les concepts qui
 pourraient être retirés. `restore_track_attributions` restaure un instantané
 explicite ; il refuse les concepts absents et ne recrée pas de track supprimé.
-Ces archives couvrent les écritures par ce service, pas les écritures ORM/SQL
-directes. `restore_graph` restaure uniquement le graphe : pour restaurer les deux,
+Les archives et preuves refusent les modifications et suppressions directes.
+Les mutations ORM/SQL directes invalident les jetons, mais ne créent pas
+l'historique métier complet : les publications doivent utiliser les services. `restore_graph` restaure uniquement le graphe : pour restaurer les deux,
 restaurer d'abord les concepts nécessaires, puis les instantanés d'attribution,
 dans une transaction englobante. Les consommateurs doivent archiver leurs
 mappings de migration et leurs autres projections séparément.
 
-## Compatibilité Python
+## Compatibilité Python et installation
 
-Le kit exige Python 3.14 ; les pipelines acceptent Python 3.12. Le module
-`genre_graph/boundaries.py` ne dépend ni de Django ni de `jsonschema` et reste
-compatible avec Python 3.12. La préparation pipelines en conserve une copie
-identique, une fixture commune et leurs empreintes. Aucune dépendance livrée
-ne pointe vers un checkout local. Une future synchronisation de ces copies doit
-mettre à jour les empreintes et rejouer les deux suites ; elle ne remplace pas
-la préparation des consommateurs ni les prérequis de publication des packages.
+Le kit Django exige Python 3.14. Le package indépendant
+`the-music-tree-genre-graph`, dans `packages/genre-graph`, accepte Python 3.12 et
+ne dépend que de `jsonschema`. Les producteurs importent `GenreGraph`,
+`GraphValidationError` et `load_genre_graph_schema` depuis
+`the_music_tree_genre_graph` ; ils ne copient pas le classificateur du kit Django.
+La dépendance du kit est bornée à `>=0.1.0,<0.2.0`. La CI construit le wheel
+et le sdist et rejoue les mêmes tests hors du workspace sur Python 3.12 et 3.14,
+sans Django. Elle installe aussi le wheel et le sdist du kit avec un wheel pur
+explicite sur Python 3.14 et rejoue les tests de stockage SQLite. Ces contrôles
+valident les artefacts locaux, pas leur disponibilité sur un index public.
+
+La source uv du workspace ne se transmet pas aux projets consommateurs. Une
+installation Git du kit nécessite donc une source publiée explicite pour le package
+pur ; la branche de développement ne constitue pas encore une dépendance livrable.
+La publication et les changements de pins nécessitent une autorisation de release
+séparée. Les pins existants restent inchangés jusque-là.
+
+La migration `0020` refuse une descente si le stockage de preuves ou d'historique
+est peuplé : aplatir plusieurs preuves détruirait la provenance. La restauration
+applicative du graphe et des attributions reste une opération en avant ; un retour
+physique au schéma antérieur exige une sauvegarde de base prise avant migration.

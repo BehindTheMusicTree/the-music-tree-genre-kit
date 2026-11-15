@@ -66,12 +66,12 @@ There is no automated branch-name enforcement — these prefixes are a conventio
 uv run pytest
 ```
 
-Also run before opening a PR — these are the same checks CI runs (`.github/workflows/test.yml`, jobs `Lint`, `Fixture makemigrations check`, `Pytest`):
+Also run before opening a PR — these are the same checks CI runs (`.github/workflows/validate.yml`, jobs `Lint`, `Fixture makemigrations check`, `Pytest`):
 
 ```bash
 uv run ruff check .
 uv run ruff format --check .
-uv run mypy src
+uv run mypy src packages/genre-graph/src
 uv run django-admin makemigrations fixture_app the_music_tree_genre_kit --check --dry-run
 ```
 
@@ -99,7 +99,7 @@ Use imperative mood, keep the summary under ~70 characters, include issue IDs wh
 
 Before opening a PR:
 
-- ✅ `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy src`, and `uv run pytest` all pass
+- ✅ `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy src packages/genre-graph/src`, and `uv run pytest` all pass
 - ✅ New abstractions have corresponding coverage in `tests/fixture_app/`
 - ✅ `CHANGELOG.md` updated under `[Unreleased]`
 - ✅ `README.md` updated if the package's scope or usage changed

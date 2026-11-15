@@ -5,8 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
-
-from the_music_tree_genre_kit.genre_graph import GenreGraph, GraphValidationError
+from the_music_tree_genre_graph import GenreGraph, GraphValidationError
 
 OBSERVATIONS = Path(__file__).parent / "fixtures/genre_graph/observed-additional-children.json"
 CASES = json.loads(OBSERVATIONS.read_text())

@@ -1,8 +1,7 @@
 """Boundary producer tests: inputs intentionally contain no computed flags."""
 
 import pytest
-
-from the_music_tree_genre_kit.genre_graph import GraphValidationError, boundary_witness, evaluate_boundaries
+from the_music_tree_genre_graph import GraphValidationError, boundary_witness, evaluate_boundaries
 
 
 def marker(node, kind):

@@ -5,9 +5,12 @@ from .criteria.track_playlist_rel.TrackPlaylistRel import TrackPlaylistRel
 from .criteria.type.CriteriaType import CriteriaType
 from .genre_graph.models import (
     GenreGraphAccess,
+    GenreGraphAssignmentState,
     GenreGraphAttribution,
+    GenreGraphAttributionEvidence,
     GenreGraphAttributionRevision,
     GenreGraphDataset,
+    GenreGraphEvidence,
     GenreGraphNode,
     GenreGraphRevision,
 )

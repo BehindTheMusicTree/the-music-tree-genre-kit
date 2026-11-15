@@ -8,34 +8,52 @@ from collections.abc import Mapping
 from contextlib import contextmanager
 from uuid import UUID, uuid4
 
-from django.db import transaction
+from django.db import connection, transaction
 from django.db.models import Exists, OuterRef, QuerySet
+from the_music_tree_genre_graph import GenreGraph, GraphValidationError
 
-from .graph import GenreGraph, GraphValidationError
+from .assignments import replace_track_attributions, restore_track_attributions, validate_evidence
+from .closure import analyze_nodes, replace_access
 from .models import (
     GenreGraphAccess,
     GenreGraphAttribution,
-    GenreGraphAttributionRevision,
     GenreGraphDataset,
     GenreGraphNode,
     GenreGraphRevision,
 )
+from .retirements import remap_retirements
 
 
 class GraphRevisionConflict(GraphValidationError):
     """A concurrent writer changed the graph the caller reviewed."""
 
 
+def require_graph_write_context():
+    if connection.vendor not in {"postgresql", "sqlite"}:
+        raise GraphValidationError("Reference graphs require PostgreSQL or SQLite")
+    if getattr(connection, "graph_snapshot_depth", 0):
+        raise GraphValidationError("Cannot write inside a graph read snapshot")
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            cursor.execute("SHOW transaction_isolation")
+            if cursor.fetchone()[0] != "read committed":
+                raise GraphValidationError("Graph writes require READ COMMITTED isolation")
+
+
 @transaction.atomic
-def replace_graph(*, key: str, payload: dict, expected_revision: UUID | None) -> GenreGraphDataset:
+def replace_graph(
+    *, key: str, payload: dict, expected_revision: UUID | None, retirements: Mapping | None = None
+) -> GenreGraphDataset:
     """Create explicitly or replace a reviewed revision, retaining rollback artifacts.
 
     None means create-only, never overwrite an existing graph. A removed node
-    with attributions is protected until the consumer supplies an explicit mapping.
+    requires an explicit retirement decision, even when it has no attributions.
     """
     if not key or len(key) > GenreGraphDataset._meta.get_field("key").max_length:
         raise GraphValidationError("A nonempty graph dataset key of at most 64 characters is required")
+    require_graph_write_context()
     graph = GenreGraph(payload)
+    previous_revision = expected_revision
     if expected_revision is None:
         # The unique key arbitrates simultaneous first imports. get_or_create
         # handles the losing insert in a savepoint without breaking our transaction.
@@ -52,15 +70,27 @@ def replace_graph(*, key: str, payload: dict, expected_revision: UUID | None) ->
         if expected_revision != dataset.revision:
             raise GraphRevisionConflict(f"Graph revision changed for {key}; reload before replacing it")
         if dataset.payload == graph.to_payload():
+            if retirements:
+                raise GraphValidationError("Unchanged graphs cannot retire identities")
             return dataset
         dataset.revision = uuid4()
         dataset.membership_revision = uuid4()
         dataset.payload = graph.to_payload()
         dataset.save(update_fields=["revision", "membership_revision", "payload"])
-    GenreGraphRevision.objects.create(dataset=dataset, revision=dataset.revision, payload=dataset.payload)
     existing = {node.identity: node for node in dataset.nodes.all()}
-    stale = set(existing) - graph.node_ids
-    dataset.nodes.filter(identity__in=stale).delete()
+    stale = {identity for identity, node in existing.items() if node.is_active} - graph.node_ids
+    decisions = {} if retirements is None else retirements
+    if set(decisions) != stale:
+        raise GraphValidationError("Retirements must name every removed identity exactly once")
+    for identity, decision in decisions.items():
+        if not isinstance(decision, dict) or set(decision) != {"target", "provenance"}:
+            raise GraphValidationError(f"Explicit retirement target and provenance required: {identity}")
+        if decision["target"] is not None and decision["target"] not in graph.node_ids:
+            raise GraphValidationError(f"Retirement target must remain active: {identity}")
+        validate_evidence(decision["provenance"])
+    GenreGraphRevision.objects.create(
+        dataset=dataset, revision=dataset.revision, payload=dataset.payload, retirements=dict(decisions)
+    )
     created = [
         GenreGraphNode(
             dataset=dataset,
@@ -74,55 +104,70 @@ def replace_graph(*, key: str, payload: dict, expected_revision: UUID | None) ->
     updated = []
     for identity in graph.node_ids & existing.keys():
         node = existing[identity]
-        node.is_umbrella = graph.node(identity).get("isUmbrella", False)
-        node.canonical_state = graph.node(identity).get("canonicalState")
-        updated.append(node)
-    GenreGraphNode.objects.bulk_update(updated, ["is_umbrella", "canonical_state"])
+        umbrella = graph.node(identity).get("isUmbrella", False)
+        state = graph.node(identity).get("canonicalState")
+        if (node.is_active, node.is_umbrella, node.canonical_state) != (True, umbrella, state):
+            node.is_active = True
+            node.is_umbrella = umbrella
+            node.canonical_state = state
+            updated.append(node)
+    GenreGraphNode.objects.bulk_update(updated, ["is_active", "is_umbrella", "canonical_state"])
     nodes = {node.identity: node for node in dataset.nodes.all()}
-    GenreGraphAccess.objects.filter(ancestor__dataset=dataset).delete()
-    batch = []
-    for identity, node in nodes.items():
-        scopes = ("all", "canonical", "regional") if node.canonical_state == "canonical" else ("all",)
-        for scope in scopes:
-            for descendant in graph.selected_nodes(identity, scope=scope):
-                batch.append(GenreGraphAccess(ancestor=node, descendant=nodes[descendant], scope=scope))
-                if len(batch) >= 1000:
-                    GenreGraphAccess.objects.bulk_create(batch)
-                    batch.clear()
-    GenreGraphAccess.objects.bulk_create(batch)
+    remap_retirements(dataset=dataset, decisions=decisions, nodes=nodes, previous_revision=previous_revision)
+    retired_count = dataset.nodes.filter(identity__in=stale).update(is_active=False)
+    nodes = {identity: node for identity, node in nodes.items() if identity in graph.node_ids}
+    if created or updated or retired_count:
+        analyze_nodes()
+    replace_access(dataset, graph, nodes)
+    dataset.refresh_from_db(fields=["membership_revision"])
     return dataset
 
 
 @contextmanager
-def graph_read_transaction(*, key: str):
-    """Keep several queries and their revision tokens on one committed graph.
-
-    Evaluate lazy querysets inside this context. Writers take the same dataset
-    lock, so READ COMMITTED cannot mix metadata from one graph with another's
-    selection index. Keep the context short; it serializes writers and readers.
-    """
+def graph_read_snapshot():
+    """Materialize response data inside one outermost read-only snapshot."""
+    nested = getattr(connection, "graph_snapshot_depth", 0)
+    if connection.vendor not in {"postgresql", "sqlite"}:
+        raise GraphValidationError("Reference graphs require PostgreSQL or SQLite")
+    if connection.vendor == "postgresql" and connection.in_atomic_block and not nested:
+        raise GraphValidationError("Graph reads require an outermost REPEATABLE READ snapshot")
     with transaction.atomic():
-        yield GenreGraphDataset.objects.select_for_update().get(pk=key)
+        if connection.vendor == "postgresql" and not nested:
+            with connection.cursor() as cursor:
+                cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
+        connection.graph_snapshot_depth = nested + 1
+        try:
+            yield
+        finally:
+            connection.graph_snapshot_depth = nested
+
+
+@contextmanager
+def graph_read_transaction(*, key: str):
+    """Read a dataset and its response data in the same snapshot."""
+    with graph_read_snapshot():
+        yield GenreGraphDataset.objects.get(pk=key)
 
 
 @contextmanager
 def graph_write_transaction(*, key: str, expected_revision: UUID):
-    """Lock a reviewed dataset before bulk attribution writes or track deletion.
-
-    Enter before locking tracks or attribution rows. Database invalidation
-    triggers take the dataset lock too; taking it last can deadlock a service
-    writer that already holds it. For multiple datasets, enter in key order.
-    """
-    with graph_read_transaction(key=key) as dataset:
+    """Lock datasets in key order after the consumer source gate, before tracks."""
+    with transaction.atomic():
+        require_graph_write_context()
+        dataset = GenreGraphDataset.objects.select_for_update().get(pk=key)
         if dataset.revision != expected_revision:
             raise GraphRevisionConflict(f"Graph revision changed for {key}; reload before writing tracks")
         yield dataset
 
 
 @transaction.atomic
-def restore_graph(*, key: str, revision: UUID, expected_revision: UUID) -> GenreGraphDataset:
+def restore_graph(
+    *, key: str, revision: UUID, expected_revision: UUID, retirements: Mapping | None = None
+) -> GenreGraphDataset:
     archived = GenreGraphRevision.objects.get(dataset_id=key, revision=revision)
-    return replace_graph(key=key, payload=archived.payload, expected_revision=expected_revision)
+    return replace_graph(
+        key=key, payload=archived.payload, expected_revision=expected_revision, retirements=retirements
+    )
 
 
 def effective_attributions(*, key: str) -> QuerySet:
@@ -133,14 +178,16 @@ def effective_attributions(*, key: str) -> QuerySet:
         node__inclusive_ancestors__ancestor_id=OuterRef("node_id"),
         node__inclusive_ancestors__scope="all",
     ).exclude(node_id=OuterRef("node_id"))
-    return GenreGraphAttribution.objects.filter(node__dataset_id=key).filter(~Exists(more_precise))
+    return GenreGraphAttribution.objects.filter(node__dataset_id=key, node__is_active=True).filter(
+        ~Exists(more_precise)
+    )
 
 
 def select_tracks(
     tracks: QuerySet, *, key: str, identity: str, scope: str = "all", include_descendants: bool = True
 ) -> QuerySet:
     GenreGraphDataset.objects.get(pk=key)
-    node = GenreGraphNode.objects.get(dataset_id=key, identity=identity)
+    node = GenreGraphNode.objects.get(dataset_id=key, identity=identity, is_active=True)
     if scope not in {"all", "canonical", "regional"} or (node.canonical_state != "canonical" and scope != "all"):
         raise GraphValidationError(f"Invalid selection scope {scope} for {identity}")
     attributions = effective_attributions(key=key)
@@ -158,65 +205,3 @@ def select_tracks(
 def tracks_needing_refinement(tracks: QuerySet, *, key: str) -> QuerySet:
     attributions = effective_attributions(key=key).filter(node__is_umbrella=True)
     return tracks.filter(pk__in=attributions.values("track_id"))
-
-
-@transaction.atomic
-def replace_track_attributions(
-    *, key: str, track_id: UUID, attributions: Mapping[str, dict], expected_revision: UUID
-) -> None:
-    """Replace one reference track's explicit assignments without guessing regions."""
-    from the_music_tree_genre_kit.track.Track import Track
-
-    dataset = GenreGraphDataset.objects.select_for_update().get(pk=key)
-    if dataset.revision != expected_revision:
-        raise GraphRevisionConflict(f"Graph revision changed for {key}; reload before assigning tracks")
-    track = Track.objects.select_for_update().get(pk=track_id)
-    if track.user_id is not None:
-        raise GraphValidationError("Reference graph attributions require an ownerless track")
-    nodes = dict(dataset.nodes.filter(identity__in=attributions).values_list("identity", "pk"))
-    unknown = set(attributions) - nodes.keys()
-    if unknown:
-        raise GraphValidationError(f"Unknown attribution nodes: {sorted(unknown)}")
-    for identity, provenance in attributions.items():
-        if (
-            not isinstance(provenance, dict)
-            or set(provenance) != {"decisionId", "source", "rationale"}
-            or any(not isinstance(value, str) or not value.strip() for value in provenance.values())
-        ):
-            raise GraphValidationError(f"Attribution provenance is required for {identity}")
-    previous = dict(
-        GenreGraphAttribution.objects.filter(track=track, node__dataset=dataset).values_list(
-            "node__identity", "provenance"
-        )
-    )
-    if previous == attributions:
-        return
-    history = GenreGraphAttributionRevision.objects.filter(dataset=dataset, track_id=track_id)
-    latest = history.order_by("-created_at").first()
-    if latest is None or latest.attributions != previous:
-        GenreGraphAttributionRevision.objects.create(
-            dataset=dataset, track_id=track_id, graph_revision=dataset.revision, attributions=previous
-        )
-    GenreGraphAttribution.objects.filter(track=track, node__dataset=dataset).delete()
-    GenreGraphAttribution.objects.bulk_create(
-        [
-            GenreGraphAttribution(track=track, node_id=nodes[identity], provenance=provenance)
-            for identity, provenance in attributions.items()
-        ]
-    )
-    GenreGraphAttributionRevision.objects.create(
-        dataset=dataset, track_id=track_id, graph_revision=dataset.revision, attributions=dict(attributions)
-    )
-
-
-@transaction.atomic
-def restore_track_attributions(*, key: str, track_id: UUID, revision: UUID, expected_revision: UUID) -> None:
-    """Restore reviewed assignments after restoring any required graph concepts.
-
-    No fallback to surviving nodes: missing identities reject the whole restore.
-    Tracks remain consumer-owned; this operation never recreates a deleted track.
-    """
-    archived = GenreGraphAttributionRevision.objects.get(dataset_id=key, track_id=track_id, revision=revision)
-    replace_track_attributions(
-        key=key, track_id=track_id, attributions=archived.attributions, expected_revision=expected_revision
-    )
