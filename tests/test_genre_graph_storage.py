@@ -894,6 +894,9 @@ def test_permanent_nodes_cannot_be_deleted_and_recreated(dataset, payload, retir
 
 
 def test_retirement_preserves_single_assignment_constraint_and_evidence(dataset, payload):
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
     (song,) = tracks("Singular membership")
     assign(dataset, song, "french-dub")
     reviewed = assignment_revision(dataset, song)
