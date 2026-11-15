@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.63.2] - 2026-11-15
+
 ### Fixed
 
 - Retire graph assignments without temporarily adding a second direct genre, preserving all merged evidence and assignment history for consumers that enforce singular membership.
