@@ -17,6 +17,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.63.1] - 2026-11-15
+
+### Fixed
+
+- Adopt API-kit 0.12.3 for authorized queryset-scoped detail lookups.
+- Reuse the active graph read snapshot for nested reads without creating savepoints.
+
 ## [0.63.0] - 2026-11-15
 
 ### Breaking
