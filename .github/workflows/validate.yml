@@ -129,16 +129,9 @@ jobs:
       - name: Build pure graph distributions
         run: uv build --package the-music-tree-genre-graph --out-dir dist/genre-graph
 
-      - name: Test installed wheel without Django or workspace imports
-        shell: bash
-        run: |
-          graph_tests=$(mktemp -d)
-          cp tests/test_genre_graph.py tests/test_genre_boundaries.py tests/test_genre_graph_observations.py "$graph_tests/"
-          mkdir -p "$graph_tests/fixtures"
-          cp -R tests/fixtures/genre_graph "$graph_tests/fixtures/"
-          graph_wheel=("$GITHUB_WORKSPACE"/dist/genre-graph/the_music_tree_genre_graph-*.whl)
-          cd "$graph_tests"
-          uv run --no-project --python '${{ matrix.python }}' \
-            --with "${graph_wheel[0]}" --with pytest==8.1.1 \
-            pytest --rootdir=. -c /dev/null -p no:cacheprovider \
-            test_genre_graph.py test_genre_boundaries.py test_genre_graph_observations.py
+      - name: Build Django kit distributions
+        if: matrix.python == '3.14'
+        run: uv build --package the-music-tree-genre-kit --out-dir dist/kit
+
+      - name: Test distributions outside the workspace
+        run: bash scripts/check-graph-distributions.sh '${{ matrix.python }}'

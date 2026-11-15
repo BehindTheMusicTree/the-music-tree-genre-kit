@@ -2,8 +2,15 @@
 name = "the-music-tree-genre-graph"
 version = "0.1.0"
 description = "Pure semantic genre graph validation, boundaries and selection"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "mignot", email = "garcia.andreas.1991@gmail.com" }]
 requires-python = ">=3.12"
 dependencies = ["jsonschema==4.26.0"]
+
+[project.urls]
+Repository = "https://github.com/BehindTheMusicTree/the-music-tree-genre-kit"
+Documentation = "https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/blob/develop/docs/genre-graph-v2.md"
 
 [build-system]
 requires = ["uv_build>=0.11.28,<0.12.0"]

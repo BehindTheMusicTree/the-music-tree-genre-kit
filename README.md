@@ -39,10 +39,15 @@ scoped expression selections, attribution normalization and regional ancestry.
 The pure implementation lives in `packages/genre-graph` as `the-music-tree-genre-graph`
 (Python 3.12+, jsonschema only). Import `GenreGraph`, `GraphValidationError` and
 `load_genre_graph_schema` from `the_music_tree_genre_graph`. The Django package depends on it
-through the uv workspace. Local consumers must explicitly provide both package paths; a uv
+with the constraint `>=0.1.0,<0.2.0`, resolved locally through the uv workspace.
+Local consumers must explicitly provide both package paths; a uv
 workspace source override is local to this repository and is not inherited by Git consumers.
 No released tag yet contains the extracted package, so existing consumer tag pins remain unchanged
-until a separately authorized release. CI tests the installed pure wheel on Python 3.12 and 3.14.
+until a separately authorized release. CI tests the pure wheel and sdist on Python 3.12 and 3.14, plus kit wheel/sdist
+installation with the explicit pure wheel on Python 3.14. Reproduce with `uv build
+--package the-music-tree-genre-graph --out-dir dist/genre-graph`, `uv build
+--package the-music-tree-genre-kit --out-dir dist/kit` and
+`bash scripts/check-graph-distributions.sh 3.14` (or `3.12` for the pure package).
 
 Django storage supports atomic graph replacement, archived revisions, explicit reference-track
 attributions and SQL distinct selections. PostgreSQL tests exercise revision conflicts,
