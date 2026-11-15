@@ -71,7 +71,14 @@ jobs:
         run: uv run pytest
 
   graph-postgres:
-    name: Graph PostgreSQL transactions
+    name: Graph PostgreSQL transactions (${{ matrix.driver.name }})
+    strategy:
+      matrix:
+        driver:
+          - name: psycopg3
+            dependency: psycopg[binary]
+          - name: psycopg2
+            dependency: psycopg2-binary==2.9.11
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -107,7 +114,7 @@ jobs:
 
       - name: Verify graph migrations and transaction isolation
         run: >-
-          uv run --with 'psycopg[binary]' pytest
+          uv run --with '${{ matrix.driver.dependency }}' pytest
           tests/test_genre_graph_storage.py tests/test_genre_graph_concurrency.py
           --ds=tests.genre_graph_postgres_settings --no-cov --create-db
 

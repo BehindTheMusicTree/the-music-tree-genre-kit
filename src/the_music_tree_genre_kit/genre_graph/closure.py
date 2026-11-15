@@ -1,5 +1,6 @@
 """Graph-sized staging and dataset-owned SQL diff, never catalogue enumeration."""
 
+from tempfile import TemporaryFile
 from uuid import uuid4
 
 from django.db import connection
@@ -28,9 +29,18 @@ def replace_access(dataset, graph, nodes):
             "PRIMARY KEY (ancestor_id, scope, descendant_id))"
         )
         if connection.vendor == "postgresql":
-            with cursor.copy(f"COPY {stage} (ancestor_id, scope, descendant_id) FROM STDIN") as copy:
-                for row in desired():
-                    copy.write_row(row)
+            from django.db.backends.postgresql.psycopg_any import is_psycopg3
+
+            copy_sql = f"COPY {stage} (ancestor_id, scope, descendant_id) FROM STDIN"
+            if is_psycopg3:
+                with cursor.copy(copy_sql) as copy:
+                    for row in desired():
+                        copy.write_row(row)
+            else:
+                with TemporaryFile(mode="w+", encoding="utf-8") as rows:
+                    rows.writelines(f"{ancestor}\t{scope}\t{descendant}\n" for ancestor, scope, descendant in desired())
+                    rows.seek(0)
+                    cursor.copy_expert(copy_sql, rows)
         else:
             cursor.executemany(f"INSERT INTO {stage} VALUES (%s, %s, %s)", desired())
         cursor.execute(f"ANALYZE {stage}")

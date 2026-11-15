@@ -27,6 +27,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Retain permanent graph identities, enforce dataset-owned closure endpoints, and diff staged closure rows with planner statistics. Use nonblocking snapshot reads and independently serialized writes.
 - Publish retirement mappings and complete assignment archives atomically in SQL, retaining merged immutable evidence. Require per-track assignment revision tokens for edits and restoration; reject stale edits, conflicting decision content, inactive references and audit rewrites.
 
+### Fixed
+
+- Keep SQL graph publication compatible with Hear’s psycopg2 driver and SQLite versions supported by Django. Exercise both PostgreSQL drivers in CI and preserve deterministic evidence ordering in archived assignment sets.
+
 ## [0.62.0] - 2026-11-14
 
 ### Added

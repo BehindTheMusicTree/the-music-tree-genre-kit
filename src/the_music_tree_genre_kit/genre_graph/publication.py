@@ -31,13 +31,13 @@ def archive_population(cursor, *, dataset, affected):
     )
     if connection.vendor == "postgresql":
         evidence_json = "jsonb_build_object('decisionId', e.decision_id, 'source', e.source, 'rationale', e.rationale)"
-        evidence_set = f"jsonb_agg({evidence_json} ORDER BY e.decision_id)"
+        evidence_set = "jsonb_agg(evidence ORDER BY decision_id)"
         assignment_set = "jsonb_object_agg(identity, evidence)"
         empty = "'{}'::jsonb"
         timestamp = "CURRENT_TIMESTAMP"
     else:
         evidence_json = "json_object('decisionId', e.decision_id, 'source', e.source, 'rationale', e.rationale)"
-        evidence_set = f"json_group_array({evidence_json} ORDER BY e.decision_id)"
+        evidence_set = "json_group_array(json(evidence))"
         assignment_set = "json_group_object(identity, json(evidence))"
         empty = "'{}'"
         timestamp = "strftime('%Y-%m-%d %H:%M:%f', 'now')"
@@ -48,11 +48,13 @@ def archive_population(cursor, *, dataset, affected):
         FROM {state} s JOIN {affected} changed ON changed.track_id = s.track_id
         LEFT JOIN (
             SELECT track_id, {assignment_set} AS attributions FROM (
-                SELECT a.track_id, n.identity, {evidence_set} AS evidence
-                FROM {attribution} a JOIN {node} n ON n.id = a.node_id
-                JOIN {affected} changed ON changed.track_id = a.track_id
-                JOIN {link} l ON l.attribution_id = a.id JOIN {evidence} e ON e.id = l.evidence_id
-                WHERE n.dataset_id = %s GROUP BY a.track_id, n.identity
+                SELECT track_id, identity, {evidence_set} AS evidence FROM (
+                    SELECT a.track_id, n.identity, e.decision_id, {evidence_json} AS evidence
+                    FROM {attribution} a JOIN {node} n ON n.id = a.node_id
+                    JOIN {affected} changed ON changed.track_id = a.track_id
+                    JOIN {link} l ON l.attribution_id = a.id JOIN {evidence} e ON e.id = l.evidence_id
+                    WHERE n.dataset_id = %s ORDER BY a.track_id, n.identity, e.decision_id
+                ) ordered_evidence GROUP BY track_id, identity
             ) sets GROUP BY track_id
         ) population ON population.track_id = s.track_id
         WHERE s.dataset_id = %s AND NOT EXISTS (SELECT 1 FROM {history} h WHERE h.revision = s.revision)""",

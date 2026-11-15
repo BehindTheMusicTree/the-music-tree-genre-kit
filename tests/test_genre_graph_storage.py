@@ -749,7 +749,7 @@ def test_staged_publication_preserves_complete_sets_empty_tokens_and_reviewed_re
     untouched_revision = assignment_revision(dataset, untouched)
     previous = assignment_revision(dataset, first)
     cleared = assignment_revision(dataset, empty)
-    expected = {ref("dub"): [provenance("one"), provenance("two")]}
+    expected = {ref("dub"): [provenance("one"), provenance("two"), provenance("zero")]}
     with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
         evidence = register_evidence(locked, expected[ref("dub")])
         population = "population_" + uuid4().hex
@@ -768,7 +768,10 @@ def test_staged_publication_preserves_complete_sets_empty_tokens_and_reviewed_re
             cursor.executemany(f"INSERT INTO {quote(population)} VALUES (%s)", [(pk,) for pk in prepared])
             cursor.executemany(
                 f"INSERT INTO {quote(desired)} VALUES (%s, %s, %s)",
-                [(prepared[0], locked.nodes.get(identity=ref("dub")).pk, row.pk) for row in evidence.values()],
+                [
+                    (prepared[0], locked.nodes.get(identity=ref("dub")).pk, row.pk)
+                    for row in reversed(evidence.values())
+                ],
             )
             if failure:
                 models = (
