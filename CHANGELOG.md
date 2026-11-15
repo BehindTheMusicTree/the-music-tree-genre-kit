@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.63.0] - 2026-11-15
+
 ### Breaking
 
 - Move semantic graph imports and schema into the separate Python 3.12+ `the-music-tree-genre-graph` package. Consumers import from `the_music_tree_genre_graph`; Django storage remains in this package.
@@ -24,7 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - Prepare independent PyPI publication for the pure graph package using github-workflows v5.3.0, verified retries and its own tag policy. Require public dependency installation before the kit's GitHub Release.
-- Bound the extracted pure graph dependency to its compatible 0.1 series, include standalone metadata and license, and verify wheel/sdist consumers outside the workspace on Python 3.12/3.14. Public distribution still requires a separately authorized pure-package publication.
+- Bound the extracted pure graph dependency to its compatible 0.1 series, include standalone metadata and license, and verify wheel/sdist consumers outside the workspace on Python 3.12/3.14. The pure package is published independently on PyPI.
 - Retain permanent graph identities, enforce dataset-owned closure endpoints, and diff staged closure rows with planner statistics. Use nonblocking snapshot reads and independently serialized writes.
 - Publish retirement mappings and complete assignment archives atomically in SQL, retaining merged immutable evidence. Require per-track assignment revision tokens for edits and restoration; reject stale edits, conflicting decision content, inactive references and audit rewrites.
 
