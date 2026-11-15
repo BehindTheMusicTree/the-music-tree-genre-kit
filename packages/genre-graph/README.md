@@ -22,3 +22,6 @@ This package is developed in that repository's uv workspace. A workspace source
 does not propagate to Git consumers. Until the first separately authorized
 publication, downstream installation requires an explicit local wheel or source;
 a successful workspace install alone does not establish public availability.
+
+See the [publication procedure](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/blob/develop/docs/genre-graph-publication.md)
+for the independent tag policy, Trusted Publisher setup and release ordering.

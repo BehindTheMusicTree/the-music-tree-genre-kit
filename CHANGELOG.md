@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- Prepare independent PyPI publication for the pure graph package using github-workflows v5.3.0, verified retries and its own tag policy. Require public dependency installation before the kit's GitHub Release.
 - Bound the extracted pure graph dependency to its compatible 0.1 series, include standalone metadata and license, and verify wheel/sdist consumers outside the workspace on Python 3.12/3.14. Public distribution still requires a separately authorized pure-package publication.
 - Retain permanent graph identities, enforce dataset-owned closure endpoints, and diff staged closure rows with planner statistics. Use nonblocking snapshot reads and independently serialized writes.
 - Publish retirement mappings and complete assignment archives atomically in SQL, retaining merged immutable evidence. Require per-track assignment revision tokens for edits and restoration; reject stale edits, conflicting decision content, inactive references and audit rewrites.

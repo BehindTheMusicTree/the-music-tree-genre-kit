@@ -1,0 +1,61 @@
+name: Publish pure genre graph
+
+on:
+  push:
+    tags: ["graph-v[0-9]*.[0-9]*.[0-9]*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-genre-graph-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    uses: BehindTheMusicTree/github-workflows/.github/workflows/publish-python.yml@985268a5f321535b1ced65a16850a0453471faae # v5.3.0
+    with:
+      package-name: the-music-tree-genre-graph
+      package-directory: packages/genre-graph
+      release-policy-path: .github/genre-graph-release-policy.json
+      python-version: "3.12"
+      artifact-name: genre-graph-distributions
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/the-music-tree-genre-graph
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          repository: BehindTheMusicTree/github-workflows
+          ref: ${{ needs.build.outputs.foundation-sha }}
+          path: foundation
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.build.outputs.artifact-name }}
+          path: dist
+      - name: Verify artifacts and identify missing PyPI files
+        id: retry
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: python3 foundation/release/python-artifact.py prepare the-music-tree-genre-graph "$VERSION" dist pending
+      - name: Publish missing files
+        if: steps.retry.outputs.upload-needed == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: pending/
+          skip-existing: false
+      - name: Verify complete PyPI publication
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: python3 foundation/release/python-artifact.py verify the-music-tree-genre-graph "$VERSION" dist
