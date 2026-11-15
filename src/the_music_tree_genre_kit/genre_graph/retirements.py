@@ -28,6 +28,7 @@ def remap_retirements(*, dataset, decisions, nodes, previous_revision):
     )
     mapping = quote(f"graph_retirements_{uuid4().hex}")
     affected = quote(f"graph_retired_tracks_{uuid4().hex}")
+    replacement = quote(f"graph_retired_replacements_{uuid4().hex}")
     with connection.cursor() as cursor:
         cursor.execute(
             f"CREATE TEMPORARY TABLE {mapping} (node_id bigint PRIMARY KEY, target_id bigint, evidence_id bigint)"
@@ -64,23 +65,29 @@ def remap_retirements(*, dataset, decisions, nodes, previous_revision):
             archive_population(cursor, dataset=dataset, affected=affected)
         finally:
             dataset.revision = published_revision
-        cursor.execute(f"""INSERT INTO {attribution} (track_id, node_id)
-            SELECT DISTINCT a.track_id, m.target_id FROM {attribution} a JOIN {mapping} m ON m.node_id = a.node_id
-            WHERE m.target_id IS NOT NULL AND NOT EXISTS (
-                SELECT 1 FROM {attribution} destination WHERE destination.track_id = a.track_id AND destination.node_id = m.target_id
-            )""")
-        cursor.execute(f"""INSERT INTO {link} (attribution_id, evidence_id)
-            SELECT DISTINCT destination.id, source.evidence_id FROM (
-                SELECT a.track_id, m.target_id, l.evidence_id FROM {attribution} a
-                JOIN {mapping} m ON m.node_id = a.node_id JOIN {link} l ON l.attribution_id = a.id
-                UNION SELECT a.track_id, m.target_id, m.evidence_id FROM {attribution} a
-                JOIN {mapping} m ON m.node_id = a.node_id
-            ) source JOIN {attribution} destination ON destination.track_id = source.track_id AND destination.node_id = source.target_id
-            WHERE NOT EXISTS (SELECT 1 FROM {link} existing WHERE existing.attribution_id = destination.id AND existing.evidence_id = source.evidence_id)""")
+        # Preserve evidence before deleting sources so consumers can enforce one direct genre at every statement.
+        cursor.execute(f"""CREATE TEMPORARY TABLE {replacement} AS
+            SELECT a.track_id, m.target_id, l.evidence_id FROM {attribution} a
+            JOIN {mapping} m ON m.node_id = a.node_id JOIN {link} l ON l.attribution_id = a.id
+            WHERE m.target_id IS NOT NULL
+            UNION SELECT a.track_id, m.target_id, m.evidence_id FROM {attribution} a
+            JOIN {mapping} m ON m.node_id = a.node_id WHERE m.target_id IS NOT NULL""")
+        cursor.execute(f"ANALYZE {replacement}")
         cursor.execute(
             f"DELETE FROM {link} WHERE attribution_id IN (SELECT a.id FROM {attribution} a JOIN {mapping} m ON m.node_id = a.node_id)"
         )
         cursor.execute(f"DELETE FROM {attribution} WHERE node_id IN (SELECT node_id FROM {mapping})")
+        cursor.execute(f"""INSERT INTO {attribution} (track_id, node_id)
+            SELECT DISTINCT source.track_id, source.target_id FROM {replacement} source
+            WHERE NOT EXISTS (
+                SELECT 1 FROM {attribution} destination
+                WHERE destination.track_id = source.track_id AND destination.node_id = source.target_id
+            )""")
+        cursor.execute(f"""INSERT INTO {link} (attribution_id, evidence_id)
+            SELECT destination.id, source.evidence_id FROM {replacement} source
+            JOIN {attribution} destination ON destination.track_id = source.track_id AND destination.node_id = source.target_id
+            WHERE NOT EXISTS (SELECT 1 FROM {link} existing
+                WHERE existing.attribution_id = destination.id AND existing.evidence_id = source.evidence_id)""")
         archive_population(cursor, dataset=dataset, affected=affected)
         for model in (
             GenreGraphAttribution,
@@ -90,5 +97,6 @@ def remap_retirements(*, dataset, decisions, nodes, previous_revision):
             GenreGraphEvidence,
         ):
             cursor.execute(f"ANALYZE {quote(model._meta.db_table)}")
+        cursor.execute(f"DROP TABLE {replacement}")
         cursor.execute(f"DROP TABLE {affected}")
         cursor.execute(f"DROP TABLE {mapping}")
