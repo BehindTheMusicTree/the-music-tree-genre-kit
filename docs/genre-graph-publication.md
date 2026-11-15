@@ -30,6 +30,12 @@ settings go through `github-config` under the organization's existing policy.
    created, `release.yml` installs the kit with public dependencies and requires the
    pure package version recorded in `packages/genre-graph/pyproject.toml`.
 
+For the initial coordinated release, merging the kit release branch onto `main`
+may automatically create its kit tag before the pure tag is created. The kit's
+public dependency gate then fails until the pure publication completes. Once
+step 4 succeeds, rerun the failed kit release jobs; keep the existing immutable
+kit tag. A blocked first attempt does not require another version bump.
+
 Policy activation, workflow adoption and local distribution tests do not authorize
 release tags, version changes, publishing, or consumer pin updates. The first pure
 version remains staged until the approved release supplies its versioned notes.
