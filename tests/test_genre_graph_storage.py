@@ -891,3 +891,37 @@ def test_permanent_nodes_cannot_be_deleted_and_recreated(dataset, payload, retir
     with pytest.raises(IntegrityError, match="immutable"), transaction.atomic(), connection.cursor() as cursor:
         cursor.execute(f"DELETE FROM {connection.ops.quote_name(node._meta.db_table)} WHERE id = %s", [node.pk])
     assert dataset.nodes.get(identity=node.identity).pk == node.pk
+
+
+def test_retirement_preserves_single_assignment_constraint_and_evidence(dataset, payload):
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+    (song,) = tracks("Singular membership")
+    assign(dataset, song, "french-dub")
+    reviewed = assignment_revision(dataset, song)
+    table = connection.ops.quote_name(GenreGraphAttribution._meta.db_table)
+    # Model a consumer that enforces a single direct assignment independently of graph storage.
+    with connection.cursor() as cursor:
+        cursor.execute(f"CREATE UNIQUE INDEX singular_consumer_assignment ON {table} (track_id)")
+    try:
+        updated = replace_graph(
+            key=dataset.key,
+            payload=without_nodes(payload, "french-dub"),
+            expected_revision=dataset.revision,
+            retirements={ref("french-dub"): {"target": ref("dub"), "provenance": provenance("retire")}},
+        )
+        assert assignment_snapshot(dataset=updated, track_id=song.pk) == {
+            ref("dub"): [provenance("french-dub"), provenance("retire")]
+        }
+        assert GenreGraphAttributionRevision.objects.get(revision=reviewed).attributions == {
+            ref("french-dub"): [provenance("french-dub")]
+        }
+        current = assignment_revision(updated, song)
+        assert current != reviewed
+        assert GenreGraphAttributionRevision.objects.get(revision=current).attributions == assignment_snapshot(
+            dataset=updated, track_id=song.pk
+        )
+    finally:
+        with connection.cursor() as cursor:
+            cursor.execute("DROP INDEX singular_consumer_assignment")
