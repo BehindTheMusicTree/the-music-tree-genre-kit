@@ -1,0 +1,15 @@
+{
+  "release_branch": "main",
+  "version": {
+    "path": "packages/genre-graph/pyproject.toml",
+    "format": "toml",
+    "key": "project.version"
+  },
+  "mirrors": [],
+  "tag_prefix": "graph-v",
+  "changelog": "packages/genre-graph/CHANGELOG.md",
+  "outputs": {
+    "github_release": false,
+    "packages": ["the-music-tree-genre-graph"]
+  }
+}

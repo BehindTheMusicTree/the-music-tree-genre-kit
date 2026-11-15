@@ -20,7 +20,7 @@ def _schema_validator() -> Draft202012Validator:
 
 
 def load_genre_graph_schema() -> dict:
-    resource = files("the_music_tree_genre_kit") / "schemas" / "genre_graph.schema.json"
+    resource = files("the_music_tree_genre_graph") / "genre_graph.schema.json"
     return json.loads(resource.read_text(encoding="utf-8"))
 
 

@@ -19,6 +19,7 @@ class GenreGraphRevision(models.Model):
     revision = models.UUIDField(primary_key=True, editable=False)
     dataset = models.ForeignKey(GenreGraphDataset, on_delete=models.CASCADE, related_name="history")
     payload = models.JSONField()
+    retirements = models.JSONField(default=dict)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -28,23 +29,32 @@ class GenreGraphRevision(models.Model):
 class GenreGraphNode(models.Model):
     dataset = models.ForeignKey(GenreGraphDataset, on_delete=models.CASCADE, related_name="nodes")
     identity = models.CharField(max_length=255)
+    is_active = models.BooleanField(default=True)
     is_umbrella = models.BooleanField()
     canonical_state = models.CharField(max_length=16, null=True)
 
     class Meta:
         app_label = "the_music_tree_genre_kit"
-        constraints = [models.UniqueConstraint(fields=["dataset", "identity"], name="graph_node_identity_unique")]
+        constraints = [
+            models.UniqueConstraint(fields=["dataset", "identity"], name="graph_node_identity_unique"),
+            models.UniqueConstraint(fields=["dataset", "id"], name="graph_node_dataset_id_unique"),
+        ]
 
 
 class GenreGraphAccess(models.Model):
     """Materialized selection by scope, including the selected node itself."""
 
+    dataset = models.ForeignKey(GenreGraphDataset, on_delete=models.CASCADE, related_name="access")
     ancestor = models.ForeignKey(GenreGraphNode, on_delete=models.CASCADE, related_name="inclusive_descendants")
     descendant = models.ForeignKey(GenreGraphNode, on_delete=models.CASCADE, related_name="inclusive_ancestors")
     scope = models.CharField(max_length=16)
 
     class Meta:
         app_label = "the_music_tree_genre_kit"
+        indexes = [
+            models.Index(fields=["dataset", "ancestor", "scope", "descendant"], name="graph_access_forward"),
+            models.Index(fields=["dataset", "descendant", "scope", "ancestor"], name="graph_access_reverse"),
+        ]
         constraints = [
             models.UniqueConstraint(fields=["ancestor", "scope", "descendant"], name="graph_access_unique"),
             models.CheckConstraint(
@@ -60,7 +70,7 @@ class GenreGraphAttribution(models.Model):
         "the_music_tree_genre_kit.Track", on_delete=models.CASCADE, related_name="graph_attributions"
     )
     node = models.ForeignKey(GenreGraphNode, on_delete=models.PROTECT, related_name="attributions")
-    provenance = models.JSONField()
+    evidence = models.ManyToManyField("GenreGraphEvidence", through="GenreGraphAttributionEvidence")
 
     class Meta:
         app_label = "the_music_tree_genre_kit"
@@ -79,3 +89,41 @@ class GenreGraphAttributionRevision(models.Model):
 
     class Meta:
         app_label = "the_music_tree_genre_kit"
+
+
+class GenreGraphEvidence(models.Model):
+    """A dataset decision has permanent content, shared by all assignments citing it."""
+
+    dataset = models.ForeignKey(GenreGraphDataset, on_delete=models.PROTECT)
+    decision_id = models.CharField(max_length=255)
+    source = models.TextField()
+    rationale = models.TextField()
+
+    class Meta:
+        app_label = "the_music_tree_genre_kit"
+        constraints = [
+            models.UniqueConstraint(fields=["dataset", "decision_id"], name="graph_evidence_decision_unique")
+        ]
+
+
+class GenreGraphAttributionEvidence(models.Model):
+    attribution = models.ForeignKey(GenreGraphAttribution, on_delete=models.CASCADE)
+    evidence = models.ForeignKey(GenreGraphEvidence, on_delete=models.PROTECT)
+
+    class Meta:
+        app_label = "the_music_tree_genre_kit"
+        constraints = [
+            models.UniqueConstraint(fields=["attribution", "evidence"], name="graph_attribution_evidence_unique")
+        ]
+
+
+class GenreGraphAssignmentState(models.Model):
+    """CAS token survives clearing assignments; a deleted track cannot be restored."""
+
+    dataset = models.ForeignKey(GenreGraphDataset, on_delete=models.CASCADE)
+    track = models.ForeignKey("the_music_tree_genre_kit.Track", on_delete=models.CASCADE)
+    revision = models.UUIDField(default=uuid4, editable=False)
+
+    class Meta:
+        app_label = "the_music_tree_genre_kit"
+        constraints = [models.UniqueConstraint(fields=["dataset", "track"], name="graph_assignment_state_unique")]

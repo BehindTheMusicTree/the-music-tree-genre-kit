@@ -9,7 +9,7 @@ authors = [
 ]
 requires-python = ">=3.14"
 dependencies = [
-    "jsonschema==4.26.0",
+    "the-music-tree-genre-graph>=0.1.0,<0.2.0",
     "Django>=5.2.8,<5.3",
     "djangorestframework>=3.15.1,<4",
     # Pinned by tag rather than commit SHA to avoid uv's git-ref conflict when other
@@ -85,13 +85,19 @@ ignore_missing_imports = true
 testpaths = ["tests"]
 pythonpath = ["."]
 DJANGO_SETTINGS_MODULE = "tests.settings"
-addopts = "--cov=src --cov-report=term-missing"
+addopts = "--cov=src --cov=packages/genre-graph/src --cov-report=term-missing"
 
 [tool.coverage.run]
-source = ["src"]
+source = ["src", "packages/genre-graph/src"]
 omit = ["*/migrations/*"]
 
 [tool.coverage.report]
 fail_under = 85
 show_missing = true
 exclude_also = ["if TYPE_CHECKING:"]
+
+[tool.uv.workspace]
+members = ["packages/genre-graph"]
+
+[tool.uv.sources]
+the-music-tree-genre-graph = { workspace = true }

@@ -8,5 +8,31 @@ permissions:
   contents: write
 
 jobs:
+  verify-public-dependency:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.14"
+      - name: Install kit using public dependencies
+        run: python3 -m pip install .
+      - name: Require the intended pure package version
+        run: |
+          python3 - <<'PY'
+          from importlib.metadata import version
+          from pathlib import Path
+          import tomllib
+
+          expected = tomllib.loads(Path('packages/genre-graph/pyproject.toml').read_text())['project']['version']
+          if version('the-music-tree-genre-graph') != expected:
+              raise SystemExit('Publish the intended pure graph package before releasing the kit')
+          PY
+
   publish:
+    needs: verify-public-dependency
     uses: BehindTheMusicTree/github-workflows/.github/workflows/release-github.yml@79c136234b5d487bb99e0cd2050f38f6b3e06747

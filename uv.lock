@@ -2,6 +2,12 @@ version = 1
 revision = 3
 requires-python = ">=3.14"
 
+[manifest]
+members = [
+    "the-music-tree-genre-graph",
+    "the-music-tree-genre-kit",
+]
+
 [[package]]
 name = "asgiref"
 version = "3.12.1"
@@ -428,14 +434,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "the-music-tree-genre-graph"
+version = "0.1.0"
+source = { editable = "packages/genre-graph" }
+dependencies = [
+    { name = "jsonschema" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "jsonschema", specifier = "==4.26.0" }]
+
+[[package]]
 name = "the-music-tree-genre-kit"
 version = "0.62.0"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
     { name = "djangorestframework" },
-    { name = "jsonschema" },
     { name = "the-music-tree-api-kit" },
+    { name = "the-music-tree-genre-graph" },
 ]
 
 [package.optional-dependencies]
@@ -453,13 +470,13 @@ requires-dist = [
     { name = "django", specifier = ">=5.2.8,<5.3" },
     { name = "django-stubs", marker = "extra == 'dev'", specifier = "==5.2.1" },
     { name = "djangorestframework", specifier = ">=3.15.1,<4" },
-    { name = "jsonschema", specifier = "==4.26.0" },
     { name = "mypy", marker = "extra == 'dev'", specifier = "==1.18.2" },
     { name = "pytest", marker = "extra == 'dev'", specifier = "==8.1.1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = "==7.0.0" },
     { name = "pytest-django", marker = "extra == 'dev'", specifier = "==4.8.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = "==0.15.9" },
     { name = "the-music-tree-api-kit", git = "https://github.com/BehindTheMusicTree/the-music-tree-api-kit.git?rev=v0.12.2" },
+    { name = "the-music-tree-genre-graph", editable = "packages/genre-graph" },
 ]
 provides-extras = ["dev"]
 

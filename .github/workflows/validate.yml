@@ -29,7 +29,7 @@ jobs:
         run: uv run ruff format --check .
 
       - name: mypy
-        run: uv run mypy src
+        run: uv run mypy src packages/genre-graph/src
 
   migration-check:
     name: Fixture makemigrations check
@@ -71,7 +71,14 @@ jobs:
         run: uv run pytest
 
   graph-postgres:
-    name: Graph PostgreSQL transactions
+    name: Graph PostgreSQL transactions (${{ matrix.driver.name }})
+    strategy:
+      matrix:
+        driver:
+          - name: psycopg3
+            dependency: psycopg[binary]
+          - name: psycopg2
+            dependency: psycopg2-binary==2.9.11
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -107,6 +114,31 @@ jobs:
 
       - name: Verify graph migrations and transaction isolation
         run: >-
-          uv run --with 'psycopg[binary]' pytest
+          uv run --with '${{ matrix.driver.dependency }}' pytest
           tests/test_genre_graph_storage.py tests/test_genre_graph_concurrency.py
           --ds=tests.genre_graph_postgres_settings --no-cov --create-db
+
+  pure-graph:
+    name: Pure graph Python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python: ["3.12", "3.14"]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5.0.1
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Build pure graph distributions
+        run: uv build --package the-music-tree-genre-graph --out-dir dist/genre-graph
+
+      - name: Build Django kit distributions
+        if: matrix.python == '3.14'
+        run: uv build --package the-music-tree-genre-kit --out-dir dist/kit
+
+      - name: Test distributions outside the workspace
+        run: bash scripts/check-graph-distributions.sh '${{ matrix.python }}'
