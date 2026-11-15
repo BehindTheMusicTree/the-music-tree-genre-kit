@@ -131,8 +131,11 @@ def graph_read_snapshot():
         raise GraphValidationError("Reference graphs require PostgreSQL or SQLite")
     if connection.vendor == "postgresql" and connection.in_atomic_block and not nested:
         raise GraphValidationError("Graph reads require an outermost REPEATABLE READ snapshot")
+    if nested:
+        yield
+        return
     with transaction.atomic():
-        if connection.vendor == "postgresql" and not nested:
+        if connection.vendor == "postgresql":
             with connection.cursor() as cursor:
                 cursor.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
         connection.graph_snapshot_depth = nested + 1
