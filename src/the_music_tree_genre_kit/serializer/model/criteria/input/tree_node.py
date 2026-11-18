@@ -13,6 +13,9 @@ from the_music_tree_genre_kit.criteria.children.genre.validators import HTTP_URL
 from the_music_tree_genre_kit.criteria.CriteriaSide import CriteriaSide
 from the_music_tree_genre_kit.serializer.model.criteria.input.tree_import.Fields import Fields
 
+OVERVIEW_TYPE_CURRENT = "current"
+OVERVIEW_TYPES = [OVERVIEW_TYPE_CURRENT, "historical"]
+
 
 class CriteriaTreeNodeSerializer(AppInputSerializer):
     name = AppCharField(max_length=settings.CRITERIA_NAME_LEN_MAX, allow_blank=False, required=True)
@@ -28,6 +31,7 @@ class CriteriaTreeNodeSerializer(AppInputSerializer):
     secondary_parents = AppListField(child=AppCharField(allow_blank=False), required=False, default=list)
     is_unaccepted_root = BooleanField(required=False, default=False)
     is_umbrella = BooleanField(required=False, default=False)
+    overview_type = ChoiceField(choices=OVERVIEW_TYPES, required=False, allow_null=True)
     scene = ChoiceField(choices=CriteriaScene.choices, required=False, allow_null=True)
     image = CommonsImageSerializer(required=False, allow_null=True)
 
