@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Removed
+
+- Drop the tracked `.agent-plans/.gitignore`: plans now live in the common git directory.
+
 ## [0.64.0] - 2026-11-18
 
 ### Added
