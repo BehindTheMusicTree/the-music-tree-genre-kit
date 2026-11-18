@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from uuid import UUID, uuid4
 
 from django.db import connection, transaction
-from django.db.models import Exists, OuterRef, QuerySet
+from django.db.models import QuerySet
 from the_music_tree_genre_graph import GenreGraph, GraphValidationError
 
 from .assignments import replace_track_attributions, restore_track_attributions, validate_evidence
@@ -174,16 +174,8 @@ def restore_graph(
 
 
 def effective_attributions(*, key: str) -> QuerySet:
-    """Normalize direct assignments in SQL without materializing track populations."""
-    more_precise = GenreGraphAttribution.objects.filter(
-        track_id=OuterRef("track_id"),
-        node__dataset_id=key,
-        node__inclusive_ancestors__ancestor_id=OuterRef("node_id"),
-        node__inclusive_ancestors__scope="all",
-    ).exclude(node_id=OuterRef("node_id"))
-    return GenreGraphAttribution.objects.filter(node__dataset_id=key, node__is_active=True).filter(
-        ~Exists(more_precise)
-    )
+    """Active attributions of a dataset; a track holds at most one node per dataset."""
+    return GenreGraphAttribution.objects.filter(dataset_id=key, node__is_active=True)
 
 
 def select_tracks(

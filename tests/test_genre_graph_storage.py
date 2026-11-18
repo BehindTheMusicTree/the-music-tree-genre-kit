@@ -111,7 +111,7 @@ def test_m01_m03_e09_sql_exact_sets_distinct_counts_and_unclassified_tracks(data
         "Jamaican", "French", "British", "Unknown region", "No genre"
     )
     assign(dataset, jamaican, "jamaican-dub")
-    assign(dataset, french, "french-dub", "france", "dub")
+    assign(dataset, french, "french-dub")
     assign(dataset, british, "british-dub")
     assign(dataset, unknown_region, "dub")
     assert selected("dub", "canonical") == {"Jamaican", "French", "British", "Unknown region"}
@@ -129,10 +129,10 @@ def test_m01_m03_e09_sql_exact_sets_distinct_counts_and_unclassified_tracks(data
     }
 
 
-def test_r06_r07_sql_normalization_precedes_refinement(dataset):
+def test_r06_r07_effective_attributions_are_active_and_umbrellas_need_refinement(dataset):
     inherited, independent, direct = tracks("Inherited", "Independent", "Direct")
-    assign(dataset, inherited, "breton-rock", "brittany", "france")
-    assign(dataset, independent, "breton-rock", "jamaica")
+    assign(dataset, inherited, "breton-rock")
+    assign(dataset, independent, "jamaica")
     assign(dataset, direct, "brittany")
     effective = effective_attributions(key=dataset.key)
     assert set(effective.filter(track=inherited).values_list("node__identity", flat=True)) == {ref("breton-rock")}
@@ -140,7 +140,7 @@ def test_r06_r07_sql_normalization_precedes_refinement(dataset):
         "Independent",
         "Direct",
     }
-    assert selected("france") == {"Inherited", "Independent", "Direct"}
+    assert selected("france") == {"Inherited", "Direct"}
 
 
 def test_e02_invalid_import_leaves_dataset_and_assignments_usable(dataset, payload):
@@ -346,6 +346,7 @@ def test_e04_database_invalidation_covers_bulk_writes_and_cascades(dataset, muta
                         GenreGraphAttribution(
                             track=song,
                             node=node,
+                            dataset=dataset,
                         )
                     ]
                 )
@@ -453,6 +454,7 @@ def test_e02_database_rejects_private_track_attributions(dataset, django_user_mo
                         GenreGraphAttribution(
                             track=song,
                             node=node,
+                            dataset=dataset,
                         )
                     ]
                 )
@@ -516,8 +518,9 @@ def without_nodes(payload, *identities):
 
 
 def test_retirement_merges_all_evidence_and_archives_complete_assignment_sets(dataset, payload):
-    (song,) = tracks("Shared dub")
-    assign(dataset, song, "french-dub", "jamaican-dub", "dub", "reggae")
+    song, other = tracks("Shared dub", "Other dub")
+    assign(dataset, song, "french-dub")
+    assign(dataset, other, "jamaican-dub")
     before = assignment_snapshot(dataset=dataset, track_id=song.pk)
     reviewed = assignment_revision(dataset, song)
     updated = replace_graph(
@@ -530,15 +533,12 @@ def test_retirement_merges_all_evidence_and_archives_complete_assignment_sets(da
         },
     )
     after = assignment_snapshot(dataset=updated, track_id=song.pk)
-    assert set(after) == {ref("dub"), ref("reggae")}
-    assert {value["decisionId"] for value in after[ref("dub")]} == {
-        "dub",
-        "french-dub",
+    assert set(after) == {ref("dub")}
+    assert {value["decisionId"] for value in after[ref("dub")]} == {"french-dub", "retire-french-dub"}
+    assert {value["decisionId"] for value in assignment_snapshot(dataset=updated, track_id=other.pk)[ref("dub")]} == {
         "jamaican-dub",
-        "retire-french-dub",
         "retire-jamaican-dub",
     }
-    assert after[ref("reggae")] == before[ref("reggae")]
     assert GenreGraphAttributionRevision.objects.get(revision=reviewed).attributions == before
     current = assignment_revision(updated, song)
     assert current != reviewed
@@ -668,7 +668,7 @@ def test_restore_never_recreates_deleted_track(dataset):
 
 def test_retirement_failure_after_remap_restores_complete_database_state(dataset, payload, monkeypatch):
     (song,) = tracks("Shared dub")
-    assign(dataset, song, "french-dub", "dub", "reggae")
+    assign(dataset, song, "french-dub")
     models = (
         GenreGraphDataset,
         type(dataset.nodes.first()),
@@ -687,11 +687,7 @@ def test_retirement_failure_after_remap_restores_complete_database_state(dataset
     before = snapshot()
 
     def fail_after_remap(*args):
-        assert assignment_snapshot(dataset=dataset, track_id=song.pk) != {
-            ref("french-dub"): [provenance("french-dub")],
-            ref("dub"): [provenance("dub")],
-            ref("reggae"): [provenance("reggae")],
-        }
+        assert assignment_snapshot(dataset=dataset, track_id=song.pk) != {ref("french-dub"): [provenance("french-dub")]}
         raise RuntimeError("publication failed after retirement")
 
     monkeypatch.setattr(storage, "replace_access", fail_after_remap)
@@ -925,3 +921,92 @@ def test_retirement_preserves_single_assignment_constraint_and_evidence(dataset,
     finally:
         with connection.cursor() as cursor:
             cursor.execute("DROP INDEX singular_consumer_assignment")
+
+
+def immediate_constraints():
+    if connection.vendor == "postgresql":
+        with connection.cursor() as cursor:
+            cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+
+
+def test_assignment_api_rejects_several_nodes_per_track(dataset):
+    (song,) = tracks("Two nodes")
+    with pytest.raises(GraphValidationError, match="at most one node"):
+        assign(dataset, song, "french-dub", "jamaican-dub")
+    assert not GenreGraphAttribution.objects.exists()
+    assign(dataset, song, "french-dub")
+    archived = GenreGraphAttributionRevision.objects.get(revision=assignment_revision(dataset, song))
+    archived.attributions = {ref("dub"): [provenance("a")], ref("reggae"): [provenance("b")]}
+    with pytest.raises(GraphValidationError, match="at most one node"):
+        replace_track_attributions(
+            key=dataset.key,
+            track_id=song.pk,
+            attributions=archived.attributions,
+            expected_revision=dataset.revision,
+            expected_assignment_revision=assignment_revision(dataset, song),
+        )
+
+
+def test_assignments_are_scoped_per_dataset_and_denormalize_dataset(dataset, payload):
+    other = replace_graph(key="other", payload=payload, expected_revision=None)
+    (song,) = tracks("Both datasets")
+    assign(dataset, song, "dub")
+    assign(other, song, "reggae")
+    assert set(GenreGraphAttribution.objects.filter(track=song).values_list("dataset_id", flat=True)) == {
+        "reference",
+        "other",
+    }
+    assert all(row.dataset_id == row.node.dataset_id for row in GenreGraphAttribution.objects.select_related("node"))
+
+
+def test_database_rejects_second_node_for_a_track_and_dataset(dataset):
+    (song,) = tracks("Direct SQL duplicate")
+    assign(dataset, song, "dub")
+    node = dataset.nodes.get(identity=ref("reggae"))
+    with pytest.raises(IntegrityError), transaction.atomic():
+        GenreGraphAttribution.objects.bulk_create([GenreGraphAttribution(track=song, node=node, dataset=dataset)])
+
+
+def test_database_rejects_attribution_dataset_that_differs_from_node(dataset, payload):
+    other = replace_graph(key="other", payload=payload, expected_revision=None)
+    (song,) = tracks("Mismatched dataset")
+    node = dataset.nodes.get(identity=ref("dub"))
+    with transaction.atomic():
+        immediate_constraints()
+        with pytest.raises(IntegrityError):
+            GenreGraphAttribution.objects.bulk_create([GenreGraphAttribution(track=song, node=node, dataset=other)])
+
+
+def test_database_rejects_changing_attribution_dataset(dataset, payload):
+    other = replace_graph(key="other", payload=payload, expected_revision=None)
+    (song,) = tracks("Immutable dataset")
+    assign(dataset, song, "dub")
+    with transaction.atomic():
+        immediate_constraints()
+        with pytest.raises(IntegrityError):
+            GenreGraphAttribution.objects.filter(track=song).update(dataset=other)
+
+
+def test_staged_publication_rejects_several_nodes_per_track(dataset):
+    (song,) = tracks("Staged duplicate")
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        evidence = register_evidence(locked, [provenance("staged")])["staged"]
+        population, desired = "population_" + uuid4().hex, "desired_" + uuid4().hex
+        quote = connection.ops.quote_name
+        uuid_type = "char(32)" if connection.vendor == "sqlite" else "uuid"
+        pk = Track._meta.pk.get_db_prep_value(song.pk, connection)
+        with connection.cursor() as cursor:
+            cursor.execute(f"CREATE TEMPORARY TABLE {quote(population)} (track_id {uuid_type} PRIMARY KEY)")
+            cursor.execute(
+                f"CREATE TEMPORARY TABLE {quote(desired)} (track_id {uuid_type}, node_id bigint, evidence_id bigint)"
+            )
+            cursor.execute(f"INSERT INTO {quote(population)} VALUES (%s)", [pk])
+            cursor.executemany(
+                f"INSERT INTO {quote(desired)} VALUES (%s, %s, %s)",
+                [(pk, locked.nodes.get(identity=ref(name)).pk, evidence.pk) for name in ("dub", "reggae")],
+            )
+            with pytest.raises(GraphValidationError, match="at most one node"), transaction.atomic():
+                publish_staged_attributions(dataset=locked, population=population, assignments=desired)
+            cursor.execute(f"DROP TABLE {quote(desired)}")
+            cursor.execute(f"DROP TABLE {quote(population)}")
+    assert not GenreGraphAttribution.objects.exists()

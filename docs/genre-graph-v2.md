@@ -119,11 +119,25 @@ réutilise sa clé. Les attributions sont remappées en SQL vers la cible explic
 retirées pour une cible nulle, en conservant leur historique et toutes les preuves
 d'origine, de destination et de retrait. Aucun track n'est supprimé.
 
+Un track porte au plus un nœud par dataset. `GenreGraphAttribution.dataset` est
+dénormalisé depuis le nœud et immuable (clé étrangère composite
+`(dataset_id, node_id)` sur PostgreSQL, triggers équivalents sur SQLite), et
+`UNIQUE(dataset_id, track_id)` s'applique à tout le kit, y compris aux écritures
+SQL directes. `replace_track_attributions` et `restore_track_attributions`
+rejettent plus d'une identité, `publish_staged_attributions` rejette un ensemble
+staged comportant plusieurs nœuds pour un même track. Le remappage d'une
+retrait ne peut pas créer de doublon : le track n'avait qu'un nœud, il n'en a
+qu'un, avec les preuves d'origine, de destination et de retrait. La migration
+0022 échoue en nommant le dataset et le track tant que des doublons existent ;
+elle ne choisit jamais un nœud.
+
 `select_tracks`, `effective_attributions` et `tracks_needing_refinement` utilisent
 des sous-requêtes SQL : ils ne matérialisent pas les populations de tracks en
-Python. Le queryset fourni par le consommateur conserve son périmètre d'accès
-et ses critères de jouabilité. Les comptes utilisent les tracks distincts,
-y compris lorsqu'une attribution possède plusieurs chemins.
+Python. `effective_attributions` renvoie les attributions actives du dataset (il
+n'y a plus de normalisation « plus précis » à faire) ; `tracks_needing_refinement`
+garde la sémantique umbrella. Le queryset fourni par le consommateur conserve son
+périmètre d'accès et ses critères de jouabilité. Les comptes utilisent les tracks
+distincts, y compris lorsqu'un nœud possède plusieurs chemins d'accès.
 
 Pour rendre plusieurs résultats avec leurs jetons, évaluer tous les querysets
 à l'intérieur de `graph_read_snapshot()`, après l'authentification. Sous PostgreSQL,
