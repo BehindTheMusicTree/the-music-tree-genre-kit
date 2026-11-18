@@ -77,12 +77,15 @@ def remap_retirements(*, dataset, decisions, nodes, previous_revision):
             f"DELETE FROM {link} WHERE attribution_id IN (SELECT a.id FROM {attribution} a JOIN {mapping} m ON m.node_id = a.node_id)"
         )
         cursor.execute(f"DELETE FROM {attribution} WHERE node_id IN (SELECT node_id FROM {mapping})")
-        cursor.execute(f"""INSERT INTO {attribution} (track_id, node_id)
-            SELECT DISTINCT source.track_id, source.target_id FROM {replacement} source
+        cursor.execute(
+            f"""INSERT INTO {attribution} (track_id, node_id, dataset_id)
+            SELECT DISTINCT source.track_id, source.target_id, %s FROM {replacement} source
             WHERE NOT EXISTS (
                 SELECT 1 FROM {attribution} destination
                 WHERE destination.track_id = source.track_id AND destination.node_id = source.target_id
-            )""")
+            )""",
+            [dataset.pk],
+        )
         cursor.execute(f"""INSERT INTO {link} (attribution_id, evidence_id)
             SELECT destination.id, source.evidence_id FROM {replacement} source
             JOIN {attribution} destination ON destination.track_id = source.track_id AND destination.node_id = source.target_id
