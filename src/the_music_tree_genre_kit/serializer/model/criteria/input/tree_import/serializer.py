@@ -34,7 +34,9 @@ class CriteriaTreeImportSerializer(AppInputSerializer):
         while stack:
             node = stack.pop()
             stack.extend(node.get(Fields.CHILDREN) or [])
-            referenced.update(node.get(Fields.PRIMARY_PARENTS) or [])
+            referenced.update(
+                parent for parent in node.get(Fields.PRIMARY_PARENTS) or [] if parent != node.get(Fields.ID)
+            )
             if node.get(Fields.IS_UMBRELLA):
                 umbrellas.append(node)
         for node in umbrellas:

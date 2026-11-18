@@ -61,3 +61,19 @@ def test_schema_accepts_umbrella_without_child_and_declares_overview_type():
 
     assert node["properties"]["overviewType"]["enum"] == ["current", "historical"]
     assert "if" not in node
+
+
+def test_umbrella_referencing_itself_is_rejected():
+    with pytest.raises(ValidationError):
+        _validate([_umbrella(id="Q1", overview_type="historical", primary_parents=["Q1"])])
+
+
+@pytest.mark.parametrize("field", ["secondary_parents"])
+def test_secondary_parents_do_not_make_an_umbrella_valid(field):
+    tree = [
+        _umbrella(id="Q1", overview_type="historical"),
+        {"id": "Q2", "name": "Child", "children": [], field: ["Q1"]},
+    ]
+
+    with pytest.raises(ValidationError):
+        _validate(tree)
