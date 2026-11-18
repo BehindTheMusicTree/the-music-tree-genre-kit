@@ -57,9 +57,7 @@ def register_evidence(dataset, decisions) -> dict:
 
 
 def assignment_snapshot(*, dataset, track_id) -> dict:
-    rows = GenreGraphAttribution.objects.filter(node__dataset=dataset, track_id=track_id).prefetch_related(
-        "evidence", "node"
-    )
+    rows = GenreGraphAttribution.objects.filter(dataset=dataset, track_id=track_id).prefetch_related("evidence", "node")
     return {
         row.node.identity: [
             {"decisionId": evidence.decision_id, "source": evidence.source, "rationale": evidence.rationale}
@@ -102,6 +100,8 @@ def replace_track_attributions(
         state = GenreGraphAssignmentState.objects.filter(dataset=dataset, track=track).first()
         if (state.revision if state else None) != expected_assignment_revision:
             raise GraphRevisionConflict("Track assignments changed; reload before assigning tracks")
+        if len(attributions) > 1:
+            raise GraphValidationError(f"A track holds at most one node per dataset; got {sorted(attributions)}")
         nodes = dict(dataset.nodes.filter(identity__in=attributions, is_active=True).values_list("identity", "pk"))
         unknown = set(attributions) - nodes.keys()
         if unknown:
@@ -122,9 +122,9 @@ def replace_track_attributions(
         archive_assignments(dataset=dataset, track_id=track_id, revision=state.revision, attributions=previous)
         if previous == normalized:
             return state.revision
-        GenreGraphAttribution.objects.filter(track=track, node__dataset=dataset).delete()
+        GenreGraphAttribution.objects.filter(track=track, dataset=dataset).delete()
         rows = GenreGraphAttribution.objects.bulk_create(
-            [GenreGraphAttribution(track=track, node_id=nodes[identity]) for identity in normalized]
+            [GenreGraphAttribution(track=track, dataset=dataset, node_id=nodes[identity]) for identity in normalized]
         )
         GenreGraphAttributionEvidence.objects.bulk_create(
             [

@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Breaking
+
+- **One node per track and dataset**: `GenreGraphAttribution` gains an immutable `dataset` (denormalized from its node, composite FK on PostgreSQL and triggers on SQLite) with `UNIQUE(dataset, track)` kit-wide, replacing `UNIQUE(track, node)`. `replace_track_attributions` and `restore_track_attributions` reject more than one identity, `publish_staged_attributions` rejects staged sets with several nodes per track, and `effective_attributions` now returns the dataset's active attributions without the "more precise" normalization (`tracks_needing_refinement` keeps umbrella semantics). Direct SQL inserts into the attribution table must write `dataset_id`. Migration `0022` backfills `dataset` and fails, naming the dataset and the track, while a track holds several nodes in one dataset; it never picks a node. Tests cover the API, staged publication, direct-SQL and migration rejection, and dataset immutability.
+
 ### Removed
 
 - Drop the tracked `.agent-plans/.gitignore`: plans now live in the common git directory.

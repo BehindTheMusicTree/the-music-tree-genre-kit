@@ -53,7 +53,7 @@ def archive_population(cursor, *, dataset, affected):
                     FROM {attribution} a JOIN {node} n ON n.id = a.node_id
                     JOIN {affected} changed ON changed.track_id = a.track_id
                     JOIN {link} l ON l.attribution_id = a.id JOIN {evidence} e ON e.id = l.evidence_id
-                    WHERE n.dataset_id = %s ORDER BY a.track_id, n.identity, e.decision_id
+                    WHERE a.dataset_id = %s ORDER BY a.track_id, n.identity, e.decision_id
                 ) ordered_evidence GROUP BY track_id, identity
             ) sets GROUP BY track_id
         ) population ON population.track_id = s.track_id
@@ -110,6 +110,13 @@ def publish_staged_attributions(*, dataset, population, assignments):
             raise GraphValidationError(
                 "Staged assignments require ownerless tracks and active dataset identities/evidence"
             )
+        cursor.execute(
+            f"""SELECT EXISTS (
+            SELECT 1 FROM {desired} d JOIN {population} p ON p.track_id = d.track_id
+            GROUP BY d.track_id HAVING count(DISTINCT d.node_id) > 1)"""
+        )
+        if cursor.fetchone()[0]:
+            raise GraphValidationError("A track holds at most one node per dataset in staged assignments")
         if connection.vendor == "postgresql":
             cursor.execute(
                 f"DO $$ BEGIN PERFORM t.uuid FROM {track} t JOIN {population} p ON p.track_id = t.uuid ORDER BY t.uuid FOR UPDATE OF t; END $$"
@@ -119,13 +126,13 @@ def publish_staged_attributions(*, dataset, population, assignments):
             SELECT p.track_id FROM {population} p WHERE
                 NOT EXISTS (SELECT 1 FROM {state} s WHERE s.dataset_id = %s AND s.track_id = p.track_id)
                 OR EXISTS (
-                    SELECT a.node_id, l.evidence_id FROM {attribution} a JOIN {node} n ON n.id = a.node_id
-                    LEFT JOIN {link} l ON l.attribution_id = a.id WHERE n.dataset_id = %s AND a.track_id = p.track_id
+                    SELECT a.node_id, l.evidence_id FROM {attribution} a
+                    LEFT JOIN {link} l ON l.attribution_id = a.id WHERE a.dataset_id = %s AND a.track_id = p.track_id
                     EXCEPT SELECT d.node_id, d.evidence_id FROM {desired} d WHERE d.track_id = p.track_id
                 ) OR EXISTS (
                     SELECT d.node_id, d.evidence_id FROM {desired} d WHERE d.track_id = p.track_id
-                    EXCEPT SELECT a.node_id, l.evidence_id FROM {attribution} a JOIN {node} n ON n.id = a.node_id
-                    JOIN {link} l ON l.attribution_id = a.id WHERE n.dataset_id = %s AND a.track_id = p.track_id
+                    EXCEPT SELECT a.node_id, l.evidence_id FROM {attribution} a
+                    JOIN {link} l ON l.attribution_id = a.id WHERE a.dataset_id = %s AND a.track_id = p.track_id
                 )""",
             [dataset.pk, dataset.pk, dataset.pk],
         )
@@ -138,11 +145,16 @@ def publish_staged_attributions(*, dataset, population, assignments):
             [dataset.pk, dataset.pk],
         )
         archive_population(cursor, dataset=dataset, affected=affected)
-        selected = f"SELECT a.id FROM {attribution} a JOIN {node} n ON n.id = a.node_id JOIN {affected} p ON p.track_id = a.track_id WHERE n.dataset_id = %s"
+        selected = (
+            f"SELECT a.id FROM {attribution} a JOIN {affected} p ON p.track_id = a.track_id WHERE a.dataset_id = %s"
+        )
         cursor.execute(f"DELETE FROM {link} WHERE attribution_id IN ({selected})", [dataset.pk])
         cursor.execute(f"DELETE FROM {attribution} WHERE id IN ({selected})", [dataset.pk])
-        cursor.execute(f"""INSERT INTO {attribution} (track_id, node_id)
-            SELECT DISTINCT d.track_id, d.node_id FROM {desired} d JOIN {affected} p ON p.track_id = d.track_id""")
+        cursor.execute(
+            f"""INSERT INTO {attribution} (track_id, node_id, dataset_id)
+            SELECT DISTINCT d.track_id, d.node_id, %s FROM {desired} d JOIN {affected} p ON p.track_id = d.track_id""",
+            [dataset.pk],
+        )
         cursor.execute(f"""INSERT INTO {link} (attribution_id, evidence_id)
             SELECT DISTINCT a.id, d.evidence_id FROM {desired} d JOIN {affected} p ON p.track_id = d.track_id
             JOIN {attribution} a ON a.track_id = d.track_id AND a.node_id = d.node_id""")

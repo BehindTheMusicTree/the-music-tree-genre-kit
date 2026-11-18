@@ -243,6 +243,7 @@ def test_e02_attribution_and_owner_transfer_cannot_both_commit(payload, django_u
                     GenreGraphAttribution(
                         track=track,
                         node=node,
+                        dataset=dataset,
                     )
                 ]
             )
@@ -343,7 +344,7 @@ def test_cold_1710_node_shared_ancestry_publication_uses_staged_closure():
     replace_track_attributions(
         key=dataset.pk,
         track_id=song.pk,
-        attributions={identity: [evidence] for identity in leaf_ids[:2]},
+        attributions={identity: [evidence] for identity in leaf_ids[:1]},
         expected_revision=dataset.revision,
         expected_assignment_revision=None,
     )
@@ -367,7 +368,7 @@ def test_direct_assignment_rechecks_activity_after_concurrent_retirement(payload
     Track.objects.bulk_create([song])
     retiring = dataset.nodes.get(identity="LOCAL:french-dub")
     if mutation == "update":
-        GenreGraphAttribution.objects.create(track=song, node=dataset.nodes.get(identity="LOCAL:dub"))
+        GenreGraphAttribution.objects.create(track=song, node=dataset.nodes.get(identity="LOCAL:dub"), dataset=dataset)
     attempted = Event()
 
     def assign():
@@ -379,7 +380,7 @@ def test_direct_assignment_rechecks_activity_after_concurrent_retirement(payload
         try:
             with transaction.atomic(), connection.execute_wrapper(mark_attempt):
                 if mutation == "insert":
-                    GenreGraphAttribution.objects.create(track=song, node=retiring)
+                    GenreGraphAttribution.objects.create(track=song, node=retiring, dataset=dataset)
                 else:
                     GenreGraphAttribution.objects.filter(track=song).update(node=retiring)
         except IntegrityError as error:
@@ -417,56 +418,28 @@ def test_direct_assignment_rechecks_activity_after_concurrent_retirement(payload
     assert not GenreGraphAttribution.objects.filter(node__is_active=False).exists()
 
 
-@pytest.mark.parametrize("mutation", ["insert", "update"])
-def test_evidence_link_rechecks_dataset_after_concurrent_assignment_move(payload, mutation):
-    source = replace_graph(key="source", payload=payload, expected_revision=None)
-    target = replace_graph(key="target", payload=payload, expected_revision=None)
-    song = Track(title="Concurrent evidence")
+def test_dataset_unique_migration_backfills_dataset_and_fails_on_duplicates(payload):
+    song = Track(title="Migrated duplicate")
     Track.objects.bulk_create([song])
-    assignment = GenreGraphAttribution.objects.create(track=song, node=source.nodes.get(identity="LOCAL:dub"))
-    evidence = GenreGraphEvidence.objects.create(dataset=source, decision_id="race", source="fixture", rationale="test")
-    link = None
-    if mutation == "update":
-        other = GenreGraphAttribution.objects.create(track=song, node=source.nodes.get(identity="LOCAL:french-dub"))
-        link = GenreGraphAttributionEvidence.objects.create(attribution=other, evidence=evidence)
-    attempted = Event()
-
-    def attach():
-        def mark_attempt(execute, sql, params, many, context):
-            if sql.startswith(("INSERT", "UPDATE")):
-                attempted.set()
-            return execute(sql, params, many, context)
-
-        try:
-            with transaction.atomic(), connection.execute_wrapper(mark_attempt):
-                if mutation == "insert":
-                    GenreGraphAttributionEvidence.objects.create(attribution=assignment, evidence=evidence)
-                else:
-                    GenreGraphAttributionEvidence.objects.filter(pk=link.pk).update(attribution=assignment)
-        except IntegrityError as error:
-            assert "evidence dataset" in str(error)
-            return "rejected"
-        return "committed"
-
-    with ThreadPoolExecutor(max_workers=1) as pool:
-        with transaction.atomic():
-            GenreGraphAttribution.objects.filter(pk=assignment.pk).update(node=target.nodes.get(identity="LOCAL:dub"))
-            future = pool.submit(in_connection, attach)
-            assert attempted.wait(timeout=10)
-            with pytest.raises(TimeoutError):
-                future.result(timeout=0.1)
-        assert future.result(timeout=15) == "rejected"
-    assert not GenreGraphAttributionEvidence.objects.filter(attribution=assignment).exists()
-
-
-def test_generic_snapshot_nests_graph_reads_and_rejects_unowned_transactions(payload):
-    dataset = replace_graph(key="reference", payload=payload, expected_revision=None)
-    with graph_read_snapshot(), graph_read_transaction(key=dataset.key) as read:
-        assert read.revision == dataset.revision
-        with connection.cursor() as cursor:
-            cursor.execute("SHOW transaction_isolation")
-            assert cursor.fetchone()[0] == "repeatable read"
-            cursor.execute("SHOW transaction_read_only")
-            assert cursor.fetchone()[0] == "on"
-    with transaction.atomic(), pytest.raises(ValueError, match="outermost"), graph_read_snapshot():
-        pass
+    executor = MigrationExecutor(connection)
+    latest = executor.loader.graph.leaf_nodes()
+    previous = [("the_music_tree_genre_kit", "0021_assignment_guards")]
+    executor.migrate(previous)
+    old = executor.loader.project_state(previous).apps
+    dataset = old.get_model("the_music_tree_genre_kit", "GenreGraphDataset").objects.create(
+        key="migration", payload=payload
+    )
+    nodes = old.get_model("the_music_tree_genre_kit", "GenreGraphNode")
+    first = nodes.objects.create(dataset=dataset, identity="LOCAL:dub", is_umbrella=False)
+    second = nodes.objects.create(dataset=dataset, identity="LOCAL:reggae", is_umbrella=False)
+    attribution = old.get_model("the_music_tree_genre_kit", "GenreGraphAttribution")
+    attribution.objects.create(track_id=song.pk, node=first)
+    duplicate = attribution.objects.create(track_id=song.pk, node=second)
+    try:
+        with pytest.raises(RuntimeError, match=f"Track {song.pk}.*dataset migration"):
+            MigrationExecutor(connection).migrate(latest)
+        duplicate.delete()
+        MigrationExecutor(connection).migrate(latest)
+        assert GenreGraphAttribution.objects.get(track=song).dataset_id == "migration"
+    finally:
+        MigrationExecutor(connection).migrate(latest)

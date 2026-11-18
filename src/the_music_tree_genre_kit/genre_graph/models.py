@@ -70,11 +70,16 @@ class GenreGraphAttribution(models.Model):
         "the_music_tree_genre_kit.Track", on_delete=models.CASCADE, related_name="graph_attributions"
     )
     node = models.ForeignKey(GenreGraphNode, on_delete=models.PROTECT, related_name="attributions")
+    # Denormalized from node and immutable: database guards pin it to the node's dataset, so a
+    # track holds at most one node per dataset without a join.
+    dataset = models.ForeignKey(GenreGraphDataset, on_delete=models.PROTECT, related_name="attributions")
     evidence = models.ManyToManyField("GenreGraphEvidence", through="GenreGraphAttributionEvidence")
 
     class Meta:
         app_label = "the_music_tree_genre_kit"
-        constraints = [models.UniqueConstraint(fields=["track", "node"], name="graph_attribution_unique")]
+        constraints = [
+            models.UniqueConstraint(fields=["dataset", "track"], name="graph_attribution_dataset_track_unique")
+        ]
 
 
 class GenreGraphAttributionRevision(models.Model):
