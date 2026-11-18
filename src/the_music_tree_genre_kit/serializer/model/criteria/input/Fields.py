@@ -11,6 +11,7 @@ class Fields:
     CROSS_TREE_SECONDARY_PARENTS = "cross_tree_secondary_parents"
     IS_UNACCEPTED_ROOT = "is_unaccepted_root"
     IS_UMBRELLA = "is_umbrella"
+    OVERVIEW_TYPE = "overview_type"
     SCENE = "scene"
     SUMMARY = "summary"
     DESCRIPTION = "description"

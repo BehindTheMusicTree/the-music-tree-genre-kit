@@ -17,6 +17,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-11-18
+
+### Added
+
+- Optional `overview_type` (`current` | `historical`, wire name `overviewType`) on a genre tree-import node, accepted and validated but not persisted yet. A `current` overview is always an umbrella, so it may have no child.
+
+### Changed
+
+- Umbrella validation now runs on the whole imported tree instead of per node: an umbrella is valid when it is a `current` overview, has a nested child, or is referenced by another node's `primary_parents`. An umbrella without `overview_type` (canonical tree) still needs a child. `genre_tree.schema.json` drops its `children.minItems` rule for umbrellas, so older exports stay valid.
+
+### Fixed
+
+- **Agent directories**: Keep plans and scratch data out of Git while tracking the directory ignore rules.
+
 ## [0.63.2] - 2026-11-15
 
 ### Fixed

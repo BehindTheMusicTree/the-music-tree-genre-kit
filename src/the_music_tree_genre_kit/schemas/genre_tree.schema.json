@@ -34,6 +34,7 @@
         "side": { "type": "string", "enum": ["pop"] },
         "isUnacceptedRoot": { "type": "boolean", "const": true },
         "isUmbrella": { "type": "boolean", "const": true },
+        "overviewType": { "type": "string", "enum": ["current", "historical"] },
         "scene": { "type": "string", "enum": ["commercial", "underground"] },
         "children": {
           "type": "array",
@@ -58,8 +59,6 @@
         }
       },
       "required": ["id", "name", "children"],
-      "if": { "required": ["isUmbrella"] },
-      "then": { "properties": { "children": { "minItems": 1 } } },
       "additionalProperties": false
     },
     "parentRefs": {

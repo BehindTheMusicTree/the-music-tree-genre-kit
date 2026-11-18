@@ -13,4 +13,5 @@ class Fields:
     CROSS_TREE_SECONDARY_PARENTS: str = InputFields.CROSS_TREE_SECONDARY_PARENTS
     IS_UNACCEPTED_ROOT: str = InputFields.IS_UNACCEPTED_ROOT
     IS_UMBRELLA: str = InputFields.IS_UMBRELLA
+    OVERVIEW_TYPE: str = InputFields.OVERVIEW_TYPE
     SCENE: str = InputFields.SCENE
