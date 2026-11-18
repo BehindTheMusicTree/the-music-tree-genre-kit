@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.64.0] - 2026-11-18
+
 ### Added
 
 - Optional `overview_type` (`current` | `historical`, wire name `overviewType`) on a genre tree-import node, accepted and validated but not persisted yet. A `current` overview is always an umbrella, so it may have no child.
