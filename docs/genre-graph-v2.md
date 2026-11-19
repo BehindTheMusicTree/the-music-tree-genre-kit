@@ -18,13 +18,15 @@ persistantes, indépendantes du libellé et du parent d'affichage.
 | --- | --- | --- |
 | `classification` | Genre → genre | État des frontières ; population selon les règles ci-dessous |
 | `regional_membership` | Nœud régional → overview, genre non canonique ou expression | Toute la population régionale de l'enfant |
-| `expression_style` | Expression → style canonique | Accès depuis le style à l'expression ; aucun accès inverse |
+| `expression_style` | Expression → style (canonique ou non) | Accès depuis le style à l'expression ; aucun accès inverse |
 | `anchoring` | Genre → overview | Descriptive uniquement |
 
 Un overview ne peut appartenir qu'à un autre overview. Aucun genre canonique ne
 peut être enfant ou parent d'une appartenance régionale : une population limitée
 à une région exige une expression distincte. Une expression a au moins un style
-canonique explicite. Ses descendants régionaux appartiennent à sa population.
+explicite, canonique ou non. Un genre classé (parent de classification) ne peut
+être membre régional : seule une racine de classification (genre sans parent de
+classification) peut appartenir à une région. Ses descendants régionaux appartiennent à sa population.
 
 Les relations et frontières portent `decisionId`, `source` et `rationale`.
 `displayParentId`, lorsqu'il existe, désigne un parent accepté ; il ne choisit
@@ -58,6 +60,7 @@ fourni qui les contredit.
 | Canonique / `canonical` | Genre choisi, descendants de classification canoniques, expressions associées et leur population régionale |
 | Canonique / `regional` | Genre choisi, descendants sortis de l'intervalle canonique et leur population régionale, expressions associées et leur population régionale |
 | Canonique / `all` | Union distincte des deux scopes |
+| Non canonique / `all` | Nœud choisi, descendants de population, expressions de chaque style non canonique retenu et leur population régionale |
 | Régional / `all` | Nœud choisi et descendants régionaux, y compris les descendants de classification non canoniques |
 
 Sans descendants, seul le nœud choisi est retenu. Les scopes `canonical` et
@@ -99,7 +102,8 @@ enfants, la sélection et le flag umbrella. Les rôles et types du rejeu sont
 des entrées de test ; ils ne valident ni chronologie réelle ni inclusion musicale.
 Ce rejeu ne prétend pas couvrir tout le pipeline du diagnostic historique.
 
-Les IDs B/M/R/E des noms de tests renvoient au plan multiparent. Les tests du kit
+Les IDs B/M/R/E des noms de tests renvoient à la matrice
+[`genre-graph-fixture-matrix.md`](genre-graph-fixture-matrix.md). Les tests du kit
 couvrent le contrat en mémoire, le stockage et ses sélections SQL. Les tests
 PostgreSQL utilisent une application minimale et les vraies migrations du kit ;
 ils vérifient les créations concurrentes, les conflits de révision et la cohérence
