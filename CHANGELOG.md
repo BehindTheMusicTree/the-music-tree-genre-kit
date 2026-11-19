@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-11-19
+
 ### CI
 
 - **Full test suite on PostgreSQL**: the `Pytest PostgreSQL (psycopg3|psycopg2)` jobs replace `Graph PostgreSQL transactions (…)` and run every test under `tests.postgres_settings` (the same `fixture_app` as SQLite) instead of two hand-picked files, so vendor-specific paths and raw SQL are covered by default. The `graph_storage_app` stub is removed, and fixture migrations `0003` (SQLite-only table rebuild) and `0012`/`0015` (a genre constraint on an inherited parent column) no longer break on PostgreSQL. Coverage stays enforced by the SQLite `Pytest` job.
