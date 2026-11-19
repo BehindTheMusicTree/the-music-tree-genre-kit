@@ -11,9 +11,7 @@ class Migration(migrations.Migration):
 
     run_before = [("the_music_tree_genre_kit", "0008_remove_track_archived")]
 
-    operations = [
-        migrations.RemoveConstraint(
-            model_name='genre',
-            name='unique_wikidata_id_per_user',
-        ),
-    ]
+    # The genre unique_wikidata_id_per_user constraint added in 0012 spanned a parent-table column (`user`)
+    # of a multi-table-inheritance child, which PostgreSQL rejects; 0012 no longer adds it, so there is
+    # nothing left to remove. Kept as a no-op to preserve the migration graph.
+    operations: list = []

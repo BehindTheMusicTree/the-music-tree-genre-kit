@@ -17,7 +17,9 @@ from the_music_tree_genre_kit.genre_graph.models import (
     GenreGraphAttributionRevision,
     GenreGraphDataset,
     GenreGraphEvidence,
+    GenreGraphNode,
     GenreGraphRevision,
+    GraphScope,
 )
 from the_music_tree_genre_kit.genre_graph.publication import publish_staged_attributions
 from the_music_tree_genre_kit.genre_graph.storage import (
@@ -76,9 +78,13 @@ def tracks(*names):
     return instances
 
 
+def node_of(key, identity):
+    return GenreGraphNode.objects.get(dataset_id=key, identity=ref(identity))
+
+
 def selected(identity, scope="all"):
     return set(
-        select_tracks(Track.objects.all(), key="reference", identity=ref(identity), scope=scope).values_list(
+        select_tracks(Track.objects.all(), node=node_of("reference", identity), scope=scope).values_list(
             "title", flat=True
         )
     )
@@ -119,7 +125,7 @@ def test_m01_m03_e09_sql_exact_sets_distinct_counts_and_unclassified_tracks(data
     assert selected("jamaica") == {"Jamaican"}
     assert selected("britain") == {"British"}
     assert selected("world") == {"Jamaican", "French", "British"}
-    assert select_tracks(Track.objects.all(), key=dataset.key, identity=ref("world")).count() == 3
+    assert select_tracks(Track.objects.all(), node=node_of(dataset.key, "world")).count() == 3
     assert set(Track.objects.values_list("pk", flat=True)) == {
         jamaican.pk,
         french.pk,
@@ -240,9 +246,34 @@ def test_e02_empty_attribution_is_explicit_and_bad_provenance_rolls_back(dataset
     assert Track.objects.filter(pk=song.pk).exists()
 
 
-def test_e02_missing_dataset_is_not_an_empty_configuration():
-    with pytest.raises(GenreGraphDataset.DoesNotExist):
-        select_tracks(Track.objects.all(), key="missing", identity=ref("dub"))
+def test_e02_inactive_node_selects_nothing(dataset):
+    (song,) = tracks("Dub")
+    assign(dataset, song, "dub")
+    node = node_of(dataset.key, "dub")
+    node.is_active = False
+    assert not select_tracks(Track.objects.all(), node=node).exists()
+    assert not select_tracks(Track.objects.all(), node=node, include_descendants=False).exists()
+
+
+def test_e02_invalid_scope_is_rejected(dataset):
+    with pytest.raises(GraphValidationError, match="Invalid selection scope"):
+        select_tracks(Track.objects.all(), node=node_of(dataset.key, "dub"), scope="bogus")
+
+
+def test_e02_scope_accepts_enum_and_string(dataset):
+    (song,) = tracks("Dub")
+    assign(dataset, song, "dub")
+    node = node_of(dataset.key, "dub")
+    for scope in (GraphScope.CANONICAL, "canonical"):
+        assert list(select_tracks(Track.objects.all(), node=node, scope=scope)) == [song]
+
+
+def test_e02_select_tracks_is_lazy(dataset, django_assert_num_queries):
+    node = node_of(dataset.key, "dub")
+    with django_assert_num_queries(0):
+        queryset = select_tracks(Track.objects.all(), node=node)
+    with django_assert_num_queries(1):
+        list(queryset)
 
 
 def test_e04_membership_revision_changes_only_for_committed_changes(dataset, payload):
@@ -321,9 +352,9 @@ def test_e07_sql_scopes_and_direct_coverage(dataset):
     assert selected("reggae", "canonical") == {"Parent", "Expression"}
     assert selected("reggae", "regional") == {"Parent", "Expression", "Exited"}
     assert selected("reggae", "all") == {"Parent", "Expression", "Exited"}
-    assert set(
-        select_tracks(Track.objects.all(), key=dataset.key, identity=ref("reggae"), include_descendants=False)
-    ) == {parent}
+    assert set(select_tracks(Track.objects.all(), node=node_of(dataset.key, "reggae"), include_descendants=False)) == {
+        parent
+    }
     with pytest.raises(GraphValidationError, match="Invalid selection scope"):
         selected("france", "canonical")
 

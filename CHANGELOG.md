@@ -17,6 +17,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.66.0] - 2026-11-19
+
+### CI
+
+- **Full test suite on PostgreSQL**: the `Pytest PostgreSQL (psycopg3|psycopg2)` jobs replace `Graph PostgreSQL transactions (…)` and run every test under `tests.postgres_settings` (the same `fixture_app` as SQLite) instead of two hand-picked files, so vendor-specific paths and raw SQL are covered by default. The `graph_storage_app` stub is removed, and fixture migrations `0003` (SQLite-only table rebuild) and `0012`/`0015` (a genre constraint on an inherited parent column) no longer break on PostgreSQL. Coverage stays enforced by the SQLite `Pytest` job.
+
+### Breaking
+
+- **`select_tracks` takes a node**: `select_tracks(tracks, *, node, scope=GraphScope.ALL, include_descendants=True)` replaces the `key`/`identity` signature, so callers that already hold the `GenreGraphNode` no longer pay for the dataset and node reads, and the call itself issues no query. An inactive node selects nothing instead of raising, and a missing dataset no longer raises `DoesNotExist`. An unknown scope, or a non-canonical node with a scope other than `all`, raises `GraphValidationError`. The node must be read in the same snapshot that evaluates the result. New `GraphScope` enum (`all`, `canonical`, `regional`) also backs the `graph_access_scope` constraint. Tests cover inactive nodes, invalid scopes, enum/string scopes, direct-only selection and the query count.
+
+### Documentation
+
+- `GenreGraphAttributionRevision` documents that attribution history is an append-only audit that outlives its track: `track_id` is deliberately not a foreign key, and pruning history is a retention decision rather than a cascade.
+
 ## [0.65.0] - 2026-11-18
 
 ### Breaking

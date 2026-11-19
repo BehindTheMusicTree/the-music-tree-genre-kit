@@ -70,9 +70,10 @@ jobs:
       - name: Run pytest
         run: uv run pytest
 
-  graph-postgres:
-    name: Graph PostgreSQL transactions (${{ matrix.driver.name }})
+  pytest-postgres:
+    name: Pytest PostgreSQL (${{ matrix.driver.name }})
     strategy:
+      fail-fast: false
       matrix:
         driver:
           - name: psycopg3
@@ -96,10 +97,10 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
-      GENRE_GRAPH_TEST_DATABASE: graph_test
-      GENRE_GRAPH_TEST_USER: graph_test
-      GENRE_GRAPH_TEST_HOST: 127.0.0.1
-      GENRE_GRAPH_TEST_PORT: "5432"
+      POSTGRES_TEST_DATABASE: graph_test
+      POSTGRES_TEST_USER: graph_test
+      POSTGRES_TEST_HOST: 127.0.0.1
+      POSTGRES_TEST_PORT: "5432"
     steps:
       - name: Checkout code
         uses: actions/checkout@v5.0.1
@@ -112,11 +113,11 @@ jobs:
       - name: Sync dependencies
         run: uv sync --all-extras
 
-      - name: Verify graph migrations and transaction isolation
+      - name: Run pytest on PostgreSQL
+        # Coverage is enforced by the SQLite Pytest job only.
         run: >-
           uv run --with '${{ matrix.driver.dependency }}' pytest
-          tests/test_genre_graph_storage.py tests/test_genre_graph_concurrency.py
-          --ds=tests.genre_graph_postgres_settings --no-cov --create-db
+          --ds=tests.postgres_settings --no-cov --create-db
 
   pure-graph:
     name: Pure graph Python ${{ matrix.python }}

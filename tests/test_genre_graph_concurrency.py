@@ -17,6 +17,7 @@ from the_music_tree_genre_kit.genre_graph.models import (
     GenreGraphAttributionRevision,
     GenreGraphDataset,
     GenreGraphEvidence,
+    GenreGraphNode,
     GenreGraphRevision,
 )
 from the_music_tree_genre_kit.genre_graph.storage import (
@@ -71,7 +72,14 @@ def test_e03_graph_migrations_reverse_and_reapply_without_losing_tracks(payload)
         expected_revision=dataset.revision,
         expected_assignment_revision=None,
     )
-    assert select_tracks(Track.objects.all(), key=dataset.key, identity="LOCAL:dub").get().pk == track.pk
+    assert (
+        select_tracks(
+            Track.objects.all(), node=GenreGraphNode.objects.get(dataset_id=dataset.key, identity="LOCAL:dub")
+        )
+        .get()
+        .pk
+        == track.pk
+    )
 
 
 def test_e03_simultaneous_creation_has_one_winner_and_one_revision(payload, monkeypatch):
@@ -150,9 +158,8 @@ def test_e04_read_transaction_keeps_queries_and_tokens_consistent_during_import(
             return replace_graph(key=dataset.key, payload=changed, expected_revision=dataset.revision).revision
 
     def titles():
-        return list(
-            select_tracks(Track.objects.all(), key=dataset.key, identity="LOCAL:france").values_list("title", flat=True)
-        )
+        node = GenreGraphNode.objects.get(dataset_id=dataset.key, identity="LOCAL:france")
+        return list(select_tracks(Track.objects.all(), node=node).values_list("title", flat=True))
 
     with ThreadPoolExecutor(max_workers=1) as pool:
         with graph_read_transaction(key=dataset.key) as snapshot:
@@ -348,7 +355,11 @@ def test_cold_1710_node_shared_ancestry_publication_uses_staged_closure():
         expected_revision=dataset.revision,
         expected_assignment_revision=None,
     )
-    assert list(select_tracks(Track.objects.all(), key=dataset.pk, identity=parent_ids[0])) == [song]
+    assert list(
+        select_tracks(
+            Track.objects.all(), node=GenreGraphNode.objects.get(dataset_id=dataset.pk, identity=parent_ids[0])
+        )
+    ) == [song]
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT reltuples FROM pg_class WHERE oid = %s::regclass",

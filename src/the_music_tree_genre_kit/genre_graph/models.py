@@ -1,8 +1,17 @@
 """Reference graph storage, separate from consumers' personal criteria trees."""
 
+from enum import StrEnum
 from uuid import uuid4
 
 from django.db import models
+
+
+class GraphScope(StrEnum):
+    """Which descendants a selection reaches: every one, or only one tree."""
+
+    ALL = "all"
+    CANONICAL = "canonical"
+    REGIONAL = "regional"
 
 
 class GenreGraphDataset(models.Model):
@@ -58,7 +67,7 @@ class GenreGraphAccess(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["ancestor", "scope", "descendant"], name="graph_access_unique"),
             models.CheckConstraint(
-                condition=models.Q(scope__in=["all", "canonical", "regional"]), name="graph_access_scope"
+                condition=models.Q(scope__in=[scope.value for scope in GraphScope]), name="graph_access_scope"
             ),
         ]
 
@@ -83,7 +92,12 @@ class GenreGraphAttribution(models.Model):
 
 
 class GenreGraphAttributionRevision(models.Model):
-    """Restorable assignment snapshots; semantic keys survive graph replacement."""
+    """Restorable assignment snapshots; semantic keys survive graph replacement.
+
+    Append-only audit: migration 0021 triggers reject UPDATE and DELETE. A snapshot therefore
+    outlives its track, which is why `track_id` is deliberately not a foreign key; restoration
+    only targets surviving tracks. Pruning history is a retention decision, not a cascade.
+    """
 
     revision = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     dataset = models.ForeignKey(GenreGraphDataset, on_delete=models.CASCADE, related_name="attribution_history")

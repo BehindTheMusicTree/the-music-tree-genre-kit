@@ -34,6 +34,10 @@ class Migration(migrations.Migration):
     """
 
     def drop_stale_playlist_ptr_column(apps, schema_editor):
+        # The stale column and the DDL below are SQLite-specific (char(32) UUIDs, table rebuild);
+        # on PostgreSQL the AlterField above retargets the FK natively.
+        if schema_editor.connection.vendor != "sqlite":
+            return
         with schema_editor.connection.cursor() as cursor:
             cursor.execute('ALTER TABLE "fixture_app_criteriaplaylist" RENAME TO "_fixture_app_criteriaplaylist_old"')
             cursor.execute(

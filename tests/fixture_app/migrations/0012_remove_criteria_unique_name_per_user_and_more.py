@@ -34,8 +34,4 @@ class Migration(migrations.Migration):
             model_name='criteria',
             constraint=models.UniqueConstraint(django.db.models.functions.text.Lower('_name'), models.F('user'), name='unique_name_per_user'),
         ),
-        migrations.AddConstraint(
-            model_name='genre',
-            constraint=models.UniqueConstraint(condition=models.Q(('wikidata_id__isnull', False)), fields=('wikidata_id', 'user'), name='unique_wikidata_id_per_user'),
-        ),
     ]
