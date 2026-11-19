@@ -83,7 +83,12 @@ class GenreGraphAttribution(models.Model):
 
 
 class GenreGraphAttributionRevision(models.Model):
-    """Restorable assignment snapshots; semantic keys survive graph replacement."""
+    """Restorable assignment snapshots; semantic keys survive graph replacement.
+
+    Append-only audit: migration 0021 triggers reject UPDATE and DELETE. A snapshot therefore
+    outlives its track, which is why `track_id` is deliberately not a foreign key; restoration
+    only targets surviving tracks. Pruning history is a retention decision, not a cascade.
+    """
 
     revision = models.UUIDField(primary_key=True, default=uuid4, editable=False)
     dataset = models.ForeignKey(GenreGraphDataset, on_delete=models.CASCADE, related_name="attribution_history")
