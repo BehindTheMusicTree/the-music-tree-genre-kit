@@ -147,10 +147,15 @@ def graph_read_snapshot():
 
 
 @contextmanager
-def graph_read_transaction(*, key: str):
-    """Read a dataset and its response data in the same snapshot."""
+def graph_read_transaction(*, key: str, with_payload: bool = False):
+    """Read a dataset and its response data in the same snapshot.
+
+    ``payload`` (the whole serialized graph) is deferred unless ``with_payload``;
+    a deferred read re-queries, so it is only snapshot-consistent inside the block.
+    """
     with graph_read_snapshot():
-        yield GenreGraphDataset.objects.get(pk=key)
+        datasets = GenreGraphDataset.objects
+        yield datasets.get(pk=key) if with_payload else datasets.defer("payload").get(pk=key)
 
 
 @contextmanager
