@@ -29,20 +29,35 @@
     {
       "id": "LOCAL:french-reggae",
       "name": "French reggae",
-      "kind": "genre",
-      "canonicalState": "after_exit"
+      "kind": "expression"
     },
     {
       "id": "LOCAL:french-reggae-child",
-      "name": "French reggae descendant",
+      "name": "French reggae regional descendant",
+      "kind": "genre",
+      "canonicalState": "before_entry"
+    },
+    {
+      "id": "LOCAL:rock",
+      "name": "Rock",
+      "kind": "genre",
+      "canonicalState": "before_entry"
+    },
+    {
+      "id": "LOCAL:reggae-fusion",
+      "name": "Reggae fusion",
       "kind": "genre",
       "canonicalState": "after_exit"
     },
     {
       "id": "LOCAL:breton-rock",
       "name": "Breton rock",
-      "kind": "genre",
-      "canonicalState": "before_entry"
+      "kind": "expression"
+    },
+    {
+      "id": "LOCAL:french-reggae-fusion",
+      "name": "French reggae fusion",
+      "kind": "expression"
     },
     {
       "id": "LOCAL:jamaican-dub",
@@ -176,31 +191,31 @@
       }
     },
     {
+      "childId": "LOCAL:rock",
+      "parentId": "LOCAL:music",
+      "type": "classification",
+      "provenance": {
+        "decisionId": "classification-rock-music",
+        "source": "fixture:regional-graph-v2",
+        "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
+      }
+    },
+    {
+      "childId": "LOCAL:reggae-fusion",
+      "parentId": "LOCAL:reggae",
+      "type": "classification",
+      "provenance": {
+        "decisionId": "classification-reggae-fusion-reggae",
+        "source": "fixture:regional-graph-v2",
+        "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
+      }
+    },
+    {
       "childId": "LOCAL:dub",
       "parentId": "LOCAL:reggae",
       "type": "classification",
       "provenance": {
         "decisionId": "classification-dub-reggae",
-        "source": "fixture:regional-graph-v2",
-        "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
-      }
-    },
-    {
-      "childId": "LOCAL:french-reggae",
-      "parentId": "LOCAL:reggae",
-      "type": "classification",
-      "provenance": {
-        "decisionId": "classification-french-reggae-reggae",
-        "source": "fixture:regional-graph-v2",
-        "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
-      }
-    },
-    {
-      "childId": "LOCAL:french-reggae-child",
-      "parentId": "LOCAL:french-reggae",
-      "type": "classification",
-      "provenance": {
-        "decisionId": "classification-french-reggae-child-french-reggae",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -236,11 +251,21 @@
       }
     },
     {
+      "childId": "LOCAL:french-reggae",
+      "parentId": "LOCAL:reggae",
+      "type": "expression_style",
+      "provenance": {
+        "decisionId": "expression_style-french-reggae-reggae",
+        "source": "fixture:regional-graph-v2",
+        "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
+      }
+    },
+    {
       "childId": "LOCAL:french-reggae-child",
-      "parentId": "LOCAL:france",
+      "parentId": "LOCAL:french-reggae",
       "type": "regional_membership",
       "provenance": {
-        "decisionId": "regional_membership-french-reggae-child-france",
+        "decisionId": "regional_membership-french-reggae-child-french-reggae",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -271,6 +296,36 @@
       "type": "regional_membership",
       "provenance": {
         "decisionId": "regional_membership-breton-rock-france",
+        "source": "fixture:regional-graph-v2",
+        "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
+      }
+    },
+    {
+      "childId": "LOCAL:breton-rock",
+      "parentId": "LOCAL:rock",
+      "type": "expression_style",
+      "provenance": {
+        "decisionId": "expression_style-breton-rock-rock",
+        "source": "fixture:regional-graph-v2",
+        "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
+      }
+    },
+    {
+      "childId": "LOCAL:french-reggae-fusion",
+      "parentId": "LOCAL:reggae-fusion",
+      "type": "expression_style",
+      "provenance": {
+        "decisionId": "expression_style-french-reggae-fusion-reggae-fusion",
+        "source": "fixture:regional-graph-v2",
+        "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
+      }
+    },
+    {
+      "childId": "LOCAL:french-reggae-fusion",
+      "parentId": "LOCAL:france",
+      "type": "regional_membership",
+      "provenance": {
+        "decisionId": "regional_membership-french-reggae-fusion-france",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -427,10 +482,10 @@
       }
     },
     {
-      "nodeId": "LOCAL:french-reggae",
+      "nodeId": "LOCAL:reggae-fusion",
       "type": "exit",
       "provenance": {
-        "decisionId": "french-reggae-exit",
+        "decisionId": "reggae-fusion-exit",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }

@@ -350,7 +350,7 @@ def test_e07_sql_scopes_and_direct_coverage(dataset):
     parent, expression, exited = tracks("Parent", "Expression", "Exited")
     assign(dataset, parent, "reggae")
     assign(dataset, expression, "french-dub")
-    assign(dataset, exited, "french-reggae-child")
+    assign(dataset, exited, "french-reggae-fusion")
     assert selected("reggae", "canonical") == {"Parent", "Expression"}
     assert selected("reggae", "regional") == {"Parent", "Expression", "Exited"}
     assert selected("reggae", "all") == {"Parent", "Expression", "Exited"}

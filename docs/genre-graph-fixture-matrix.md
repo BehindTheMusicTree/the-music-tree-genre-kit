@@ -67,3 +67,6 @@ Reconstituée le 2026-11-19 depuis les journaux de travail du 13–14 novembre 2
 | E08 | Baseline canonical replay versus curated boundary migration | Unaffected behavior preserved; intentional classification differences listed and reviewed |
 | E09 | Songs without genre or playable video | Retained end to end; regional uncertainty never deletes a song |
 | E10 | Large shared-ancestry graph and full-catalog operations | Bounded graph/provenance processing; no enumeration of every path or Python set per song population |
+| E11 | Expression of a `before_entry` style (Breton rock → Rock) | Selected with the style, its ancestors' `all` scope and its region; no canonical leakage |
+| E12 | Expression of an `after_exit` style (French reggae fusion → Reggae fusion) | Selected via style `all`, canonical Reggae `regional`/`all` and its region; not in `canonical` |
+| E13 | Regional root genre (parentless) below an expression; classified genre as regional member | Root accepted and selected with its expression; classified genre rejected |

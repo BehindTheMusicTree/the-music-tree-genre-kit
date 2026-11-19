@@ -28,8 +28,9 @@ class GenreGraph:
     """An immutable validated snapshot. All edges point from child to parent.
 
     Only classification propagates boundary state. Only regional membership
-    propagates a regional population. Expression associations allow canonical
-    access in one direction; anchors never propagate songs.
+    propagates a regional population. Expression associations allow access
+    from any style (canonical or not) in one direction; anchors never propagate
+    songs.
     """
 
     def __init__(self, payload: dict[str, Any]):
@@ -115,11 +116,13 @@ class GenreGraph:
                 raise GraphValidationError(
                     f"Canonical population cannot be a regional member: {node}; use an expression"
                 )
+            if data["kind"] == "genre" and self._relations["classification"][node]:
+                if self._relations["regional_membership"][node] or node in regional_parents:
+                    raise GraphValidationError(
+                        f"Classified genre cannot be a regional member: {node}; use an expression"
+                    )
             if data["kind"] == "expression" and not self._relations["expression_style"][node]:
-                raise GraphValidationError(f"Expression lacks a canonical style: {node}")
-            for style in self._relations["expression_style"][node]:
-                if self.boundary_results[style].state != "canonical":
-                    raise GraphValidationError(f"Expression style must be canonical: {node} -> {style}")
+                raise GraphValidationError(f"Expression lacks a style: {node}")
             if parent := data.get("displayParentId"):
                 transmitting = self._relations["classification"][node] | self._relations["regional_membership"][node]
                 if parent not in transmitting:
@@ -178,7 +181,9 @@ class GenreGraph:
         Canonical scope covers canonical classification descendants and complete
         associated expression populations. Regional scope covers those expression
         populations and exited classification descendants. All scopes retain the
-        selected style itself, matching the existing HTTP contract.
+        selected style itself, matching the existing HTTP contract. Whenever a
+        non-canonical style enters a selection its expressions and their regional
+        population follow; expressions are only ever reached downward from a style.
         """
         node = self._nodes[node_id]
         canonical = node["kind"] == "genre" and self.boundary_results[node_id].state == "canonical"
@@ -187,7 +192,7 @@ class GenreGraph:
         if not include_descendants:
             return frozenset({node_id})
         if not canonical:
-            return frozenset({node_id}) | self.descendants(node_id, "population")
+            return frozenset(self._with_expressions({node_id} | self.descendants(node_id, "population")))
         classified = self.descendants(node_id, "classification") | {node_id}
         canonical_nodes = {node for node in classified if self.boundary_results[node].state == "canonical"}
         expressions = {
@@ -203,7 +208,21 @@ class GenreGraph:
             regional.update(self.descendants(descendant, "population"))
         regional.update(expression_population)
         regional.add(node_id)
+        regional = self._with_expressions(regional)
         return frozenset(regional if scope == "regional" else canonical_nodes | regional)
+
+    def _with_expressions(self, selected: set[str]) -> set[str]:
+        """Add the expressions, and their regional population, of every non-canonical style in `selected`."""
+        pending = [node for node in selected if self._is_noncanonical_style(node)]
+        while pending:
+            for expression in self.children(pending.pop(), "expression_style"):
+                added = ({expression} | self.descendants(expression, "population")) - selected
+                selected |= added
+                pending.extend(node for node in added if self._is_noncanonical_style(node))
+        return selected
+
+    def _is_noncanonical_style(self, node_id: str) -> bool:
+        return self._nodes[node_id]["kind"] == "genre" and self.boundary_results[node_id].state != "canonical"
 
     def normalize_attributions(self, node_ids: Iterable[str]) -> frozenset[str]:
         """Remove ancestors only when inclusive selection preserves their access."""
