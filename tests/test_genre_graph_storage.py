@@ -1045,10 +1045,16 @@ def test_staged_publication_rejects_several_nodes_per_track(dataset):
     assert not GenreGraphAttribution.objects.exists()
 
 
+# PostgreSQL requires an outermost REPEATABLE READ snapshot, so the default test transaction cannot wrap it; SQLite's
+# flush would trip the immutable-audit triggers, so only use real transactions where needed.
+_SNAPSHOT_DB = pytest.mark.django_db(transaction=connection.vendor == "postgresql")
+
+
 def _dataset_selects(queries):
     return [q["sql"] for q in queries if "the_music_tree_genre_kit_genregraphdataset" in q["sql"].lower()]
 
 
+@_SNAPSHOT_DB
 def test_read_transaction_defers_payload_by_default(dataset, payload):
     with CaptureQueriesContext(connection) as queries, graph_read_transaction(key=dataset.key) as snapshot:
         assert snapshot.get_deferred_fields() == {"payload"}
@@ -1058,11 +1064,13 @@ def test_read_transaction_defers_payload_by_default(dataset, payload):
     assert all('"payload"' not in sql for sql in selects)
 
 
+@_SNAPSHOT_DB
 def test_read_transaction_deferred_payload_loads_inside_block(dataset, payload):
     with graph_read_transaction(key=dataset.key) as snapshot:
         assert snapshot.payload == payload
 
 
+@_SNAPSHOT_DB
 def test_read_transaction_with_payload_selects_it_up_front(dataset, payload):
     with graph_read_transaction(key=dataset.key, with_payload=True) as snapshot:
         assert snapshot.get_deferred_fields() == set()

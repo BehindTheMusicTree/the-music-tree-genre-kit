@@ -459,10 +459,14 @@ def test_dataset_unique_migration_backfills_dataset_and_fails_on_duplicates(payl
 def test_deferred_payload_read_stays_on_the_snapshot_during_import(payload):
     dataset = replace_graph(key="reference", payload=payload, expected_revision=None)
     changed = deepcopy(payload)
-    changed["nodes"] = [node for node in changed["nodes"] if node["id"] != "LOCAL:french-dub"]
     changed["relations"] = [
-        edge for edge in changed["relations"] if "LOCAL:french-dub" not in (edge["childId"], edge.get("parentId"))
+        edge
+        for edge in changed["relations"]
+        if not (edge["childId"] == "LOCAL:french-dub" and edge["type"] == "regional_membership")
     ]
+    for node in changed["nodes"]:
+        if node["id"] == "LOCAL:french-dub":
+            node.pop("displayParentId", None)
     published = Event()
 
     def update():
