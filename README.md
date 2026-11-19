@@ -51,7 +51,7 @@ installation with the explicit pure wheel on Python 3.14. Reproduce with `uv bui
 Django storage supports atomic graph replacement, archived revisions, explicit reference-track
 attributions and SQL distinct selections. PostgreSQL tests exercise revision conflicts,
 overlapping read-only REPEATABLE READ snapshots and transactional invalidation, including
-bulk writes and deletion cascades. Readers may overlap committed publications without mixing revisions. Use `graph_read_snapshot()` around response reads after authentication; `graph_read_transaction(key=...)` additionally loads a dataset in that snapshot. PostgreSQL snapshots must be outermost, read-only transactions.
+bulk writes and deletion cascades. Readers may overlap committed publications without mixing revisions. Use `graph_read_snapshot()` around response reads after authentication; `graph_read_transaction(key=...)` additionally loads a dataset in that snapshot, with `payload` deferred; pass `with_payload=True` to load it up front, and read a deferred `payload` only inside the block. PostgreSQL snapshots must be outermost, read-only transactions.
 
 Graph nodes retain their identity after retirement. Each removed identity requires an explicit
 `{target: identity | null, provenance: {decisionId, source, rationale}}` decision. Publication

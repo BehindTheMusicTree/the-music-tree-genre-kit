@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from django.db import IntegrityError, connection, transaction
+from django.test.utils import CaptureQueriesContext
 from the_music_tree_genre_graph import GenreGraph, GraphValidationError
 
 from the_music_tree_genre_kit.genre_graph import publication, storage
@@ -25,6 +26,7 @@ from the_music_tree_genre_kit.genre_graph.publication import publish_staged_attr
 from the_music_tree_genre_kit.genre_graph.storage import (
     GraphRevisionConflict,
     effective_attributions,
+    graph_read_transaction,
     graph_write_transaction,
     replace_graph,
     replace_track_attributions,
@@ -1041,3 +1043,37 @@ def test_staged_publication_rejects_several_nodes_per_track(dataset):
             cursor.execute(f"DROP TABLE {quote(desired)}")
             cursor.execute(f"DROP TABLE {quote(population)}")
     assert not GenreGraphAttribution.objects.exists()
+
+
+# PostgreSQL requires an outermost REPEATABLE READ snapshot, so the default test transaction cannot wrap it; SQLite's
+# flush would trip the immutable-audit triggers, so only use real transactions where needed.
+_SNAPSHOT_DB = pytest.mark.django_db(transaction=connection.vendor == "postgresql")
+
+
+def _dataset_selects(queries):
+    return [q["sql"] for q in queries if "the_music_tree_genre_kit_genregraphdataset" in q["sql"].lower()]
+
+
+@_SNAPSHOT_DB
+def test_read_transaction_defers_payload_by_default(dataset, payload):
+    with CaptureQueriesContext(connection) as queries, graph_read_transaction(key=dataset.key) as snapshot:
+        assert snapshot.get_deferred_fields() == {"payload"}
+        assert snapshot.revision == dataset.revision
+    selects = _dataset_selects(queries)
+    assert selects
+    assert all('"payload"' not in sql for sql in selects)
+
+
+@_SNAPSHOT_DB
+def test_read_transaction_deferred_payload_loads_inside_block(dataset, payload):
+    with graph_read_transaction(key=dataset.key) as snapshot:
+        assert snapshot.payload == payload
+
+
+@_SNAPSHOT_DB
+def test_read_transaction_with_payload_selects_it_up_front(dataset, payload):
+    with graph_read_transaction(key=dataset.key, with_payload=True) as snapshot:
+        assert snapshot.get_deferred_fields() == set()
+        with CaptureQueriesContext(connection) as queries:
+            assert snapshot.payload == payload
+        assert len(queries) == 0

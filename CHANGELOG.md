@@ -17,6 +17,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.67.0] - 2026-11-19
+
+### Improved
+
+- **`graph_read_transaction` skips the graph payload by default**: it defers `GenreGraphDataset.payload` (the whole serialized graph, ~1,710 nodes decoded on every call) and takes `with_payload=True` for the callers that return it. Readers that only need `revision` / `membership_revision` no longer pay the JSON decode (grow's artist-songs list regressed from ~48 ms to ~118 ms p50 because of it). Tested without the `payload` column in the SQL, with `with_payload=True`, and with a deferred read staying on the snapshot during a concurrent import.
+
+### Breaking
+
+- `graph_read_transaction(key=...)` now defers `payload`. A `payload` read after the block exits issues a separate query outside the snapshot; consumers that do so must pass `with_payload=True` (grow's `ReferenceGraphView.get` reads it inside the block).
+
 ## [0.66.0] - 2026-11-19
 
 ### CI
