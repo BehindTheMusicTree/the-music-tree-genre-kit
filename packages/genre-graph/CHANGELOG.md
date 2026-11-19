@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-20
+
 ### Added
 
 - Expressions of non-canonical styles (`before_entry` and `after_exit`): `expression_style` accepts any genre, and selecting a non-canonical style (or a region) now includes its expressions and their regional population.

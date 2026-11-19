@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.68.0] - 2026-11-20
+
 ### Added
 
 - **Genre graph**: expressions of non-canonical styles (`before_entry`/`after_exit`) are valid and selected with their style, canonical `regional`/`all` scopes and region. Documented in `docs/genre-graph-v2.md` and the fixture matrix (E11–E13); tests cover each path.
