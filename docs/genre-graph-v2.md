@@ -147,7 +147,9 @@ Pour rendre plusieurs résultats avec leurs jetons, évaluer tous les querysets
 à l'intérieur de `graph_read_snapshot()`, après l'authentification. Sous PostgreSQL,
 ce contexte ouvre une transaction extérieure REPEATABLE READ, READ ONLY ; les
 lecteurs peuvent se chevaucher et n'empêchent pas une publication concurrente.
-`graph_read_transaction(key=...)` charge aussi le dataset dans cet instantané.
+`graph_read_transaction(key=...)` charge aussi le dataset dans cet instantané, sans
+`payload` (différé) ; passer `with_payload=True` pour le charger d'emblée, et ne lire un
+`payload` différé qu'à l'intérieur du bloc.
 Les contextes de lecture imbriqués partagent l'instantané ; entrer depuis une
 transaction extérieure non possédée par ce contexte échoue. Matérialiser les résultats
 avant de sortir du contexte : un queryset paresseux ne transporte pas l'instantané.
