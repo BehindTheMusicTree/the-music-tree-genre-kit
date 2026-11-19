@@ -99,7 +99,8 @@ enfants, la sélection et le flag umbrella. Les rôles et types du rejeu sont
 des entrées de test ; ils ne valident ni chronologie réelle ni inclusion musicale.
 Ce rejeu ne prétend pas couvrir tout le pipeline du diagnostic historique.
 
-Les IDs B/M/R/E des noms de tests renvoient au plan multiparent. Les tests du kit
+Les IDs B/M/R/E des noms de tests renvoient à la matrice
+[`genre-graph-fixture-matrix.md`](genre-graph-fixture-matrix.md). Les tests du kit
 couvrent le contrat en mémoire, le stockage et ses sélections SQL. Les tests
 PostgreSQL utilisent une application minimale et les vraies migrations du kit ;
 ils vérifient les créations concurrentes, les conflits de révision et la cohérence

@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **`docs/genre-graph-fixture-matrix.md`**: matrice synthétique des 61 témoins B/M/R/E du graphe v2, liée depuis `docs/genre-graph-v2.md` §Fixtures et validation, pour que les consommateurs référencent les mêmes IDs.
+
 ## [0.67.0] - 2026-11-19
 
 ### Improved
