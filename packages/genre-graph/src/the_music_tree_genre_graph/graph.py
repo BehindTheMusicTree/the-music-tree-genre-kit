@@ -202,7 +202,7 @@ class GenreGraph:
         for expression in expressions:
             expression_population.update(self.descendants(expression, "population"))
         if scope == "canonical":
-            return frozenset(canonical_nodes | expression_population)
+            return frozenset(canonical_nodes | self._with_expressions(expression_population))
         regional = set(classified) - canonical_nodes
         for descendant in tuple(regional):
             regional.update(self.descendants(descendant, "population"))

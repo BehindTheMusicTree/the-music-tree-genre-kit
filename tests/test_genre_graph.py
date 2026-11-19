@@ -320,6 +320,24 @@ def test_expression_of_before_entry_style_is_selected_with_its_style(payload):
     assert ref("breton-rock") in graph.selected_nodes(ref("brittany"))
 
 
+def test_canonical_scope_follows_expressions_of_regional_roots_in_expression_population(payload):
+    payload["nodes"].extend(
+        [
+            {"id": ref("fusion-root"), "name": "Fusion root", "kind": "genre", "canonicalState": "before_entry"},
+            {"id": ref("fusion-root-expression"), "name": "Fusion root expression", "kind": "expression"},
+        ]
+    )
+    payload["relations"].extend(
+        [
+            relation("fusion-root", "french-dub", "regional_membership"),
+            relation("fusion-root-expression", "fusion-root", "expression_style"),
+        ]
+    )
+    graph = GenreGraph(payload)
+    assert ref("fusion-root-expression") in graph.selected_nodes(ref("dub"), scope="canonical")
+    assert graph.normalize_attributions(map(ref, ["dub", "fusion-root-expression"])) == {ref("fusion-root-expression")}
+
+
 def test_expression_with_regional_population_selected_via_regional_root(payload):
     graph = GenreGraph(payload)
     assert graph.selected_nodes(ref("french-reggae")) == set(map(ref, ["french-reggae", "french-reggae-child"]))

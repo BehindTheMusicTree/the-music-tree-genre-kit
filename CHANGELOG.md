@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 
 - **Genre graph**: expressions of non-canonical styles (`before_entry`/`after_exit`) are valid and selected with their style, canonical `regional`/`all` scopes and region. Documented in `docs/genre-graph-v2.md` and the fixture matrix (E11–E13); tests cover each path.
+- **`docs/genre-graph-fixture-matrix.md`**: matrice synthétique des 64 témoins B/M/R/E du graphe v2, liée depuis `docs/genre-graph-v2.md` §Fixtures et validation, pour que les consommateurs référencent les mêmes IDs.
 
 ### Changed
 
@@ -28,8 +29,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Breaking
 
 - Genre graph validation now rejects a classified genre as a regional member (only classification roots may be regional); migrate such genres to expressions. The "expression style must be canonical" rule is removed.
-
-- **`docs/genre-graph-fixture-matrix.md`**: matrice synthétique des 61 témoins B/M/R/E du graphe v2, liée depuis `docs/genre-graph-v2.md` §Fixtures et validation, pour que les consommateurs référencent les mêmes IDs.
 
 ## [0.67.0] - 2026-11-19
 
