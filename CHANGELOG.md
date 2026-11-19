@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Documentation
+
+- `GenreGraphAttributionRevision` documents that attribution history is an append-only audit that outlives its track: `track_id` is deliberately not a foreign key, and pruning history is a retention decision rather than a cascade.
+
 ## [0.65.0] - 2026-11-18
 
 ### Breaking
