@@ -20,6 +20,7 @@ from .models import (
     GenreGraphDataset,
     GenreGraphNode,
     GenreGraphRevision,
+    GraphScope,
 )
 from .retirements import remap_retirements
 
@@ -179,21 +180,33 @@ def effective_attributions(*, key: str) -> QuerySet:
 
 
 def select_tracks(
-    tracks: QuerySet, *, key: str, identity: str, scope: str = "all", include_descendants: bool = True
+    tracks: QuerySet,
+    *,
+    node: GenreGraphNode,
+    scope: GraphScope | str = GraphScope.ALL,
+    include_descendants: bool = True,
 ) -> QuerySet:
-    GenreGraphDataset.objects.get(pk=key)
-    node = GenreGraphNode.objects.get(dataset_id=key, identity=identity, is_active=True)
-    if scope not in {"all", "canonical", "regional"} or (node.canonical_state != "canonical" and scope != "all"):
-        raise GraphValidationError(f"Invalid selection scope {scope} for {identity}")
-    attributions = effective_attributions(key=key)
+    """Tracks attributed to ``node`` or, by default, to any of its descendants.
+
+    Issues no query until evaluated. The node must be read in the same snapshot that
+    evaluates the result (see ``graph_read_snapshot``); an inactive node selects nothing.
+    """
+    try:
+        scope = GraphScope(scope)
+    except ValueError:
+        raise GraphValidationError(f"Invalid selection scope {scope} for {node.identity}") from None
+    if node.canonical_state != "canonical" and scope != GraphScope.ALL:
+        raise GraphValidationError(f"Invalid selection scope {scope} for {node.identity}")
+    if not node.is_active:
+        return tracks.none()
+    attributions = effective_attributions(key=node.dataset_id)
     if include_descendants:
-        attributions = attributions.filter(
-            node__inclusive_ancestors__ancestor__dataset_id=key,
-            node__inclusive_ancestors__ancestor__identity=identity,
-            node__inclusive_ancestors__scope=scope,
-        )
+        descendants = GenreGraphAccess.objects.filter(
+            dataset_id=node.dataset_id, ancestor_id=node.pk, scope=scope
+        ).values("descendant_id")
+        attributions = attributions.filter(node_id__in=descendants)
     else:
-        attributions = attributions.filter(node__identity=identity)
+        attributions = attributions.filter(node_id=node.pk)
     return tracks.filter(pk__in=attributions.values("track_id"))
 
 

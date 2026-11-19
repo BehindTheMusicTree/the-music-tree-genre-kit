@@ -131,6 +131,10 @@ qu'un, avec les preuves d'origine, de destination et de retrait. La migration
 0022 échoue en nommant le dataset et le track tant que des doublons existent ;
 elle ne choisit jamais un nœud.
 
+`select_tracks(tracks, *, node, scope, include_descendants)` prend le `GenreGraphNode`
+déjà chargé (lu dans le même snapshot que l'évaluation du résultat) et n'émet aucune
+requête à l'appel ; un nœud inactif ne sélectionne rien, un scope invalide ou un
+scope ≠ `all` sur un nœud non canonique lève `GraphValidationError`.
 `select_tracks`, `effective_attributions` et `tracks_needing_refinement` utilisent
 des sous-requêtes SQL : ils ne matérialisent pas les populations de tracks en
 Python. `effective_attributions` renvoie les attributions actives du dataset (il
