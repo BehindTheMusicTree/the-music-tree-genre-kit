@@ -10,9 +10,9 @@ from tests.settings import *  # noqa: F403
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ["GENRE_GRAPH_TEST_DATABASE"],
-        "USER": os.environ["GENRE_GRAPH_TEST_USER"],
-        "HOST": os.environ["GENRE_GRAPH_TEST_HOST"],
-        "PORT": os.environ["GENRE_GRAPH_TEST_PORT"],
+        "NAME": os.environ["POSTGRES_TEST_DATABASE"],
+        "USER": os.environ["POSTGRES_TEST_USER"],
+        "HOST": os.environ["POSTGRES_TEST_HOST"],
+        "PORT": os.environ["POSTGRES_TEST_PORT"],
     }
 }

@@ -17,6 +17,8 @@ validation exceptions. Those live in that package, not here.
 uv sync --all-extras          # install
 uv run pytest                 # run tests (fixture_app-backed, DJANGO_SETTINGS_MODULE=tests.settings)
 uv run pytest tests/test_criteria_field.py::test_to_internal_value_returns_none_for_blank_when_allowed  # single test
+# full suite on PostgreSQL (needs a disposable DB; CI job `Pytest PostgreSQL (psycopg3|psycopg2)`)
+POSTGRES_TEST_DATABASE=... POSTGRES_TEST_USER=... POSTGRES_TEST_HOST=... POSTGRES_TEST_PORT=5432 uv run pytest --ds=tests.postgres_settings --no-cov --create-db
 uv run ruff check .
 uv run ruff format --check .
 uv run mypy src
