@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Breaking
+
+- **`select_tracks` takes a node**: `select_tracks(tracks, *, node, scope=GraphScope.ALL, include_descendants=True)` replaces the `key`/`identity` signature, so callers that already hold the `GenreGraphNode` no longer pay for the dataset and node reads, and the call itself issues no query. An inactive node selects nothing instead of raising, and a missing dataset no longer raises `DoesNotExist`. An unknown scope, or a non-canonical node with a scope other than `all`, raises `GraphValidationError`. The node must be read in the same snapshot that evaluates the result. New `GraphScope` enum (`all`, `canonical`, `regional`) also backs the `graph_access_scope` constraint. Tests cover inactive nodes, invalid scopes, enum/string scopes, direct-only selection and the query count.
+
 ### Documentation
 
 - `GenreGraphAttributionRevision` documents that attribution history is an append-only audit that outlives its track: `track_id` is deliberately not a foreign key, and pruning history is a retention decision rather than a cascade.

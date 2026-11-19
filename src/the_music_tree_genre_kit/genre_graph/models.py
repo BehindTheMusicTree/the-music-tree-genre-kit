@@ -1,8 +1,17 @@
 """Reference graph storage, separate from consumers' personal criteria trees."""
 
+from enum import StrEnum
 from uuid import uuid4
 
 from django.db import models
+
+
+class GraphScope(StrEnum):
+    """Which descendants a selection reaches: every one, or only one tree."""
+
+    ALL = "all"
+    CANONICAL = "canonical"
+    REGIONAL = "regional"
 
 
 class GenreGraphDataset(models.Model):
@@ -58,7 +67,7 @@ class GenreGraphAccess(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["ancestor", "scope", "descendant"], name="graph_access_unique"),
             models.CheckConstraint(
-                condition=models.Q(scope__in=["all", "canonical", "regional"]), name="graph_access_scope"
+                condition=models.Q(scope__in=[scope.value for scope in GraphScope]), name="graph_access_scope"
             ),
         ]
 
