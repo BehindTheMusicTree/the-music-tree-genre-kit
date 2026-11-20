@@ -1,48 +1,41 @@
 # Publishing the pure genre graph
 
-The pure package and Django kit have separate versions and release contracts.
-The pure package uses `.github/genre-graph-release-policy.json`, its own changelog,
-and `graph-vX.Y.Z` tags. The kit retains its existing `vX.Y.Z` GitHub release policy.
-The pure package caller pins github-workflows v5.3.0 at
-`985268a5f321535b1ced65a16850a0453471faae`.
+The pure package and Django kit have separate versions and release contracts, both driven by
+release-please from `main` (`release-please-config.json`, `.release-please-manifest.json`).
+The pure package uses `.github/genre-graph-release-policy.json`, its own changelog
+(`packages/genre-graph/CHANGELOG.md`) and `graph-vX.Y.Z` tags. The kit uses
+`.github/release-policy.json`, `CHANGELOG.md` and `vX.Y.Z` tags with a GitHub Release.
+Every job of `.github/workflows/release.yml` pins the same github-workflows commit.
 
-## Setup before the first publication
+## Setup
 
 Configure the PyPI Trusted Publisher for `the-music-tree-genre-graph` with owner
 `BehindTheMusicTree`, repository `the-music-tree-genre-kit`, workflow filename
-`release-graph.yml`, and environment `pypi`. This external setup has not been
-verified by local checks. No API token is used. Changes to repository environment
-settings go through `github-config` under the organization's existing policy.
+`release.yml`, and environment `pypi`. This external setup is not verified by local
+checks. No API token is used. Changes to repository environment settings go through
+`github-config` under the organization's existing policy.
 
-## Approved release sequence
+## Release sequence
 
-1. Obtain release approval for the concrete package versions and publication effects.
-2. Finalize the pure package's version and move its Unreleased notes into a dated
-   version section. For the staged first version, keep `0.1.0`; do not bump it twice.
-   Merge through the repository's release process onto `main`.
-3. Create the approved immutable `graph-vX.Y.Z` tag on that merged `main` commit.
-   The existing automatic kit tag workflow reads only the root policy; it does not
-   create pure package tags. The pure publication policy is independently validated
-   by `release-graph.yml` against the tag commit and its ancestry on `main`.
-4. Wait for the pure package's build, Trusted Publishing and final PyPI filename/hash
-   verification to succeed. This flow publishes to PyPI without a separate GitHub Release.
-5. Proceed with the separately approved kit release. Before its GitHub Release is
-   created, `release.yml` installs the kit with public dependencies and requires the
-   pure package version recorded in `packages/genre-graph/pyproject.toml`.
+1. Merge Conventional-Commit PRs into `main`; release-please keeps one release PR up to date
+   with both packages' versions, `uv.lock` and changelogs. Only changes under
+   `packages/genre-graph` bump the graph; the kit's range on it must contain its version
+   (checked by the `Lint` job).
+2. Merging the release PR triggers `release.yml`, which runs in order:
+   `tag-graph` (tags `graph-vX.Y.Z` when the graph version is not tagged yet), `build-graph`,
+   `publish-graph` (Trusted Publishing, then PyPI filename/hash verification),
+   `verify-public-dependency` (installs the kit from public PyPI with the exact graph version
+   declared in `packages/genre-graph/pyproject.toml`, retrying up to 660 s for the index cache),
+   `tag-root` (tags `vX.Y.Z` and publishes the GitHub Release) and `release-please`.
+3. A root-only release skips the graph jobs; the dependency gate still checks the declared
+   graph version is installable.
 
-For the initial coordinated release, merging the kit release branch onto `main`
-may automatically create its kit tag before the pure tag is created. The kit's
-public dependency gate then fails until the pure publication completes. Once
-step 4 succeeds, rerun the failed kit release jobs; keep the existing immutable
-kit tag. A blocked first attempt does not require another version bump.
-
-Policy activation, workflow adoption and local distribution tests do not authorize
-release tags, version changes, publishing, or consumer pin updates. The first pure
-version remains staged until the approved release supplies its versioned notes.
+Release approval for concrete versions and publication effects stays a separate decision;
+merging the release PR is the publication step. Never create or move tags manually.
 
 ## Recovering a partial publication
 
-Rerun the failed publication job to retain the original build artifact. The pinned
+Use "Re-run failed jobs" on the `Release` run to retain the original build artifact. The pinned
 helper verifies its manifest and compares remote PyPI filenames and SHA-256 hashes.
 It uploads only missing files, then verifies the complete file set. A mismatch fails
 and requires investigation. Do not move a tag or enable blind `skip-existing`.

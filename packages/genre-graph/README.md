@@ -15,7 +15,7 @@ regional membership, scoped style expressions and attribution normalization.
 Canonical roots, cultural affiliations and display parents remain distinct.
 Structural examples do not approve editorial roots or memberships.
 
-See the [contract and usage documentation](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/blob/develop/docs/genre-graph-v2.md).
+See the [contract and usage documentation](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/blob/main/docs/genre-graph-v2.md).
 Django persistence and transactions belong to `the-music-tree-genre-kit`.
 
 This package is developed in that repository's uv workspace. A workspace source
@@ -23,5 +23,5 @@ does not propagate to Git consumers. Until the first separately authorized
 publication, downstream installation requires an explicit local wheel or source;
 a successful workspace install alone does not establish public availability.
 
-See the [publication procedure](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/blob/develop/docs/genre-graph-publication.md)
+See the [publication procedure](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/blob/main/docs/genre-graph-publication.md)
 for the independent tag policy, Trusted Publisher setup and release ordering.
