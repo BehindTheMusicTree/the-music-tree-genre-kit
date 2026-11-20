@@ -110,7 +110,8 @@ Releases are automated with [release-please](https://github.com/googleapis/relea
 1. Merging Conventional-Commit PRs into `main` makes the `Release` workflow open or update a single
    release PR. It bumps `pyproject.toml` (and `uv.lock`) and writes `CHANGELOG.md` for the kit
    (`v*` tags) and for the pure graph package (`packages/genre-graph`, `graph-v*` tags).
-2. Merge the release PR to release. The `Release` workflow then, in order: tags the graph, builds and
+2. CI arms squash auto-merge on the release PR, so it merges once the required checks pass, with no
+   human review (to hold a release, disable auto-merge on the PR or close it). The `Release` workflow then, in order: tags the graph, builds and
    publishes it to PyPI (Trusted Publishing, environment `pypi`), verifies that the kit installs from
    public PyPI with that exact graph version, and finally tags the kit and publishes its GitHub Release.
 3. A failed job is recovered with "Re-run failed jobs"; already published files are not re-uploaded.
