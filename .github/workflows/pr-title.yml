@@ -1,0 +1,14 @@
+# Own workflow: the `edited` trigger must not rerun the test suite.
+name: PR title
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  pr-title:
+    uses: BehindTheMusicTree/github-workflows/.github/workflows/pr-title.yml@62ee427f7a87408fda2eb4c749be66e866f97631 # v6.2.0
