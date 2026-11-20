@@ -10,7 +10,7 @@ jobs:
   tag-graph:
     permissions:
       contents: write
-    # The same github-workflows commit SHA (v6.1.0) is pinned for every job below.
+    # The same github-workflows commit SHA (v6.2.0) is pinned for every job below.
     uses: BehindTheMusicTree/github-workflows/.github/workflows/release-tag.yml@62ee427f7a87408fda2eb4c749be66e866f97631 # v6.2.0
     with:
       app-id: ${{ vars.RELEASE_APP_ID }}
