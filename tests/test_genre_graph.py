@@ -25,68 +25,94 @@ def relation(child, parent, kind="classification"):
     return {"childId": ref(child), "parentId": ref(parent), "type": kind, "provenance": provenance(f"{child}-{parent}")}
 
 
-def boundary(node, kind):
-    return {"nodeId": ref(node), "type": kind, "provenance": provenance(f"{node}-{kind}")}
-
-
 def node(payload, key):
     return next(item for item in payload["nodes"] if item["id"] == ref(key))
 
 
-def test_b01_b02_b03_b06_b14_states_and_bounded_provenance(payload):
-    graph = GenreGraph(payload)
-    assert {key: result.state for key, result in graph.boundary_results.items()} == {
-        ref("music"): "before_entry",
-        ref("reggae"): "canonical",
-        ref("roots"): "canonical",
-        ref("dub"): "canonical",
-        ref("rock"): "before_entry",
-        ref("reggae-fusion"): "after_exit",
-        ref("french-reggae-child"): "before_entry",
+def genre(key):
+    return {"id": ref(key), "name": key, "kind": "genre"}
+
+
+def overview(key, umbrella=True, overview_type="current"):
+    return {
+        "id": ref(key),
+        "name": key,
+        "kind": "overview",
+        "overviewType": overview_type,
+        "overviewProvenance": provenance(key),
+        "isUmbrella": umbrella,
     }
-    assert graph.boundary_witness(ref("reggae-fusion")) == tuple(map(ref, ["music", "reggae", "reggae-fusion"]))
-    assert graph.boundary_results[ref("roots")].boundary_id == "reggae-entry"
-    assert graph.boundary_results[ref("reggae-fusion")].boundary_id == "reggae-fusion-exit"
-    assert graph.boundary_results[ref("reggae")].inherited_state == "before_entry"
+
+
+def test_c02_canonical_state_propagates_from_listed_roots(payload):
+    graph = GenreGraph(payload)
+    assert {
+        key: graph.canonical_state(ref(key)) for key in ["reggae", "roots", "dub", "reggae-fusion"]
+    } == dict.fromkeys(["reggae", "roots", "dub", "reggae-fusion"], "canonical")
+    for key in ["breton-rock", "country", "bluegrass", "french-reggae-child"]:
+        assert graph.canonical_state(ref(key)) == "regional"
+    for key in ["french-dub", "jamaica"]:
+        assert graph.canonical_state(ref(key)) is None
+
+
+def test_c01_unlisted_root_without_region_is_rejected(payload):
+    payload["nodes"].append(genre("orphan"))
+    with pytest.raises(GraphValidationError, match="Regional node reaches no overview"):
+        GenreGraph(payload)
+
+
+def test_c01_listing_the_root_makes_it_canonical(payload):
+    payload["nodes"].append(genre("orphan"))
+    payload["canonicalRoots"].append({"nodeId": ref("orphan"), "provenance": provenance("orphan-root")})
+    assert GenreGraph(payload).canonical_state(ref("orphan")) == "canonical"
+
+
+def test_c03_mixed_classification_edge_is_rejected(payload):
+    payload["nodes"].append(genre("hybrid"))
+    payload["relations"].extend([relation("hybrid", "reggae"), relation("hybrid", "country")])
+    with pytest.raises(GraphValidationError, match="mixes canonical and regional parents") as caught:
+        GenreGraph(payload)
+    assert set(caught.value.paths) == {(ref("reggae"), ref("hybrid")), (ref("country"), ref("hybrid"))}
 
 
 @pytest.mark.parametrize(
-    ("key", "kind", "message"),
+    ("key", "message"),
     [
-        ("music", "exit", "from before_entry"),
-        ("roots", "entry", "from canonical"),
-        ("fusion-child", "exit", "from after_exit"),
-        ("fusion-child", "entry", "from after_exit"),
+        ("unknown", "Unknown canonical root"),
+        ("reggae", "Duplicate canonical root"),
+        ("french-dub", "not a genre"),
+        ("roots", "has a classification parent"),
     ],
 )
-def test_b05_b07_illegal_transitions_report_decisions(payload, key, kind, message):
-    payload["nodes"].append(
-        {"id": ref("fusion-child"), "name": "Fusion child", "kind": "genre", "canonicalState": "after_exit"}
+def test_c04_invalid_canonical_roots_rejected(payload, key, message):
+    payload["canonicalRoots"].append({"nodeId": ref(key), "provenance": provenance(f"{key}-root")})
+    with pytest.raises(GraphValidationError, match=message):
+        GenreGraph(payload)
+
+
+def test_c05_explicit_empty_roots_is_valid():
+    graph = GenreGraph(
+        {
+            "contractVersion": 2,
+            "curationExportedOn": "2026-11-14T00:00:00Z",
+            "canonicalRoots": [],
+            "relations": [],
+            "nodes": [overview("lonely")],
+        }
     )
-    payload["relations"].append(relation("fusion-child", "reggae-fusion"))
-    payload["boundaries"].append(boundary(key, kind))
-    with pytest.raises(GraphValidationError, match=message) as caught:
-        GenreGraph(payload)
-    assert caught.value.paths[0][-1] == ref(key)
-    assert caught.value.decisions[-1] == f"{key}-{kind}"
-
-
-def test_b07_both_boundaries_rejected(payload):
-    payload["boundaries"].append(boundary("reggae", "exit"))
-    with pytest.raises(GraphValidationError, match="Multiple boundary") as caught:
-        GenreGraph(payload)
-    assert set(caught.value.decisions) == {"reggae-entry", "reggae-exit"}
+    assert graph.canonical_state(ref("lonely")) is None
 
 
 def test_b09_e05_order_labels_and_display_do_not_choose_state(payload):
     before = GenreGraph(payload)
     payload["nodes"].reverse()
     payload["relations"].reverse()
-    payload["boundaries"].reverse()
     node(payload, "dub")["name"] = "Rewritten label"
     node(payload, "dub")["displayParentId"] = ref("reggae")
     after = GenreGraph(payload)
-    assert after.boundary_results == before.boundary_results
+    assert {key: after.canonical_state(key) for key in after.node_ids} == {
+        key: before.canonical_state(key) for key in before.node_ids
+    }
     assert after.selected_nodes(ref("dub")) == before.selected_nodes(ref("dub"))
 
 
@@ -94,56 +120,113 @@ def test_b10_anchors_never_transmit_classification_or_songs(payload):
     before = GenreGraph(payload)
     payload["relations"] = [edge for edge in payload["relations"] if edge["type"] != "anchoring"]
     after = GenreGraph(payload)
-    assert before.boundary_results == after.boundary_results
     assert before.selected_nodes(ref("jamaica")) == after.selected_nodes(ref("jamaica"))
 
 
 def test_b11_compatible_classification_diamond(payload):
     payload["relations"].append(relation("dub", "roots"))
-    assert GenreGraph(payload).boundary_results[ref("dub")].state == "canonical"
+    assert GenreGraph(payload).canonical_state(ref("dub")) == "canonical"
 
 
-@pytest.mark.parametrize("parent", ["music", "reggae-fusion"])
-def test_b12_conflicting_parents_rejected_before_local_boundary(payload, parent):
-    payload["relations"].append(relation("dub", parent))
-    payload["boundaries"].append(boundary("dub", "exit"))
-    with pytest.raises(GraphValidationError, match="Conflicting classification") as caught:
-        GenreGraph(payload)
-    assert len(caught.value.paths) == 2
-    assert all(path[-1] == ref("dub") for path in caught.value.paths)
-
-
-@pytest.mark.parametrize("missing", ["contractVersion", "boundaries", "relations"])
+@pytest.mark.parametrize("missing", ["contractVersion", "canonicalRoots", "relations"])
 def test_b13_e02_missing_configuration_is_not_an_empty_graph(payload, missing):
     del payload[missing]
     with pytest.raises(GraphValidationError, match="Invalid graph contract"):
         GenreGraph(payload)
 
 
-def test_b13_unknown_boundary_and_classification_cycle(payload):
-    invalid = deepcopy(payload)
-    invalid["boundaries"].append(boundary("unknown", "entry"))
-    with pytest.raises(GraphValidationError, match="Unknown classification boundary"):
-        GenreGraph(invalid)
-    payload["relations"].append(relation("music", "dub"))
+@pytest.mark.parametrize("legacy", ["boundaries", "canonicalState", "isUnacceptedRoot"])
+def test_removed_boundary_fields_are_rejected(payload, legacy):
+    if legacy == "boundaries":
+        payload[legacy] = []
+    else:
+        node(payload, "dub")[legacy] = "canonical" if legacy == "canonicalState" else True
+    with pytest.raises(GraphValidationError, match="Invalid graph contract"):
+        GenreGraph(payload)
+
+
+def test_b13_classification_cycle(payload):
+    payload["relations"].append(relation("reggae", "dub"))
     with pytest.raises(GraphValidationError, match="Cycle in classification") as caught:
         GenreGraph(payload)
     assert caught.value.paths[0][0] == caught.value.paths[0][-1]
 
 
-def test_b14_explicit_empty_boundaries_is_valid():
-    graph = GenreGraph(
-        {
-            "contractVersion": 2,
-            "curationExportedOn": "2026-11-14T00:00:00Z",
-            "boundaries": [],
-            "relations": [],
-            "nodes": [
-                {"id": "LOCAL:unentered", "name": "Unentered", "kind": "genre", "canonicalState": "before_entry"}
-            ],
-        }
+def test_x01_country_and_usa_selections(payload):
+    graph = GenreGraph(payload)
+    assert graph.selected_nodes(ref("usa")) == set(map(ref, ["usa", "country", "bluegrass"]))
+    assert graph.selected_nodes(ref("country")) == set(
+        map(ref, ["country", "bluegrass", "french-country", "french-bluegrass"])
     )
-    assert graph.boundary_results["LOCAL:unentered"].state == "before_entry"
+    assert graph.selected_nodes(ref("france")) >= set(map(ref, ["french-country", "french-bluegrass"]))
+    assert {ref("french-country"), ref("french-bluegrass")}.isdisjoint(graph.selected_nodes(ref("usa")))
+
+
+def test_x02_normalization_keeps_usa_and_french_country(payload):
+    graph = GenreGraph(payload)
+    assert graph.normalize_attributions(map(ref, ["usa", "french-country"])) == set(map(ref, ["usa", "french-country"]))
+    assert graph.normalize_attributions(map(ref, ["usa", "country", "bluegrass"])) == {ref("bluegrass")}
+    assert graph.ancestors(ref("french-bluegrass"), "population") == set(map(ref, ["france", "world"]))
+
+
+def test_x03_expression_inside_the_region_of_its_regional_style_is_rejected(payload):
+    payload["nodes"].extend([overview("texas"), genre("x") | {"kind": "expression"}])
+    payload["nodes"][-1]["id"] = ref("texas-country")
+    payload["relations"].extend(
+        [
+            relation("texas", "usa", "regional_membership"),
+            relation("texas-country", "country", "expression_style"),
+            relation("texas-country", "texas", "regional_membership"),
+        ]
+    )
+    with pytest.raises(GraphValidationError, match="shares every region with its regional style"):
+        GenreGraph(payload)
+
+
+def test_x04_regional_expression_without_overview_is_rejected(payload):
+    payload["nodes"].append({"id": ref("floating-country"), "name": "x", "kind": "expression"})
+    payload["relations"].append(relation("floating-country", "country", "expression_style"))
+    with pytest.raises(GraphValidationError, match="Regional node reaches no overview"):
+        GenreGraph(payload)
+
+
+def test_scopes_split_the_node_from_its_regional_expressions(payload):
+    graph = GenreGraph(payload)
+    canonical = graph.selected_nodes(ref("reggae"), scope="canonical")
+    regional = graph.selected_nodes(ref("reggae"), scope="regional")
+    assert canonical == set(map(ref, ["reggae", "roots", "dub", "reggae-fusion"]))
+    assert canonical & regional == {ref("reggae")}
+    assert graph.selected_nodes(ref("reggae"), scope="all") == canonical | regional
+    assert ref("french-dub") in regional and ref("french-reggae-child") in regional
+    with pytest.raises(GraphValidationError, match="Invalid selection scope"):
+        graph.selected_nodes(ref("country"), scope="regional")
+
+
+def access_ancestors(graph, start):
+    """Independent walk: climb membership/classification, jump once to a style, then climb classification only."""
+    found, seen, pending = set(), set(), [(start, False)]
+    while pending:
+        current, jumped = pending.pop()
+        if (current, jumped) in seen:
+            continue
+        seen.add((current, jumped))
+        steps = [(parent, jumped) for parent in graph.parents(current, "classification")]
+        if not jumped:
+            steps += [(parent, False) for parent in graph.parents(current, "regional_membership")]
+            steps += [(style, True) for style in graph.parents(current, "expression_style")]
+        for parent, flag in steps:
+            found.add(parent)
+            pending.append((parent, flag))
+    return found
+
+
+def test_selection_is_the_inverse_of_typed_access(payload):
+    graph = GenreGraph(payload)
+    for member in graph.node_ids:
+        for ancestor in graph.node_ids - {member}:
+            assert (ancestor in access_ancestors(graph, member)) == (
+                member in graph.selected_nodes(ancestor, scope="all")
+            ), (member, ancestor)
 
 
 def test_m01_m02_m03_m04_m16_exact_scoped_song_sets(payload):
@@ -162,16 +245,16 @@ def test_m01_m02_m03_m04_m16_exact_scoped_song_sets(payload):
         selected = graph.selected_nodes(ref(key), scope=scope)
         return {song for song, genres in assignments.items() if genres & selected}
 
-    assert songs("dub", "canonical") == {
-        "jamaican-dub-song",
-        "french-dub-song",
-        "british-dub-song",
-        "unlocalized-dub-song",
+    assert songs("dub", "canonical") == {"unlocalized-dub-song"}
+    assert songs("dub", "regional") == {"jamaican-dub-song", "french-dub-song", "british-dub-song"} | {
+        "unlocalized-dub-song"
     }
+    assert songs("dub") == songs("dub", "regional")
     assert songs("jamaica") == {"jamaican-dub-song", "jamaican-roots-song"}
     assert songs("france") == {"french-dub-song", "french-roots-song"}
     assert songs("britain") == {"british-dub-song"}
-    assert songs("roots", "canonical") == {"jamaican-roots-song", "french-roots-song"}
+    assert songs("roots", "canonical") == set()
+    assert songs("roots") == {"jamaican-roots-song", "french-roots-song"}
     assert ref("dub") not in graph.selected_nodes(ref("jamaica"))
 
 
@@ -239,7 +322,7 @@ def test_r16_cycle_through_additional_parent_is_rejected(payload):
         ("france", "dub", "expression_style", "Invalid expression_style scope"),
         ("dub", "unknown", "classification", "Missing classification reference"),
         ("french-dub", "french-reggae", "expression_style", "Invalid expression_style scope"),
-        ("reggae-fusion", "france", "regional_membership", "Classified genre cannot be a regional member"),
+        ("reggae-fusion", "france", "regional_membership", "cannot be a regional member"),
     ],
 )
 def test_e02_invalid_scopes_and_references(payload, child, parent, kind, message):
@@ -262,14 +345,10 @@ def test_e03_graph_roundtrip_and_snapshot_isolation(payload):
     )
 
 
-def test_e07_existing_scope_names_and_direct_coverage(payload):
+def test_e07_direct_coverage_and_scope_rules(payload):
     graph = GenreGraph(payload)
-    canonical = graph.selected_nodes(ref("reggae"), scope="canonical")
-    regional = graph.selected_nodes(ref("reggae"), scope="regional")
-    assert graph.selected_nodes(ref("reggae"), scope="all") == canonical | regional
-    assert ref("french-reggae-fusion") not in canonical
-    assert ref("french-reggae-fusion") in regional
-    assert ref("french-dub") in canonical & regional
+    assert ref("french-reggae-fusion") in graph.selected_nodes(ref("reggae"), scope="regional")
+    assert ref("french-reggae-fusion") not in graph.selected_nodes(ref("reggae"), scope="canonical")
     assert graph.selected_nodes(ref("dub"), include_descendants=False) == {ref("dub")}
     with pytest.raises(GraphValidationError, match="Invalid selection scope"):
         graph.selected_nodes(ref("france"), scope="canonical")
@@ -286,24 +365,16 @@ def test_m01_e07_expression_descendants_share_only_the_scoped_population(payload
     graph = GenreGraph(payload)
     for parent in ("french-dub", "france", "world"):
         assert ref("local-dub-child") in graph.selected_nodes(ref(parent))
-    for scope in ("canonical", "regional", "all"):
+    for scope in ("regional", "all"):
         assert ref("local-dub-child") in graph.selected_nodes(ref("dub"), scope=scope)
+    assert ref("local-dub-child") not in graph.selected_nodes(ref("dub"), scope="canonical")
     assert ref("local-dub-child") not in graph.selected_nodes(ref("jamaica"))
     assert graph.normalize_attributions(map(ref, ["local-dub-child", "french-dub", "france", "dub"])) == {
         ref("local-dub-child")
     }
 
 
-def test_b01_m03_e07_before_entry_prefix_does_not_transmit_a_canonical_interval(payload):
-    payload["relations"].append(relation("music", "france", "regional_membership"))
-    graph = GenreGraph(payload)
-    assert graph.selected_nodes(ref("music")) == set(map(ref, ["music", "rock", "breton-rock"]))
-    assert ref("dub") not in graph.selected_nodes(ref("france"))
-    assert ref("jamaican-dub") not in graph.selected_nodes(ref("france"))
-    assert graph.normalize_attributions(map(ref, ["music", "dub"])) == set(map(ref, ["music", "dub"]))
-
-
-def test_r03_r06_noncanonical_classification_descendants_transmit_to_regional_parents(payload):
+def test_r03_r06_canonical_genre_transmits_its_expressions_to_regional_parents(payload):
     graph = GenreGraph(payload)
     assert graph.selected_nodes(ref("reggae-fusion")) == set(map(ref, ["reggae-fusion", "french-reggae-fusion"]))
     assert ref("french-reggae-fusion") in graph.selected_nodes(ref("france"))
@@ -313,29 +384,24 @@ def test_r03_r06_noncanonical_classification_descendants_transmit_to_regional_pa
     }
 
 
-def test_expression_of_before_entry_style_is_selected_with_its_style(payload):
-    graph = GenreGraph(payload)
-    assert ref("breton-rock") in graph.selected_nodes(ref("rock"))
-    assert ref("breton-rock") in graph.selected_nodes(ref("music"))
-    assert ref("breton-rock") in graph.selected_nodes(ref("brittany"))
-
-
-def test_canonical_scope_follows_expressions_of_regional_roots_in_expression_population(payload):
+def test_style_jump_is_taken_once(payload):
     payload["nodes"].extend(
-        [
-            {"id": ref("fusion-root"), "name": "Fusion root", "kind": "genre", "canonicalState": "before_entry"},
-            {"id": ref("fusion-root-expression"), "name": "Fusion root expression", "kind": "expression"},
-        ]
+        [genre("fusion-root"), {"id": ref("fusion-root-expression"), "name": "x", "kind": "expression"}]
     )
     payload["relations"].extend(
         [
             relation("fusion-root", "french-dub", "regional_membership"),
             relation("fusion-root-expression", "fusion-root", "expression_style"),
+            relation("fusion-root-expression", "britain", "regional_membership"),
         ]
     )
     graph = GenreGraph(payload)
-    assert ref("fusion-root-expression") in graph.selected_nodes(ref("dub"), scope="canonical")
-    assert graph.normalize_attributions(map(ref, ["dub", "fusion-root-expression"])) == {ref("fusion-root-expression")}
+    assert ref("fusion-root") in graph.selected_nodes(ref("dub"))
+    assert ref("fusion-root-expression") not in graph.selected_nodes(ref("dub"))
+    assert ref("fusion-root-expression") in graph.selected_nodes(ref("britain"))
+    assert graph.normalize_attributions(map(ref, ["dub", "fusion-root-expression"])) == set(
+        map(ref, ["dub", "fusion-root-expression"])
+    )
 
 
 def test_expression_with_regional_population_selected_via_regional_root(payload):
@@ -346,7 +412,7 @@ def test_expression_with_regional_population_selected_via_regional_root(payload)
 
 
 def test_classified_regional_genre_is_rejected(payload):
-    payload["relations"].append(relation("reggae-fusion", "france", "regional_membership"))
+    payload["relations"].append(relation("breton-rock", "country"))
     with pytest.raises(GraphValidationError, match="Classified genre cannot be a regional member"):
         GenreGraph(payload)
 
@@ -426,7 +492,6 @@ def test_r18_named_structural_witnesses_reuse_one_identity_with_parallel_parents
 def test_e03_legacy_metadata_survives_semantic_roundtrip(payload):
     metadata = {
         "side": "pop",
-        "isUnacceptedRoot": True,
         "scene": "commercial",
         "summary": "Summary",
         "description": "Description",
@@ -447,7 +512,7 @@ def test_e03_legacy_metadata_survives_semantic_roundtrip(payload):
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("side", "core"), ("scene", "unknown"), ("image", {}), ("summary", ""), ("isUnacceptedRoot", False)],
+    [("side", "core"), ("scene", "unknown"), ("image", {}), ("summary", "")],
 )
 def test_e02_invalid_legacy_metadata_rejected(payload, field, value):
     node(payload, "dub")[field] = value
@@ -459,3 +524,53 @@ def test_e02_identity_limit_matches_sql_storage(payload):
     node(payload, "dub")["id"] = "LOCAL:" + "x" * 250
     with pytest.raises(GraphValidationError, match="too long"):
         GenreGraph(payload)
+
+
+def merge_provenance():
+    return provenance("merge")
+
+
+def test_merged_moves_relations_and_removes_the_source(payload):
+    graph = GenreGraph(payload)
+    merged = graph.merged(ref("roots"), ref("dub"), merge_provenance())
+    assert ref("roots") not in merged.node_ids
+    assert merged.parents(ref("jamaican-roots"), "expression_style") == {ref("dub")}
+    assert merged.parents(ref("dub"), "classification") == {ref("reggae")}
+    assert merged.canonical_state(ref("dub")) == "canonical"
+    assert graph.node_ids >= {ref("roots")}
+
+
+def test_merged_is_idempotent_and_ignores_a_missing_source(payload):
+    merged = GenreGraph(payload).merged(ref("roots"), ref("dub"), merge_provenance())
+    assert merged.merged(ref("roots"), ref("dub"), merge_provenance()) is merged
+
+
+def test_merged_root_into_its_canonical_descendant_passes_rootship_on(payload):
+    merged = GenreGraph(payload).merged(ref("reggae"), ref("dub"), merge_provenance())
+    assert merged.to_payload()["canonicalRoots"] == [{"nodeId": ref("dub"), "provenance": merge_provenance()}]
+    assert merged.parents(ref("roots"), "classification") == {ref("dub")}
+    assert merged.parents(ref("dub"), "classification") == frozenset()
+    assert all(merged.canonical_state(ref(key)) == "canonical" for key in ["dub", "roots", "reggae-fusion"])
+
+
+def test_merged_rejects_a_root_that_would_become_a_regional_member(payload):
+    with pytest.raises(GraphValidationError, match="Canonical population cannot be a regional member"):
+        GenreGraph(payload).merged(ref("reggae"), ref("country"), merge_provenance())
+
+
+def test_merged_overview_recomputes_umbrella(payload):
+    merged = GenreGraph(payload).merged(ref("brittany"), ref("ancient-rome"), merge_provenance())
+    assert merged.node(ref("ancient-rome"))["isUmbrella"] is True
+    assert merged.children(ref("ancient-rome"), "regional_membership") == {ref("breton-rock")}
+
+
+def test_merged_rejects_cycles_kinds_and_unknown_target(payload):
+    graph = GenreGraph(payload)
+    with pytest.raises(GraphValidationError, match="Cycle in regional membership"):
+        graph.merged(ref("world"), ref("brittany"), merge_provenance())
+    with pytest.raises(GraphValidationError, match="different kinds"):
+        graph.merged(ref("dub"), ref("jamaica"), merge_provenance())
+    with pytest.raises(GraphValidationError, match="Unknown merge target"):
+        graph.merged(ref("dub"), ref("nowhere"), merge_provenance())
+    with pytest.raises(GraphValidationError, match="into itself"):
+        graph.merged(ref("dub"), ref("dub"), merge_provenance())

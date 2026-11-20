@@ -8,7 +8,7 @@
     "curationExportedOn",
     "nodes",
     "relations",
-    "boundaries"
+    "canonicalRoots"
   ],
   "additionalProperties": false,
   "properties": {
@@ -32,10 +32,10 @@
         "$ref": "#/$defs/relation"
       }
     },
-    "boundaries": {
+    "canonicalRoots": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/boundary"
+        "$ref": "#/$defs/canonicalRoot"
       }
     }
   },
@@ -91,13 +91,6 @@
             "overview"
           ]
         },
-        "canonicalState": {
-          "enum": [
-            "before_entry",
-            "canonical",
-            "after_exit"
-          ]
-        },
         "overviewType": {
           "enum": [
             "current",
@@ -118,10 +111,6 @@
           "enum": [
             "pop"
           ]
-        },
-        "isUnacceptedRoot": {
-          "type": "boolean",
-          "const": true
         },
         "scene": {
           "type": "string",
@@ -190,27 +179,6 @@
           "if": {
             "properties": {
               "kind": {
-                "const": "genre"
-              }
-            }
-          },
-          "then": {
-            "required": [
-              "canonicalState"
-            ]
-          },
-          "else": {
-            "not": {
-              "required": [
-                "canonicalState"
-              ]
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "kind": {
                 "const": "overview"
               }
             }
@@ -275,23 +243,16 @@
         }
       }
     },
-    "boundary": {
+    "canonicalRoot": {
       "type": "object",
       "required": [
         "nodeId",
-        "type",
         "provenance"
       ],
       "additionalProperties": false,
       "properties": {
         "nodeId": {
           "$ref": "#/$defs/identity"
-        },
-        "type": {
-          "enum": [
-            "entry",
-            "exit"
-          ]
         },
         "provenance": {
           "$ref": "#/$defs/provenance"

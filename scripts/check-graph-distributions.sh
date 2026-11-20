@@ -7,7 +7,7 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 consumer_dir="$(mktemp -d)"
 trap 'rm -rf "$consumer_dir"' EXIT
 
-cp "$repo_root"/tests/test_genre_{graph,boundaries,graph_observations}.py "$consumer_dir/"
+cp "$repo_root"/tests/test_genre_{graph,graph_observations}.py "$consumer_dir/"
 mkdir -p "$consumer_dir/fixtures"
 cp -R "$repo_root/tests/fixtures/genre_graph" "$consumer_dir/fixtures/"
 cd "$consumer_dir"
@@ -28,7 +28,7 @@ if not Path(graph.__file__).is_relative_to(sys.prefix):
 graph.load_genre_graph_schema()
 '
   .venv/bin/python -I -m pytest --rootdir=. -c pytest.ini -p no:cacheprovider \
-    test_genre_graph.py test_genre_boundaries.py test_genre_graph_observations.py
+    test_genre_graph.py test_genre_graph_observations.py
   rm -rf .venv
 done
 

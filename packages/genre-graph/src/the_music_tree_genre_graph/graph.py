@@ -1,17 +1,19 @@
 """Validate semantic relations before deriving presentation, membership or provenance."""
 
+from __future__ import annotations
+
 import json
+from collections import Counter
 from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from functools import cache
 from importlib.resources import files
-from types import MappingProxyType
 from typing import Any
 
 from jsonschema import Draft202012Validator, FormatChecker
 from jsonschema.exceptions import ValidationError
 
-from .boundaries import GraphValidationError, boundary_witness, evaluate_boundaries, topological_order
+from .validation import GraphValidationError, topological_order
 
 
 @cache
@@ -27,10 +29,11 @@ def load_genre_graph_schema() -> dict:
 class GenreGraph:
     """An immutable validated snapshot. All edges point from child to parent.
 
-    Only classification propagates boundary state. Only regional membership
-    propagates a regional population. Expression associations allow access
-    from any style (canonical or not) in one direction; anchors never propagate
-    songs.
+    Canonicity is derived from the curated ``canonicalRoots`` and propagates by
+    classification only; every other genre is regional. Regional membership and
+    classification between regional genres propagate a regional population.
+    Expression associations allow access from a style in one direction; anchors
+    never propagate songs.
     """
 
     def __init__(self, payload: dict[str, Any]):
@@ -53,13 +56,7 @@ class GenreGraph:
         classification = self._relations["classification"]
         self.classification_order = topological_order(classification, "classification")
         self.regional_order = topological_order(self._relations["regional_membership"], "regional membership")
-        genre_parents = {
-            node: values for node, values in classification.items() if self._nodes[node]["kind"] == "genre"
-        }
-        self.boundary_results = MappingProxyType(evaluate_boundaries(genre_parents, self._payload["boundaries"]))
-        for node, result in self.boundary_results.items():
-            if self._nodes[node]["canonicalState"] != result.state:
-                raise GraphValidationError(f"Contradictory canonicalState on {node}: expected {result.state}")
+        self._index_canonical_roots()
         self._validate_semantics()
         self._children: dict[str, dict[str, frozenset[str]]] = {}
         for kind, parents in self._relations.items():
@@ -70,6 +67,7 @@ class GenreGraph:
             self._children[kind] = {node: frozenset(values) for node, values in children.items()}
         self._validate_overviews()
         self._index_population()
+        self._validate_regional_access()
 
     @property
     def node_ids(self) -> frozenset[str]:
@@ -105,13 +103,46 @@ class GenreGraph:
             if not valid:
                 raise GraphValidationError(f"Invalid {kind} scope: {child} -> {parent}")
 
-    def boundary_witness(self, node_id: str) -> tuple[str, ...]:
-        return boundary_witness(self.boundary_results, node_id)
+    def canonical_state(self, node_id: str) -> str | None:
+        """``canonical`` or ``regional`` for a genre, ``None`` for any other kind."""
+        if self._nodes[node_id]["kind"] != "genre":
+            return None
+        return "canonical" if node_id in self._canonical else "regional"
+
+    def _index_canonical_roots(self) -> None:
+        roots: dict[str, dict] = {}
+        for root in self._payload["canonicalRoots"]:
+            node = root["nodeId"]
+            if node not in self._nodes:
+                raise GraphValidationError(f"Unknown canonical root: {node}")
+            if node in roots:
+                raise GraphValidationError(f"Duplicate canonical root: {node}")
+            if self._nodes[node]["kind"] != "genre":
+                raise GraphValidationError(f"Canonical root is not a genre: {node}")
+            if self._relations["classification"][node]:
+                raise GraphValidationError(f"Canonical root has a classification parent: {node}")
+            roots[node] = root
+        canonical: set[str] = set()
+        classification = self._relations["classification"]
+        for node in self.classification_order:
+            parents = sorted(classification[node])
+            if node in roots:
+                canonical.add(node)
+                continue
+            states = {parent in canonical for parent in parents}
+            if len(states) > 1:
+                witnesses = [(parent, node) for parent in parents]
+                raise GraphValidationError(
+                    f"Classification mixes canonical and regional parents at {node}: {parents}", paths=witnesses
+                )
+            if states == {True}:
+                canonical.add(node)
+        self._canonical = frozenset(canonical)
 
     def _validate_semantics(self) -> None:
         regional_parents = {parent for parents in self._relations["regional_membership"].values() for parent in parents}
         for node, data in self._nodes.items():
-            canonical = data["kind"] == "genre" and self.boundary_results[node].state == "canonical"
+            canonical = node in self._canonical
             if canonical and (self._relations["regional_membership"][node] or node in regional_parents):
                 raise GraphValidationError(
                     f"Canonical population cannot be a regional member: {node}; use an expression"
@@ -156,73 +187,105 @@ class GenreGraph:
         return frozenset(found)
 
     def _index_population(self) -> None:
-        # Crossing from a before-entry prefix into a canonical interval never
-        # transmits that style's worldwide population to the prefix's regions.
-        canonical = {node for node, result in self.boundary_results.items() if result.state == "canonical"}
         population = {node: set(parents) for node, parents in self._relations["regional_membership"].items()}
-        access = {node: set(parents) for node, parents in population.items()}
         for node, parents in self._relations["classification"].items():
-            population[node].update(parent for parent in parents if node not in canonical and parent not in canonical)
-            access[node].update(parent for parent in parents if parent in canonical or node not in canonical)
-        for node, styles in self._relations["expression_style"].items():
-            access[node].update(styles)
-        for kind, parents in (("population", population), ("access", access)):
-            topological_order(parents, kind)
-            self._relations[kind] = parents
-            children = {node: set() for node in self._nodes}
-            for child, values in parents.items():
-                for parent in values:
-                    children[parent].add(child)
-            self._children[kind] = {node: frozenset(values) for node, values in children.items()}
+            if node not in self._canonical:
+                population[node].update(parents)
+        order = topological_order(population, "population")
+        self._relations["population"] = population
+        children: dict[str, set[str]] = {node: set() for node in self._nodes}
+        for child, parents in population.items():
+            for parent in parents:
+                children[parent].add(child)
+        self._children["population"] = {node: frozenset(values) for node, values in children.items()}
+        self._index_access()
+        self._anchors: dict[str, frozenset[str]] = {}
+        for node in order:
+            found: set[str] = set()
+            for parent in population[node]:
+                if self._nodes[parent]["kind"] == "overview":
+                    found.add(parent)
+                else:
+                    found.update(self._anchors[parent])
+            self._anchors[node] = frozenset(found)
+
+    def _index_access(self) -> None:
+        """Typed access: any run of regional membership and classification, then at most one style jump.
+
+        After an expression-to-style jump a path only climbs classification, so it never
+        reaches the regions of the style. Ancestors are computed once, parents first.
+        """
+        classification = self._relations["classification"]
+        climbing = {node: self._relations["regional_membership"][node] | classification[node] for node in self._nodes}
+        classified: dict[str, frozenset[str]] = {}
+        for node in self.classification_order:
+            found: set[str] = set()
+            for parent in classification[node]:
+                found.add(parent)
+                found.update(classified[parent])
+            classified[node] = frozenset(found)
+        climbed: dict[str, frozenset[str]] = {}
+        jumped: dict[str, frozenset[str]] = {}
+        for node in topological_order(climbing, "access"):
+            up: set[str] = set()
+            jump: set[str] = set()
+            for style in self._relations["expression_style"][node]:
+                jump.add(style)
+                jump.update(classified[style])
+            for parent in climbing[node]:
+                up.add(parent)
+                up.update(climbed[parent])
+                jump.update(jumped[parent])
+            climbed[node], jumped[node] = frozenset(up), frozenset(jump)
+        self._access_ancestors = {node: climbed[node] | jumped[node] for node in self._nodes}
+        descendants: dict[str, set[str]] = {node: set() for node in self._nodes}
+        for node, ancestors in self._access_ancestors.items():
+            for ancestor in ancestors:
+                descendants[ancestor].add(node)
+        self._access_descendants = {node: frozenset(values) for node, values in descendants.items()}
+
+    def _validate_regional_access(self) -> None:
+        for node, data in self._nodes.items():
+            if data["kind"] == "overview" or node in self._canonical:
+                continue
+            if not self._anchors[node]:
+                raise GraphValidationError(f"Regional node reaches no overview: {node}")
+            for style in self._relations["expression_style"][node]:
+                if style in self._canonical:
+                    continue
+                if not any(
+                    self._disjoint(own, theirs) for own in self._anchors[node] for theirs in self._anchors[style]
+                ):
+                    # Expressions of a regional style must live in another region; a nested region is a child style.
+                    raise GraphValidationError(
+                        f"Expression shares every region with its regional style: {node} -> {style}",
+                        paths=[(node, style)],
+                    )
+
+    def _disjoint(self, left: str, right: str) -> bool:
+        return (
+            left != right
+            and right not in self.ancestors(left, "regional_membership")
+            and left not in self.ancestors(right, "regional_membership")
+        )
 
     def selected_nodes(self, node_id: str, *, scope: str = "all", include_descendants: bool = True) -> frozenset[str]:
-        """Select semantic populations; stop regional access at canonical entries.
+        """Select a node and everything that reaches it by typed access.
 
-        Canonical scope covers canonical classification descendants and complete
-        associated expression populations. Regional scope covers those expression
-        populations and exited classification descendants. All scopes retain the
-        selected style itself, matching the existing HTTP contract. Whenever a
-        non-canonical style enters a selection its expressions and their regional
-        population follow; expressions are only ever reached downward from a style.
+        ``canonical`` covers the node and its classification descendants (the worldwide view),
+        ``regional`` the node and its regional expressions with their population, ``all`` both.
+        A regional node only accepts ``all``.
         """
-        node = self._nodes[node_id]
-        canonical = node["kind"] == "genre" and self.boundary_results[node_id].state == "canonical"
+        canonical = node_id in self._canonical
         if scope not in {"canonical", "regional", "all"} or (not canonical and scope != "all"):
             raise GraphValidationError(f"Invalid selection scope {scope} for {node_id}")
         if not include_descendants:
             return frozenset({node_id})
-        if not canonical:
-            return frozenset(self._with_expressions({node_id} | self.descendants(node_id, "population")))
+        everything = self._access_descendants[node_id] | {node_id}
+        if scope == "all":
+            return everything
         classified = self.descendants(node_id, "classification") | {node_id}
-        canonical_nodes = {node for node in classified if self.boundary_results[node].state == "canonical"}
-        expressions = {
-            expression for style in canonical_nodes for expression in self.children(style, "expression_style")
-        }
-        expression_population = set(expressions)
-        for expression in expressions:
-            expression_population.update(self.descendants(expression, "population"))
-        if scope == "canonical":
-            return frozenset(canonical_nodes | self._with_expressions(expression_population))
-        regional = set(classified) - canonical_nodes
-        for descendant in tuple(regional):
-            regional.update(self.descendants(descendant, "population"))
-        regional.update(expression_population)
-        regional.add(node_id)
-        regional = self._with_expressions(regional)
-        return frozenset(regional if scope == "regional" else canonical_nodes | regional)
-
-    def _with_expressions(self, selected: set[str]) -> set[str]:
-        """Add the expressions, and their regional population, of every non-canonical style in `selected`."""
-        pending = [node for node in selected if self._is_noncanonical_style(node)]
-        while pending:
-            for expression in self.children(pending.pop(), "expression_style"):
-                added = ({expression} | self.descendants(expression, "population")) - selected
-                selected |= added
-                pending.extend(node for node in added if self._is_noncanonical_style(node))
-        return selected
-
-    def _is_noncanonical_style(self, node_id: str) -> bool:
-        return self._nodes[node_id]["kind"] == "genre" and self.boundary_results[node_id].state != "canonical"
+        return frozenset(classified if scope == "canonical" else (everything - classified) | {node_id})
 
     def normalize_attributions(self, node_ids: Iterable[str]) -> frozenset[str]:
         """Remove ancestors only when inclusive selection preserves their access."""
@@ -230,10 +293,17 @@ class GenreGraph:
         unknown = direct - self.node_ids
         if unknown:
             raise GraphValidationError(f"Unknown attribution nodes: {sorted(unknown)}")
-        redundant = set()
-        for node in direct:
-            redundant.update(self.ancestors(node, "access"))
-        return direct - redundant
+        # Access is not transitive (an expression reaches its style's classification ancestors but not its
+        # regions), so a node is dropped only when the survivors still cover it and everything above it.
+        # Dropping the topmost nodes first keeps the result independent of input order.
+        covers = {node: self._access_ancestors[node] | {node} for node in direct}
+        counts = Counter(member for cover in covers.values() for member in cover)
+        kept = set(direct)
+        for node in sorted(direct, key=lambda item: (len(self._access_ancestors[item]), item)):
+            if all(counts[member] > 1 for member in covers[node]):
+                kept.discard(node)
+                counts.subtract(covers[node])
+        return frozenset(kept)
 
     def refinement_nodes(self, node_ids: Iterable[str]) -> frozenset[str]:
         return frozenset(
@@ -249,6 +319,72 @@ class GenreGraph:
                 redundant.update(self.ancestors(parent, "regional_membership"))
             result.update((child, parent) for parent in parents - redundant)
         return frozenset(result)
+
+    def merged(self, source: str, target: str, provenance: Mapping[str, str]) -> GenreGraph:
+        """Return the graph where ``source`` is absorbed by ``target``.
+
+        Idempotent: once ``source`` is gone the graph is returned unchanged. Relations and
+        display parents of ``source`` move to ``target``. A merge may not change the canonical
+        state of any other node; a root merged into its descendant passes its rootship on.
+        """
+        if target not in self._nodes:
+            raise GraphValidationError(f"Unknown merge target: {target}")
+        if source not in self._nodes:
+            return self
+        if source == target:
+            raise GraphValidationError(f"Cannot merge a node into itself: {source}")
+        if self._nodes[source]["kind"] != self._nodes[target]["kind"]:
+            raise GraphValidationError(f"Cannot merge nodes of different kinds: {source} -> {target}")
+        payload = self.to_payload()
+
+        def remap(node: str) -> str:
+            return target if node == source else node
+
+        def key(relation: dict) -> tuple[str, str, str]:
+            return relation["childId"], relation["parentId"], relation["type"]
+
+        untouched = {key(r) for r in payload["relations"] if source not in (r["childId"], r["parentId"])}
+        relations: list[dict] = []
+        seen = set(untouched)
+        for relation in payload["relations"]:
+            if source in (relation["childId"], relation["parentId"]):
+                relation = {**relation, "childId": remap(relation["childId"]), "parentId": remap(relation["parentId"])}
+                if relation["childId"] == relation["parentId"] or key(relation) in seen:
+                    continue
+                seen.add(key(relation))
+            relations.append(relation)
+        source_display = self._nodes[source].get("displayParentId")
+        nodes = []
+        for node in payload["nodes"]:
+            if node["id"] == source:
+                continue
+            if node.get("displayParentId") == source:
+                if node["id"] == target and source_display and source_display != target:
+                    node["displayParentId"] = source_display
+                elif node["id"] == target:
+                    del node["displayParentId"]
+                else:
+                    node["displayParentId"] = target
+            if node["id"] == target and node["kind"] == "overview":
+                node["isUmbrella"] = node["overviewType"] == "current" or any(
+                    r["type"] == "regional_membership" and r["parentId"] == target for r in relations
+                )
+            nodes.append(node)
+        roots = [root for root in payload["canonicalRoots"] if root["nodeId"] != source]
+        if source in self._canonical and not self._relations["classification"][source]:
+            if all(root["nodeId"] != target for root in roots):
+                roots.append({"nodeId": target, "provenance": dict(provenance)})
+        merged = GenreGraph({**payload, "nodes": nodes, "relations": relations, "canonicalRoots": roots})
+        changed = sorted(
+            node
+            for node in merged.node_ids
+            if node != source and merged.canonical_state(node) != self.canonical_state(node)
+        )
+        if changed:
+            raise GraphValidationError(
+                f"Merging {source} into {target} changes the canonical state of: {changed}", paths=[tuple(changed)]
+            )
+        return merged
 
     def ancestry_subgraph(self, node_id: str) -> dict:
         """Share ancestor nodes instead of enumerating every regional path."""

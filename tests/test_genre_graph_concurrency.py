@@ -138,11 +138,9 @@ def test_e04_read_transaction_keeps_queries_and_tokens_consistent_during_import(
         expected_assignment_revision=None,
     )
     changed = deepcopy(payload)
-    changed["relations"] = [
-        edge
-        for edge in changed["relations"]
-        if not (edge["childId"] == "LOCAL:french-dub" and edge["type"] == "regional_membership")
-    ]
+    for edge in changed["relations"]:
+        if edge["childId"] == "LOCAL:french-dub" and edge["type"] == "regional_membership":
+            edge["parentId"] = "LOCAL:jamaica"
     for node in changed["nodes"]:
         if node["id"] == "LOCAL:french-dub":
             node.pop("displayParentId", None)
@@ -331,8 +329,7 @@ def test_cold_1710_node_shared_ancestry_publication_uses_staged_closure():
         "contractVersion": 2,
         "curationExportedOn": "2026-11-14T00:00:00Z",
         "nodes": [
-            {"id": identity, "name": identity, "kind": "genre", "canonicalState": "before_entry"}
-            for identity in ["LOCAL:root", *parent_ids, *leaf_ids]
+            {"id": identity, "name": identity, "kind": "genre"} for identity in ["LOCAL:root", *parent_ids, *leaf_ids]
         ],
         "relations": [
             {"childId": child, "parentId": parent, "type": "classification", "provenance": evidence}
@@ -341,11 +338,13 @@ def test_cold_1710_node_shared_ancestry_publication_uses_staged_closure():
                 *((leaf, parent) for leaf in leaf_ids for parent in parent_ids),
             ]
         ],
-        "boundaries": [],
+        "canonicalRoots": [{"nodeId": "LOCAL:root", "provenance": evidence}],
     }
     dataset = replace_graph(key="cold-shared", payload=payload, expected_revision=None)
     assert dataset.nodes.count() == 1710
-    assert dataset.access.count() == 1 + 8 * 2 + 1701 * 10
+    # Every node classified under the canonical root is canonical and indexed in the all, canonical and regional scopes.
+    closure_rows = 1 + 8 * 2 + 1701 * 10
+    assert dataset.access.count() == 2 * closure_rows + 1710
     song = Track(title="Shared leaf assignment")
     Track.objects.bulk_create([song])
     replace_track_attributions(
@@ -459,11 +458,9 @@ def test_dataset_unique_migration_backfills_dataset_and_fails_on_duplicates(payl
 def test_deferred_payload_read_stays_on_the_snapshot_during_import(payload):
     dataset = replace_graph(key="reference", payload=payload, expected_revision=None)
     changed = deepcopy(payload)
-    changed["relations"] = [
-        edge
-        for edge in changed["relations"]
-        if not (edge["childId"] == "LOCAL:french-dub" and edge["type"] == "regional_membership")
-    ]
+    for edge in changed["relations"]:
+        if edge["childId"] == "LOCAL:french-dub" and edge["type"] == "regional_membership":
+            edge["parentId"] = "LOCAL:jamaica"
     for node in changed["nodes"]:
         if node["id"] == "LOCAL:french-dub":
             node.pop("displayParentId", None)
