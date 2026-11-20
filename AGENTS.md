@@ -84,16 +84,14 @@ classes; this package does not define full serializers that hit a concrete `Crit
 
 ## Contributing conventions (see CONTRIBUTING.md for full detail)
 
-- Strict Gitflow. No direct commits to `main` or `develop` — everything goes through a PR.
-  `feature/` and `fix/` branches are cut from `develop` and merged back into `develop`.
-  `release/x.y.z` branches from `develop` and merges into `main` (tagged) and back into
-  `develop`. `hotfix/x.y.z` branches from `main` and merges into `main` (tagged) and back into
-  `develop`.
+- GitHub Flow. No direct commits to `main` — everything goes through a PR. Topic branches
+  (`feature/`, `fix/`, `chore/`, `ci/`) are cut from `main` and merged back into `main`.
 - Commit/PR title format: `<type>(<scope>): <summary>` (Conventional-Commits-inspired; types:
   `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `perf`, `ci`).
-- Update `CHANGELOG.md` under `[Unreleased]` for any notable change, and `README.md` if the
-  package's scope or usage changes.
-- Releases are tagged on `main` via a `release/x.y.z` branch (see above); `the-music-tree-api-kit`
+- Do not edit `CHANGELOG.md` or versions by hand: release-please builds them from Conventional-Commit
+  PR titles. Update `README.md` if the package's scope or usage changes.
+- Releases come from the release-please PR on `main` (`.github/workflows/release.yml`); the graph
+  package is published to PyPI first, then the kit is tagged. `the-music-tree-api-kit`
   must always be pinned by tag, never a raw commit SHA (see pyproject.toml comment and changelog
   for why — `uv`'s git-ref resolution conflicts across repos otherwise).
 

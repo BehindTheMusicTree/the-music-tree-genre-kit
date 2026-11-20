@@ -20,7 +20,7 @@ Thank you for your interest in contributing! This project is currently maintaine
 
 **Maintainers** review and merge Pull Requests, manage repository configuration, and are responsible for project direction.
 
-**Important:** No direct commits to `main` or `develop` — all changes, including from maintainers, go through Pull Requests.
+**Important:** No direct commits to `main` — all changes, including from maintainers, go through Pull Requests.
 
 Currently this project has a solo maintainer, but the role may expand as the project grows.
 
@@ -45,18 +45,13 @@ This is an installable Python package (shared genre/tag/criteria/tree Django abs
 
 ### 2. Branching
 
-This project follows strict [Gitflow](https://nvie.com/posts/a-successful-git-branching-model/).
+This project follows [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow).
 
-- **`main`** — production-ready code only. No direct commits — only merges from `release/*` and
-  `hotfix/*` branches. Every merge to `main` is tagged.
-- **`develop`** — integration branch, the default branch and PR target for day-to-day work. No
-  direct commits — only merges from PRs.
-- **`feature/<name>`** — new features, branched from `develop`, merged back into `develop` via PR.
-- **`fix/<name>`** — bug fixes, branched from `develop`, merged back into `develop` via PR.
-- **`release/<x.y.z>`** — release stabilization, branched from `develop`. Merged into `main`
-  (then tagged) and back into `develop` when ready. Only fixes belong here, no new features.
-- **`hotfix/<x.y.z>`** — urgent production fixes, branched from `main`. Merged into `main` (then
-  tagged) and back into `develop`.
+- **`main`** — the only long-lived branch, the default branch and PR target. No direct commits —
+  only merged PRs. Every merge to `main` is validated by CI.
+- **Topic branches** (`feature/<name>`, `fix/<name>`, `chore/<name>`, `ci/<name>`, …) — branched from
+  `main`, merged back into `main` via PR with a Conventional-Commits title.
+- **`release-please--*`** — the release PR, opened and kept up to date automatically (see Releasing).
 
 There is no automated branch-name enforcement — these prefixes are a convention, not a CI-checked rule.
 
@@ -101,34 +96,29 @@ Before opening a PR:
 
 - ✅ `uv run ruff check .`, `uv run ruff format --check .`, `uv run mypy src packages/genre-graph/src`, and `uv run pytest` all pass
 - ✅ New abstractions have corresponding coverage in `tests/fixture_app/`
-- ✅ `CHANGELOG.md` updated under `[Unreleased]`
+- ✅ The PR title is a valid Conventional Commit (it drives the release notes; do not edit `CHANGELOG.md` by hand)
 - ✅ `README.md` updated if the package's scope or usage changed
 - ✅ No secrets, large files, or accidental commits
-- ✅ Branch targets `develop` (or `main`, for a `release/*`/`hotfix/*` branch only)
+- ✅ Branch targets `main`
 
 **PR title** follows the same `<type>(<scope>): <summary>` format as commits, e.g. `feat(criteria-playlist): hoist AbstractCriteriaPlaylist from grow/hear`.
 
 ### 6. Releasing (For Maintainers)
 
-Releases follow Gitflow, tagged on `main`:
+Releases are automated with [release-please](https://github.com/googleapis/release-please) on `main`:
 
-1. Branch `release/x.y.z` from `develop`.
-2. Bump `version` in `pyproject.toml` and finalize the `[Unreleased]` section of `CHANGELOG.md` on
-   that branch. Only bugfixes belong here — no new features.
-3. Open a PR from `release/x.y.z` into `main`. After the required checks and merge, CI validates
-   the canonical version, matching nonempty changelog and main ancestry, then creates the annotated
-   tag on that exact merged commit. The tag workflow publishes changelog notes as a GitHub Release.
-   This repository continues to be consumed by Git tag; no PyPI publication is introduced.
-4. Integrate the released `main` back into `develop` through a PR, then delete the release branch.
-5. Pin the dependency on `the-music-tree-api-kit` to a tag, never a raw commit SHA — see the `[Unreleased]`/`v0.2.1` changelog entries below for why.
-6. Consumers (`grow-the-music-tree-api`, `hear-the-music-tree-api`) re-pin their dependency on this package to the new tag.
+1. Merging Conventional-Commit PRs into `main` makes the `Release` workflow open or update a single
+   release PR. It bumps `pyproject.toml` (and `uv.lock`) and writes `CHANGELOG.md` for the kit
+   (`v*` tags) and for the pure graph package (`packages/genre-graph`, `graph-v*` tags).
+2. Merge the release PR to release. The `Release` workflow then, in order: tags the graph, builds and
+   publishes it to PyPI (Trusted Publishing, environment `pypi`), verifies that the kit installs from
+   public PyPI with that exact graph version, and finally tags the kit and publishes its GitHub Release.
+3. A failed job is recovered with "Re-run failed jobs"; already published files are not re-uploaded.
+4. Pin the dependency on `the-music-tree-api-kit` to a tag, never a raw commit SHA — see the `v0.2.1` changelog entry for why.
+5. Consumers (`grow-the-music-tree-api`, `hear-the-music-tree-api`) re-pin their dependency on this package to the new tag.
 
-An urgent fix to production code goes through `hotfix/x.y.z` instead: branch from `main`, fix,
-PR into `main`, let CI tag and publish, then integrate released `main` back into `develop`.
-
-Initial adoption preserves version 0.54.0 and creates no tag. App access and tag protections are
-activated separately in `github-config` once this contract reaches `main`. Do not create or push
-tags locally. Rerun failed CI publication to recover; an existing release is retained.
+The kit's range on `the-music-tree-genre-graph` must contain the graph version (checked by the `Lint`
+job). Do not create or push tags locally.
 
 ## License & Attribution
 
