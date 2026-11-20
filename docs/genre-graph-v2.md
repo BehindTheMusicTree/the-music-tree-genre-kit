@@ -1,222 +1,220 @@
-# Contrat du graphe sémantique v2
+# Semantic graph v2 contract
 
-Ce contrat prépare le plan régional multiparent. `GenreGraph` valide un instantané
-en mémoire ; `genre_graph.storage` le persiste dans des tables Django séparées,
-avec sélections SQL. Les endpoints, la migration des catalogues et les interfaces
-restent à adapter. Le contrat
-historique `genre_tree` et les arbres personnels continuent d'utiliser leur import
-actuel. Aucun producteur ne doit émettre ce nouveau format avant ses consommateurs.
+This contract prepares the multi-parent regional plan. `GenreGraph` validates an
+in-memory snapshot; `genre_graph.storage` persists it in separate Django tables,
+with SQL selections. Endpoints, catalog migration and interfaces
+remain to be adapted. The historical `genre_tree` contract and personal trees
+keep using their current import. No producer may emit this new format before its
+consumers are ready.
 
-## Identités et relations
+## Identities and relations
 
-`contractVersion: 2`, `curationExportedOn`, `nodes`, `relations` et `boundaries`
-sont obligatoires. Une liste de frontières explicitement vide est valide ; une
-configuration absente échoue. Les identités sont des QID ou des identités `LOCAL:`
-persistantes, indépendantes du libellé et du parent d'affichage.
+`contractVersion: 2`, `curationExportedOn`, `nodes`, `relations` and `boundaries`
+are required. An explicitly empty boundary list is valid; a missing
+configuration fails. Identities are QIDs or persistent `LOCAL:` identities,
+independent of the label and of the display parent.
 
-| Relation enfant → parent | Portée | Transmission |
+| Child → parent relation | Scope | Transmission |
 | --- | --- | --- |
-| `classification` | Genre → genre | État des frontières ; population selon les règles ci-dessous |
-| `regional_membership` | Nœud régional → overview, genre non canonique ou expression | Toute la population régionale de l'enfant |
-| `expression_style` | Expression → style (canonique ou non) | Accès depuis le style à l'expression ; aucun accès inverse |
-| `anchoring` | Genre → overview | Descriptive uniquement |
+| `classification` | Genre → genre | Boundary state; population according to the rules below |
+| `regional_membership` | Regional node → overview, non-canonical genre or expression | The child's entire regional population |
+| `expression_style` | Expression → style (canonical or not) | Access from the style to the expression; no reverse access |
+| `anchoring` | Genre → overview | Descriptive only |
 
-Un overview ne peut appartenir qu'à un autre overview. Aucun genre canonique ne
-peut être enfant ou parent d'une appartenance régionale : une population limitée
-à une région exige une expression distincte. Une expression a au moins un style
-explicite, canonique ou non. Un genre classé (parent de classification) ne peut
-être membre régional : seule une racine de classification (genre sans parent de
-classification) peut appartenir à une région. Ses descendants régionaux appartiennent à sa population.
+An overview can only belong to another overview. No canonical genre can be the
+child or the parent of a regional membership: a population limited to a region
+requires a distinct expression. An expression has at least one explicit style,
+canonical or not. A classified genre (a classification parent) cannot be a
+regional member: only a classification root (a genre with no classification
+parent) can belong to a region. Its regional descendants belong to its population.
 
-Les relations et frontières portent `decisionId`, `source` et `rationale`.
-`displayParentId`, lorsqu'il existe, désigne un parent accepté ; il ne choisit
-jamais l'état ni la population. Les références inconnues, doublons d'identité ou
-de relation, cycles et contradictions échouent avant de rendre un instantané.
-Les cycles sont également vérifiés sur les unions de relations transmettrices.
+Relations and boundaries carry `decisionId`, `source` and `rationale`.
+`displayParentId`, when present, designates an accepted parent; it never
+chooses the state or the population. Unknown references, identity or relation
+duplicates, cycles and contradictions fail before a snapshot is returned.
+Cycles are also checked on the unions of transmitting relations.
 
-## Frontières et provenance
+## Boundaries and provenance
 
-`evaluate_boundaries(parents, boundaries)` calcule les états depuis les seuls
-parents de classification acceptés. Il ne lit aucun statut prérempli. Un genre
-sans parent hérite de `before_entry`. Une entrée produit `canonical`, une sortie
-depuis cet état produit `after_exit`. Toute autre transition explicite est
-invalide. Des entrées indépendantes dans une forêt sont autorisées.
+`evaluate_boundaries(parents, boundaries)` computes states from the accepted
+classification parents only. It reads no pre-filled status. A genre with no
+parent inherits `before_entry`. An entry produces `canonical`; an exit from that
+state produces `after_exit`. Any other explicit transition is invalid.
+Independent entries in a forest are allowed.
 
-Les parents multiples doivent transmettre le même état avant application de la
-frontière locale. `before_entry` et `after_exit` restent différents, même s'ils
-sont tous deux non canoniques. Un conflit fournit deux chemins témoins ; aucune
-frontière locale ni préférence d'affichage ne le masque.
+Multiple parents must transmit the same state before the local boundary is
+applied. `before_entry` and `after_exit` remain distinct, even though both are
+non-canonical. A conflict provides two witness paths; no local boundary or
+display preference masks it.
 
-Chaque résultat conserve l'état, l'état hérité, un prédécesseur témoin et la
-décision de frontière pertinente. Les chemins sont reconstruits à la demande.
-Le stockage de provenance croît avec les nœuds, pas avec le nombre de chemins.
-À l'import, `GenreGraph` recalcule ces résultats et rejette un `canonicalState`
-fourni qui les contredit.
+Each result keeps the state, the inherited state, a witness predecessor and the
+relevant boundary decision. Paths are rebuilt on demand. Provenance storage
+grows with the number of nodes, not with the number of paths. On import,
+`GenreGraph` recomputes these results and rejects a supplied `canonicalState`
+that contradicts them.
 
-## Sélections et normalisation
+## Selections and normalization
 
-| Nœud sélectionné / scope inclusif | Ensemble de nœuds attribuables |
+| Selected node / inclusive scope | Attributable node set |
 | --- | --- |
-| Canonique / `canonical` | Genre choisi, descendants de classification canoniques, expressions associées et leur population régionale |
-| Canonique / `regional` | Genre choisi, descendants sortis de l'intervalle canonique et leur population régionale, expressions associées et leur population régionale |
-| Canonique / `all` | Union distincte des deux scopes |
-| Non canonique / `all` | Nœud choisi, descendants de population, expressions de chaque style non canonique retenu et leur population régionale |
-| Régional / `all` | Nœud choisi et descendants régionaux, y compris les descendants de classification non canoniques |
+| Canonical / `canonical` | Chosen genre, canonical classification descendants, associated expressions and their regional population |
+| Canonical / `regional` | Chosen genre, descendants that left the canonical interval and their regional population, associated expressions and their regional population |
+| Canonical / `all` | Distinct union of the two scopes |
+| Non-canonical / `all` | Chosen node, population descendants, expressions of each retained non-canonical style and their regional population |
+| Regional / `all` | Chosen node and regional descendants, including non-canonical classification descendants |
 
-Sans descendants, seul le nœud choisi est retenu. Les scopes `canonical` et
-`regional` ne sont pas acceptés sur un nœud régional. Un préfixe `before_entry`
-ne traverse jamais une entrée canonique pour récupérer la population mondiale
-du style ou ses expressions. Une sélection régionale ne remonte jamais une
-association de style pour redescendre dans les expressions des autres régions.
+Without descendants, only the chosen node is kept. The `canonical` and
+`regional` scopes are not accepted on a regional node. A `before_entry` prefix
+never crosses a canonical entry to retrieve the style's worldwide population or
+its expressions. A regional selection never climbs a style association to come
+back down into the expressions of other regions.
 
-`normalize_attributions` retire les ancêtres directs couverts par une attribution
-plus précise suivant les chemins d'accès inclusifs admissibles. Les ancrages
-ne rendent aucune attribution redondante. La normalisation précède le calcul
-des overviews directement attribués qui restent « à préciser ».
+`normalize_attributions` removes the direct ancestors covered by a more precise
+attribution along the admissible inclusive access paths. Anchorings do not make
+any attribution redundant. Normalization precedes the computation of the
+directly attributed overviews that remain "to refine".
 
-Un overview `current` est toujours umbrella. Un overview `historical` l'est
-exactement lorsqu'il possède un enfant régional accepté, indépendamment de son
-parent d'affichage et du nombre de songs. Le type et sa provenance sont explicites.
-Un flag `isUmbrella` fourni contradictoire est rejeté.
+A `current` overview is always umbrella. A `historical` overview is umbrella
+exactly when it has an accepted regional child, regardless of its display parent
+and of the number of songs. The type and its provenance are explicit. A supplied
+`isUmbrella` flag that contradicts this is rejected.
 
-La réduction porte uniquement sur les relations `regional_membership`, jamais
-sur la classification, les ancrages ou les associations. `ancestry_subgraph`
-rend les nœuds partagés et les relations de population régionale, y compris la
-classification non canonique ; il n'énumère pas toutes les routes.
+Reduction applies only to `regional_membership` relations, never to
+classification, anchorings or associations. `ancestry_subgraph` returns the
+shared nodes and the regional population relations, including non-canonical
+classification; it does not enumerate every route.
 
-Ces fonctions travaillent sur les concepts, pas sur les songs du catalogue.
-Les consommateurs doivent appliquer les ensembles obtenus et compter les songs
-distincts en SQL ; additionner des buckets par attribution serait incorrect.
+These functions work on concepts, not on catalog songs. Consumers must apply the
+resulting sets and count distinct songs in SQL; summing per-attribution buckets
+would be incorrect.
 
-## Fixtures et validation
+## Fixtures and validation
 
-`tests/fixtures/genre_graph/regional-v2.json` est synthétique. Les noms musicaux
-ne constituent pas une curation approuvée. Les tests de frontières utilisent
-aussi des entrées sans aucun état fourni, dont un graphe de 3 001 nœuds.
+`tests/fixtures/genre_graph/regional-v2.json` is synthetic. The musical names
+are not an approved curation. The boundary tests also use inputs with no supplied
+state at all, including a 3,001-node graph.
 
-`observed-additional-children.json` fige les 44 observations de
-`/tmp/regional-staging-validation/leaf-cases.json`, diagnostic du 13 novembre 2026.
-SHA-256 : `a3496975abd53eb0fa4752c6288b860f23a22d932976e574934f39a25b8b339b`.
-Chaque observation est rejouée avec un autre parent d'affichage et vérifie les
-enfants, la sélection et le flag umbrella. Les rôles et types du rejeu sont
-des entrées de test ; ils ne valident ni chronologie réelle ni inclusion musicale.
-Ce rejeu ne prétend pas couvrir tout le pipeline du diagnostic historique.
+`observed-additional-children.json` freezes the 44 observations of
+`/tmp/regional-staging-validation/leaf-cases.json`, a diagnostic of November 13, 2026.
+SHA-256: `a3496975abd53eb0fa4752c6288b860f23a22d932976e574934f39a25b8b339b`.
+Each observation is replayed with a different display parent and checks the
+children, the selection and the umbrella flag. The replay's roles and types are
+test inputs; they validate neither real chronology nor musical inclusion.
+This replay does not claim to cover the whole pipeline of the historical diagnostic.
 
-Les IDs B/M/R/E des noms de tests renvoient à la matrice
-[`genre-graph-fixture-matrix.md`](genre-graph-fixture-matrix.md). Les tests du kit
-couvrent le contrat en mémoire, le stockage et ses sélections SQL. Les tests
-PostgreSQL utilisent une application minimale et les vraies migrations du kit ;
-ils vérifient les créations concurrentes, les conflits de révision et la cohérence
-des lectures verrouillées. Ils sont ignorés sous SQLite et exécutés dans un job CI
-séparé. La migration du catalogue, les caches des consommateurs, les décisions
-géohistoriques et le rejeu de bout en bout restent ouverts chez leurs propriétaires.
+The B/M/R/E IDs in test names refer to the matrix
+[`genre-graph-fixture-matrix.md`](genre-graph-fixture-matrix.md). The kit's tests
+cover the in-memory contract, storage and its SQL selections. The PostgreSQL
+tests use a minimal application and the kit's real migrations; they check
+concurrent creations, revision conflicts and the consistency of locked reads.
+They are skipped under SQLite and run in a separate CI job. Catalog migration,
+consumer caches, geohistorical decisions and the end-to-end replay remain open
+with their owners.
 
-## Stockage, concurrence et restauration
+## Storage, concurrency and restoration
 
-`replace_graph(key=..., payload=..., expected_revision=...)` valide le graphe
-avant toute écriture. `None` exige une création ; une révision existante exige
-le jeton relu par le client. Le remplacement conserve les clés permanentes des concepts, archive le payload et
-applique les différences de fermeture dans la même transaction. Chaque concept retiré
-exige une décision explicite `{target: identité | null, provenance: {decisionId, source,
-rationale}}`. Le concept reste archivé avec `is_active=False` ; sa réactivation
-réutilise sa clé. Les attributions sont remappées en SQL vers la cible explicite, ou
-retirées pour une cible nulle, en conservant leur historique et toutes les preuves
-d'origine, de destination et de retrait. Aucun track n'est supprimé.
+`replace_graph(key=..., payload=..., expected_revision=...)` validates the graph
+before any write. `None` requires a creation; an existing revision requires the
+token re-read by the client. The replacement keeps the concepts' permanent keys,
+archives the payload and applies the closure differences in the same
+transaction. Each removed concept requires an explicit decision
+`{target: identity | null, provenance: {decisionId, source, rationale}}`. The
+concept stays archived with `is_active=False`; reactivating it reuses its key.
+Attributions are remapped in SQL to the explicit target, or removed for a null
+target, keeping their history and all origin, destination and removal evidence.
+No track is deleted.
 
-Un track porte au plus un nœud par dataset. `GenreGraphAttribution.dataset` est
-dénormalisé depuis le nœud et immuable (clé étrangère composite
-`(dataset_id, node_id)` sur PostgreSQL, triggers équivalents sur SQLite), et
-`UNIQUE(dataset_id, track_id)` s'applique à tout le kit, y compris aux écritures
-SQL directes. `replace_track_attributions` et `restore_track_attributions`
-rejettent plus d'une identité, `publish_staged_attributions` rejette un ensemble
-staged comportant plusieurs nœuds pour un même track. Le remappage d'une
-retrait ne peut pas créer de doublon : le track n'avait qu'un nœud, il n'en a
-qu'un, avec les preuves d'origine, de destination et de retrait. La migration
-0022 échoue en nommant le dataset et le track tant que des doublons existent ;
-elle ne choisit jamais un nœud.
+A track carries at most one node per dataset. `GenreGraphAttribution.dataset` is
+denormalized from the node and immutable (composite foreign key
+`(dataset_id, node_id)` on PostgreSQL, equivalent triggers on SQLite), and
+`UNIQUE(dataset_id, track_id)` applies across the whole kit, including direct SQL
+writes. `replace_track_attributions` and `restore_track_attributions` reject more
+than one identity, and `publish_staged_attributions` rejects a staged set with
+several nodes for the same track. Remapping a removal cannot create a duplicate:
+the track had only one node, and it keeps only one, with the origin, destination
+and removal evidence. Migration 0022 fails, naming the dataset and the track,
+while duplicates exist; it never picks a node.
 
-`select_tracks(tracks, *, node, scope, include_descendants)` prend le `GenreGraphNode`
-déjà chargé (lu dans le même snapshot que l'évaluation du résultat) et n'émet aucune
-requête à l'appel ; un nœud inactif ne sélectionne rien, un scope invalide ou un
-scope ≠ `all` sur un nœud non canonique lève `GraphValidationError`.
-`select_tracks`, `effective_attributions` et `tracks_needing_refinement` utilisent
-des sous-requêtes SQL : ils ne matérialisent pas les populations de tracks en
-Python. `effective_attributions` renvoie les attributions actives du dataset (il
-n'y a plus de normalisation « plus précis » à faire) ; `tracks_needing_refinement`
-garde la sémantique umbrella. Le queryset fourni par le consommateur conserve son
-périmètre d'accès et ses critères de jouabilité. Les comptes utilisent les tracks
-distincts, y compris lorsqu'un nœud possède plusieurs chemins d'accès.
+`select_tracks(tracks, *, node, scope, include_descendants)` takes the
+already-loaded `GenreGraphNode` (read in the same snapshot as the result
+evaluation) and issues no query at call time; an inactive node selects nothing,
+and an invalid scope or a scope other than `all` on a non-canonical node raises
+`GraphValidationError`. `select_tracks`, `effective_attributions` and
+`tracks_needing_refinement` use SQL subqueries: they do not materialize track
+populations in Python. `effective_attributions` returns the dataset's active
+attributions (there is no longer any "more precise" normalization to do);
+`tracks_needing_refinement` keeps the umbrella semantics. The queryset supplied
+by the consumer keeps its access scope and its playability criteria. Counts use
+distinct tracks, including when a node has several access paths.
 
-Pour rendre plusieurs résultats avec leurs jetons, évaluer tous les querysets
-à l'intérieur de `graph_read_snapshot()`, après l'authentification. Sous PostgreSQL,
-ce contexte ouvre une transaction extérieure REPEATABLE READ, READ ONLY ; les
-lecteurs peuvent se chevaucher et n'empêchent pas une publication concurrente.
-`graph_read_transaction(key=...)` charge aussi le dataset dans cet instantané, sans
-`payload` (différé) ; passer `with_payload=True` pour le charger d'emblée, et ne lire un
-`payload` différé qu'à l'intérieur du bloc.
-Les contextes de lecture imbriqués partagent l'instantané ; entrer depuis une
-transaction extérieure non possédée par ce contexte échoue. Matérialiser les résultats
-avant de sortir du contexte : un queryset paresseux ne transporte pas l'instantané.
+To render several results with their tokens, evaluate all the querysets inside
+`graph_read_snapshot()`, after authentication. Under PostgreSQL, this context
+opens an outer REPEATABLE READ, READ ONLY transaction; readers can overlap and do
+not block a concurrent publication. `graph_read_transaction(key=...)` also loads
+the dataset in that snapshot, without `payload` (deferred); pass
+`with_payload=True` to load it eagerly, and only read a deferred `payload` inside
+the block. Nested read contexts share the snapshot; entering from an outer
+transaction not owned by this context fails. Materialize the results before
+leaving the context: a lazy queryset does not carry the snapshot.
 
-Les consommateurs qui écrivent les attributions en lot ou suppriment des tracks
-attribués doivent entrer dans `graph_write_transaction(key=..., expected_revision=...)`
-avant de verrouiller ou modifier les tracks et leurs attributions. Pour plusieurs
-datasets, acquérir ces contextes par ordre de clé. Le service d'attribution prend
-déjà ses verrous dans cet ordre. Les triggers assurent l'invalidation des écritures
-ORM/SQL directes, mais ne peuvent pas corriger leur ordre de verrouillage : sans
-ce contexte, une écriture concurrente peut être annulée par PostgreSQL pour deadlock.
-Le jeton vérifie la version du graphe ; les écritures exigent READ COMMITTED et
-sont interdites dans un instantané de lecture. Chaque jeu d'attributions possède
-aussi un `expected_assignment_revision` : `None` permet sa première création, puis
-le jeton courant est obligatoire, y compris après un effacement explicite. Une
-révision périmée échoue avant d'enregistrer les preuves.
+Consumers that write attributions in bulk or delete attributed tracks must enter
+`graph_write_transaction(key=..., expected_revision=...)` before locking or
+modifying the tracks and their attributions. For several datasets, acquire these
+contexts in key order. The attribution service already takes its locks in that
+order. Triggers ensure invalidation for direct ORM/SQL writes, but cannot fix
+their lock ordering: without this context, a concurrent write may be cancelled by
+PostgreSQL for deadlock. The token checks the graph version; writes require
+READ COMMITTED and are forbidden inside a read snapshot. Each attribution set
+also has an `expected_assignment_revision`: `None` allows its first creation,
+then the current token is mandatory, including after an explicit clearing. A
+stale revision fails before the evidence is recorded.
 
-`revision` identifie le graphe ; `membership_revision` invalide les populations.
-Un remplacement du graphe change les deux. Les triggers d'attribution changent
-le second pour les insertions, mises à jour et suppressions, y compris les
-écritures en lot et les cascades de suppression des tracks. Sous PostgreSQL,
-les tables de transition limitent l'invalidation à une fois par dataset et
-instruction SQL. SQLite utilise des triggers par ligne. Un rollback annule les
-jetons comme les mutations. L'index de concepts et de fermeture est interne :
-le modifier directement par ORM ou SQL n'est pas un contrat d'édition du graphe.
-Les changements de relations, frontières et types passent par `replace_graph`.
+`revision` identifies the graph; `membership_revision` invalidates the
+populations. A graph replacement changes both. Attribution triggers change the
+latter for inserts, updates and deletes, including bulk writes and cascading
+track deletions. Under PostgreSQL, transition tables limit invalidation to once
+per dataset and SQL statement. SQLite uses per-row triggers. A rollback cancels
+the tokens along with the mutations. The concept and closure index is internal:
+modifying it directly through ORM or SQL is not a graph-editing contract.
+Changes to relations, boundaries and types go through `replace_graph`.
 
-`replace_track_attributions` exige un track sans propriétaire, des identités
-connues, un tableau non vide de preuves par identité, la révision courante du
-graphe et le jeton du jeu d'attributions. Chaque preuve contient `decisionId`,
-`source` et `rationale`. Son contenu est immuable au sein du dataset : réutiliser
-un identifiant avec un autre contenu échoue. Une répétition identique, même avec
-les preuves dans un ordre différent, ne réécrit rien. Les états précédents et suivants sont archivés avec
-leurs identités sémantiques et leur provenance, sans FK vers les concepts qui
-pourraient être retirés. `restore_track_attributions` restaure un instantané
-explicite ; il refuse les concepts absents et ne recrée pas de track supprimé.
-Les archives et preuves refusent les modifications et suppressions directes.
-Les mutations ORM/SQL directes invalident les jetons, mais ne créent pas
-l'historique métier complet : les publications doivent utiliser les services. `restore_graph` restaure uniquement le graphe : pour restaurer les deux,
-restaurer d'abord les concepts nécessaires, puis les instantanés d'attribution,
-dans une transaction englobante. Les consommateurs doivent archiver leurs
-mappings de migration et leurs autres projections séparément.
+`replace_track_attributions` requires a track with no owner, known identities, a
+non-empty array of evidence per identity, the graph's current revision and the
+attribution set's token. Each piece of evidence contains `decisionId`, `source`
+and `rationale`. Its content is immutable within the dataset: reusing an
+identifier with different content fails. An identical repetition, even with the
+evidence in a different order, rewrites nothing. Previous and next states are
+archived with their semantic identities and provenance, without FKs to the
+concepts that may be removed. `restore_track_attributions` restores an explicit
+snapshot; it refuses absent concepts and does not recreate a deleted track.
+Archives and evidence refuse direct modifications and deletions. Direct ORM/SQL
+mutations invalidate the tokens, but do not create the complete business
+history: publications must use the services. `restore_graph` restores only the
+graph: to restore both, first restore the necessary concepts, then the
+attribution snapshots, in an enclosing transaction. Consumers must archive their
+migration mappings and other projections separately.
 
-## Compatibilité Python et installation
+## Python compatibility and installation
 
-Le kit Django exige Python 3.14. Le package indépendant
-`the-music-tree-genre-graph`, dans `packages/genre-graph`, accepte Python 3.12 et
-ne dépend que de `jsonschema`. Les producteurs importent `GenreGraph`,
-`GraphValidationError` et `load_genre_graph_schema` depuis
-`the_music_tree_genre_graph` ; ils ne copient pas le classificateur du kit Django.
-La dépendance du kit est bornée à `>=0.1.0,<0.2.0`. La CI construit le wheel
-et le sdist et rejoue les mêmes tests hors du workspace sur Python 3.12 et 3.14,
-sans Django. Elle installe aussi le wheel et le sdist du kit avec un wheel pur
-explicite sur Python 3.14 et rejoue les tests de stockage SQLite. Ces contrôles
-valident les artefacts locaux, pas leur disponibilité sur un index public.
+The Django kit requires Python 3.14. The independent package
+`the-music-tree-genre-graph`, in `packages/genre-graph`, accepts Python 3.12 and
+depends only on `jsonschema`. Producers import `GenreGraph`,
+`GraphValidationError` and `load_genre_graph_schema` from
+`the_music_tree_genre_graph`; they do not copy the Django kit's classifier. The
+kit's dependency is bounded to `>=0.1.0,<0.2.0`. CI builds the wheel and the
+sdist and replays the same tests outside the workspace on Python 3.12 and 3.14,
+without Django. It also installs the kit's wheel and sdist with an explicit pure
+wheel on Python 3.14 and replays the SQLite storage tests. These checks validate
+the local artifacts, not their availability on a public index.
 
-La source uv du workspace ne se transmet pas aux projets consommateurs. Une
-installation Git du kit nécessite donc une source publiée explicite pour le package
-pur ; la branche de développement ne constitue pas encore une dépendance livrable.
-La publication et les changements de pins nécessitent une autorisation de release
-séparée. Les pins existants restent inchangés jusque-là.
+The workspace's uv source is not passed on to consumer projects. A Git
+installation of the kit therefore needs an explicit published source for the pure
+package; the development branch is not yet a deliverable dependency.
+Publication and pin changes require a separate release authorization. Existing
+pins remain unchanged until then.
 
-La migration `0020` refuse une descente si le stockage de preuves ou d'historique
-est peuplé : aplatir plusieurs preuves détruirait la provenance. La restauration
-applicative du graphe et des attributions reste une opération en avant ; un retour
-physique au schéma antérieur exige une sauvegarde de base prise avant migration.
+Migration `0020` refuses a downgrade if the evidence or history storage is
+populated: flattening several pieces of evidence would destroy provenance.
+Application-level restoration of the graph and attributions remains a forward
+operation; a physical return to the earlier schema requires a database backup
+taken before migration.
