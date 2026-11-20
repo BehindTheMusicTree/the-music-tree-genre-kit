@@ -17,6 +17,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [0.69.0] - 2026-11-20
+
 ### Breaking
 
 - **Genre graph contract**: `boundaries`, `canonicalState` and `isUnacceptedRoot` are removed; `canonicalRoots` is required (an empty list is valid). A genre is canonical when it is, or descends by classification from, a listed root; otherwise it is regional and must reach an overview. Regional genres reaching no overview, mixed canonical/regional classification parents and invalid roots are rejected.
@@ -31,6 +33,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Changed
 
 - **Docs**: `docs/genre-graph-v2.md` and `docs/genre-graph-fixture-matrix.md` are now in English; contract wording, identifiers and witness IDs are unchanged.
+- **`the-music-tree-genre-graph` 0.3.0** (workspace bound `>=0.3.0,<0.4.0`).
 
 ## [0.68.0] - 2026-11-20
 
