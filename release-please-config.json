@@ -1,0 +1,30 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "bump-minor-pre-major": true,
+  "separate-pull-requests": false,
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "include-component-in-tag": false,
+      "exclude-paths": ["packages/genre-graph"],
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='the-music-tree-genre-kit')].version"
+        }
+      ]
+    },
+    "packages/genre-graph": {
+      "release-type": "python",
+      "component": "graph",
+      "extra-files": [
+        {
+          "type": "toml",
+          "path": "/uv.lock",
+          "jsonpath": "$.package[?(@.name.value=='the-music-tree-genre-graph')].version"
+        }
+      ]
+    }
+  }
+}
