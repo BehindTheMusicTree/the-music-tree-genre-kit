@@ -90,7 +90,8 @@ classes; this package does not define full serializers that hit a concrete `Crit
   `feat`, `fix`, `refactor`, `docs`, `chore`, `test`, `style`, `perf`, `ci`).
 - Do not edit `CHANGELOG.md` or versions by hand: release-please builds them from Conventional-Commit
   PR titles. Update `README.md` if the package's scope or usage changes.
-- Releases come from the release-please PR on `main` (`.github/workflows/release.yml`); the graph
+- Releases come from the release-please PR on `main` (`.github/workflows/release.yml`), which CI
+  auto-merges once the required checks pass (no confirmation step); the graph
   package is published to PyPI first, then the kit is tagged. `the-music-tree-api-kit`
   must always be pinned by tag, never a raw commit SHA (see pyproject.toml comment and changelog
   for why — `uv`'s git-ref resolution conflicts across repos otherwise).

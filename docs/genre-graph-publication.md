@@ -21,7 +21,7 @@ checks. No API token is used. Changes to repository environment settings go thro
    with both packages' versions, `uv.lock` and changelogs. Only changes under
    `packages/genre-graph` bump the graph; the kit's range on it must contain its version
    (checked by the `Lint` job).
-2. Merging the release PR triggers `release.yml`, which runs in order:
+2. CI arms auto-merge on the release PR; merging it (once the required checks pass) triggers `release.yml`, which runs in order:
    `tag-graph` (tags `graph-vX.Y.Z` when the graph version is not tagged yet), `build-graph`,
    `publish-graph` (Trusted Publishing, then PyPI filename/hash verification),
    `verify-public-dependency` (installs the kit from public PyPI with the exact graph version
@@ -30,8 +30,9 @@ checks. No API token is used. Changes to repository environment settings go thro
 3. A root-only release skips the graph jobs; the dependency gate still checks the declared
    graph version is installable.
 
-Release approval for concrete versions and publication effects stays a separate decision;
-merging the release PR is the publication step. Never create or move tags manually.
+The release PR is auto-merged by CI (`auto-merge: true` on the `release-please` job), so merging it is
+the publication step and there is no human approval beyond the required checks. To hold a release,
+disable auto-merge on the PR or close it. Never create or move tags manually.
 
 ## Recovering a partial publication
 
