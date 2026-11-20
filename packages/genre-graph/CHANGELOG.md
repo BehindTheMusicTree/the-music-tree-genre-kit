@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-20
+
 ### Breaking
 
 - `boundaries`, `canonicalState` and `isUnacceptedRoot` are removed from the schema; `canonicalRoots` is required. `GenreGraph.canonical_state` returns `canonical` or `regional` for genres. `boundary_results`, `boundary_witness` and `evaluate_boundaries` are gone (`boundaries.py` is now `validation.py`).
