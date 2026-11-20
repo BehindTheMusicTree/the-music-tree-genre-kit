@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **Genre graph contract**: `boundaries`, `canonicalState` and `isUnacceptedRoot` are removed; `canonicalRoots` is required (an empty list is valid). A genre is canonical when it is, or descends by classification from, a listed root; otherwise it is regional and must reach an overview. Regional genres reaching no overview, mixed canonical/regional classification parents and invalid roots are rejected.
 - **Selection scopes**: access is typed (one expression-to-style jump, then classification only). `canonical` selects the genre and its classification descendants; `regional` adds the expressions and regional population reaching it. `normalize_attributions` keeps `{USA, French country}` and no longer drops a node whose region the survivors do not cover.
+- **Stored graphs**: persisted datasets and archived revisions in the old format (`boundaries`, `canonicalState`) fail the new schema; re-import them. Such revisions can no longer be restored. A regional style's expression that shares every region with it is now rejected. `merge_graph_nodes` is idempotent only when retried with the current revision.
 - `canonical_state` stored on graph nodes now comes from `GenreGraph.canonical_state`; the `before_entry` and `after_exit` states and `boundary_results` are gone.
 
 ### Added
