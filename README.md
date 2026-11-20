@@ -34,7 +34,7 @@ This package has no concrete, queryable `Criteria` model — only `AbstractCrite
 This package owns the JSON Schema of the Gold genre-tree export (`src/the_music_tree_genre_kit/schemas/genre_tree.schema.json`, loaded with `load_genre_tree_schema()`). Consumers read it from the installed package; the producer vendors a copy pinned to a release tag.
 
 The separate [semantic graph v2 contract](docs/genre-graph-v2.md) provides a strict
-schema and in-memory `GenreGraph` validation, canonical boundary evaluation,
+schema and in-memory `GenreGraph` validation, canonical-root evaluation, node merging,
 scoped expression selections, attribution normalization and regional ancestry.
 The pure implementation lives in `packages/genre-graph` as `the-music-tree-genre-graph`
 (Python 3.12+, jsonschema only). Import `GenreGraph`, `GraphValidationError` and

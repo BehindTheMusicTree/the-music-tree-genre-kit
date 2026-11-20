@@ -1,37 +1,28 @@
-# Matrice des témoins du graphe v2
+# Graph v2 witness matrix
 
-Cette matrice est synthétique. Les noms musicaux (Reggae, Dub, Breton rock…) ne constituent pas une curation approuvée : ils servent de formes de graphe. Les IDs B/M/R/E sont référencés par les noms de tests du kit et des consommateurs (pipelines, grow, infrastructure, app-kit, genre-tree-view, frontend). Voir `docs/genre-graph-v2.md` §Fixtures et validation.
+This matrix is synthetic. The musical names (Reggae, Dub, Breton rock…) are not an approved curation: they serve as graph shapes. The C/X/M/R/E IDs are referenced by test names in the kit and in consumers (pipelines, grow, infrastructure, app-kit, genre-tree-view, frontend). See `docs/genre-graph-v2.md` §Fixtures and validation.
 
-Reconstituée le 2026-11-19 depuis les journaux de travail du 13–14 novembre 2026 ; le plan source n'a jamais été commité.
+Reconstructed on 2026-11-19 from the working logs of November 13–14, 2026; the source plan was never committed.
 
 | ID | Fixture | Attendu |
 | --- | --- | --- |
-| B01 | Root and descendants with no entry | All `before_entry`; no automatic canonical root |
-| B02 | Reggae entry → unmarked Roots reggae → unmarked descendant | Entry applies at Reggae; all three canonical without descendant flags |
-| B03 | Reggae entry → French reggae exit → several descendants | Exit node and entire descendant branch `after_exit`; canonical sibling unchanged |
-| B04 | European art music → Classical music entry → Breton classical music exit → descendant | Exact states before/canonical/after/after; entry below root works; labels remain illustrative |
-| B05 | Attempt entry at a child or deeper descendant of Breton classical music | Reject with entry/exit witness path; no partial update |
-| B06 | Unmarked descendants before entry versus after exit | Same non-canonical boolean, different states; entry accepted only before |
-| B07 | Exit before entry, repeated entry, repeated exit, both markers on one node | Reject contradictory/redundant input with boundary IDs |
-| B08 | Add, move or remove an entry/exit or a classification parent | Recompute affected descendants/provenance; reject newly illegal transitions; invalidate caches and matching; unrelated branches unchanged |
-| B09 | Change labels, input order or display parent | Status and canonical interval unchanged |
-| B10 | Add/remove regional anchoring, overview parent, origin or expression association | No change to canonical inheritance |
-| B11 | Several classification parents with compatible states | Deterministic state independent of parent order; no path enumeration explosion |
-| B12 | Canonical/non-canonical conflict, before/after conflict, or attempted entry reachable after an exit | Under proposed graph policy: reject with witness paths; no display-parent tie-break or canonical override |
-| B13 | Missing boundary configuration, unknown boundary ID, cyclic classification | Fail explicitly; never substitute an empty list or discard a bad relation silently |
-| B14 | Valid empty boundary list and a path with no exit after entry | Empty list yields before-entry nodes; entered path stays canonical without invented exit |
+| C01 | Genre outside every listed root, with and without a region | Regional genre reaching no overview rejected; listing it as a root makes it canonical |
+| C02 | Listed root, classification descendants, expressions, overviews | Descendants canonical; regional genres `regional`; other kinds no state; order, labels and display parents change nothing |
+| C03 | Genre with one canonical and one regional classification parent | Rejected with one witness edge per parent |
+| C04 | Unknown, duplicate, non-genre or classified canonical root; removed `boundaries`, `canonicalState`, `isUnacceptedRoot` | Fail explicitly with the offending identity |
+| C05 | Missing `canonicalRoots` versus explicit empty list; classification cycle | Missing fails; empty is valid and has no canonical genre; cycle fails with its path |
 | M01 | Canonical Dub plus Jamaican, French and British dub expressions, with disjoint song fixtures | Canonical inclusive access reaches all three; each regional selection reaches only its justified population |
 | M02 | "Dub" displayed under Jamaica and "Dub" in the canonical tree | Equal labels do not collapse scopes; Jamaican view never becomes worldwide Dub |
 | M03 | Dub song with no known region | Canonical access retained; no automatic Jamaica, France or Britain attribution |
 | M04 | Roots reggae canonical with Jamaican anchoring; Jamaican and French roots song fixtures | Both songs accessible from canonical Roots reggae; only justified Jamaican song in Jamaica, French song in France |
-| M05 | Jamaican reggae subgenre below a canonical parent, then the same fixture with an explicit exit | Inherit canonical in the first case; non-canonical in the second despite Jamaican origin; no country-based override |
-| M06 | French reggae exit branch | Non-canonical because of the supplied boundary, not detected French language or name; descendants cannot re-enter |
+| M05 | Jamaican reggae subgenre below a listed root, then a regional genre with a Jamaican anchoring | Canonical by inheritance in the first case; no country-based override in the second |
+| M06 | French reggae as an expression of canonical Reggae, with regional descendants | Selected by France and by Reggae `regional`/`all`, never by Reggae `canonical`; no detected French language or name |
 | M07 | Parameterized Reggae, Rock, Funk, Disco, Pop and Hip-hop fixtures with English, French, other-language and instrumental songs | Holding curated genre assignment fixed, language alone changes neither canonical status nor regional attribution; test each named family separately |
 | M08 | French-language rock with unknown region; independently evidenced Breton rock | Language alone does not imply France or Brittany; evidenced Breton rock may belong to Brittany and France through accepted paths |
 | M09 | Jazz fixtures varying US/non-US performer/location and a descriptive "American style" label | Holding curated classification fixed, these metadata changes alone do not create canonical entry/exit or a US regional assignment |
-| M10 | Classical fixtures varying European/non-European instruments and performer nationality | Holding the classified tradition fixed, neither instrument inventory nor nationality changes boundary status |
-| M11 | Western classical, Indian classical and its Hindustani/Carnatic tradition fixtures | Distinct concepts remain distinct; no forced placement in Western classical based on the shared word "classical" or instruments; statuses follow supplied boundaries, not a newly asserted taxonomy |
-| M12 | Electronic music with canonical descendants and one explicitly exited branch | Same inheritance rules as other families; no special "more free" exemption or re-entry |
+| M10 | Classical fixtures varying European/non-European instruments and performer nationality | Holding the classified tradition fixed, neither instrument inventory nor nationality changes canonical status |
+| M11 | Western classical, Indian classical and its Hindustani/Carnatic tradition fixtures | Distinct concepts remain distinct; no forced placement in Western classical based on the shared word "classical" or instruments; statuses follow the listed canonical roots, not a newly asserted taxonomy |
+| M12 | Electronic music as a listed root with descendants | Same inheritance rules as other families; no special exemption |
 | M13 | Hip-hop fixtures with US, UK and other origins and English/non-English lyrics | No US/UK or English-only canonical whitelist; regional evidence remains separate |
 | M14 | Locally concentrated canonical style; widely distributed non-canonical expression | Popularity/geographic reach alone does not change curated status |
 | M15 | French dub as regional grouping without an autonomous-subgenre assertion | Regional scoped access works without manufacturing a new stylistic claim |
@@ -60,13 +51,17 @@ Reconstituée le 2026-11-19 depuis les journaux de travail du 13–14 novembre 2
 | E01 | Wikidata classification → Gold export → genre-kit/API import → selection/counts → shared UI | Boundary states, expression scope, identities and exact song sets remain consistent |
 | E02 | Missing reference, invalid scope or conflicting supplied state | Atomic rejection; existing dataset remains usable |
 | E03 | Repeated import, remapped identity, retry and rollback | No duplicates/orphans; unchanged identities preserved; data restored on rollback |
-| E04 | Boundary or membership change after cached queries | Affected selections, counts, provenance and refinement refreshed; no stale regional access |
+| E04 | Root list or membership change after cached queries | Affected selections, counts, provenance and refinement refreshed; no stale regional access |
 | E05 | Input permutation or display-parent change | Membership, state, exact selections and counts invariant |
 | E06 | Regional breadcrumbs and sectors on wide/narrow screens | Parallel clickable paths, shared portions, progressive disclosure; sectors not proportional to counts |
 | E07 | Canonical/regional/all selections and personal-tree consumers | Existing scope meanings explicitly mapped and tested; regional anchoring does not double-count canonical songs |
-| E08 | Baseline canonical replay versus curated boundary migration | Unaffected behavior preserved; intentional classification differences listed and reviewed |
+| E08 | Baseline canonical replay versus curated root migration | Unaffected behavior preserved; intentional classification differences listed and reviewed |
 | E09 | Songs without genre or playable video | Retained end to end; regional uncertainty never deletes a song |
 | E10 | Large shared-ancestry graph and full-catalog operations | Bounded graph/provenance processing; no enumeration of every path or Python set per song population |
-| E11 | Expression of a `before_entry` style (Breton rock → Rock) | Selected with the style, its ancestors' `all` scope and its region; no canonical leakage |
-| E12 | Expression of an `after_exit` style (French reggae fusion → Reggae fusion) | Selected via style `all`, canonical Reggae `regional`/`all` and its region; not in `canonical` |
-| E13 | Regional root genre (parentless) below an expression; classified genre as regional member | Root accepted and selected with its expression; classified genre rejected |
+| E11 | Expression of a regional style (French bluegrass → Bluegrass → Country) | Selected with the style and its classification ancestors; never by the style's region (USA) |
+| E12 | Expression of a canonical style (French reggae fusion → Reggae fusion) | Selected via style `all`, canonical Reggae `regional`/`all` and its region; not in `canonical` |
+| E13 | Regional root genre (Country, member of the USA) and its classified descendant | Country selected by the USA and by its expressions; a classified genre cannot be a regional member |
+| X01 | Country and USA selections | USA selects Country and Bluegrass; Country also selects French country and French bluegrass; USA never selects the French expressions |
+| X02 | Normalization of `{USA, French country}` and `{USA, Country, Bluegrass}` | The first keeps both; the second keeps Bluegrass |
+| X03 | Expression of Country located in a region nested under the USA (Texas country) | Rejected: it shares every region with its regional style |
+| X04 | Expression of a regional style with no overview | Rejected: regional node reaches no overview |

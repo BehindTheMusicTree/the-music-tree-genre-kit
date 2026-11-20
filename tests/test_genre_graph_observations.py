@@ -50,7 +50,6 @@ def test_r19_all_observed_additional_children_drive_umbrella_validation(case):
                 "id": child["id"],
                 "name": child["label"],
                 "kind": "genre",
-                "canonicalState": "before_entry",
                 "displayParentId": other,
             }
         )
@@ -63,7 +62,7 @@ def test_r19_all_observed_additional_children_drive_umbrella_validation(case):
         "curationExportedOn": "2026-11-14T00:00:00Z",
         "nodes": nodes,
         "relations": edges,
-        "boundaries": [],
+        "canonicalRoots": [],
     }
     graph = GenreGraph(payload)
     expected = {child["id"] for child in case["additional_children"]}
@@ -84,18 +83,18 @@ def test_r03_all_four_child_roles_and_display_positions(child_kind, additional):
     if child_kind in {"predecessor", "territory"}:
         child_node.update(overview(child, "Child", False))
     elif child_kind == "genre":
-        child_node.update(kind="genre", canonicalState="before_entry")
+        child_node.update(kind="genre")
     else:
         child_node.update(kind="expression")
     nodes.append(child_node)
     edges = [{"childId": child, "parentId": parent, "type": "regional_membership", "provenance": provenance()}]
-    boundaries = []
+    roots = []
     if additional:
         nodes.append(overview(other, "Other parent", True))
         edges.append({**edges[0], "parentId": other})
     if child_kind == "expression":
-        nodes.append({"id": style, "name": "Style", "kind": "genre", "canonicalState": "canonical"})
-        boundaries.append({"nodeId": style, "type": "entry", "provenance": provenance()})
+        nodes.append({"id": style, "name": "Style", "kind": "genre"})
+        roots.append({"nodeId": style, "provenance": provenance()})
         edges.append({"childId": child, "parentId": style, "type": "expression_style", "provenance": provenance()})
     graph = GenreGraph(
         {
@@ -103,7 +102,7 @@ def test_r03_all_four_child_roles_and_display_positions(child_kind, additional):
             "curationExportedOn": "2026-11-14T00:00:00Z",
             "nodes": nodes,
             "relations": edges,
-            "boundaries": boundaries,
+            "canonicalRoots": roots,
         }
     )
     assert graph.children(parent, "regional_membership") == {child}

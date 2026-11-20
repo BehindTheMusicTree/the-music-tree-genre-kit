@@ -28,6 +28,7 @@ from the_music_tree_genre_kit.genre_graph.storage import (
     effective_attributions,
     graph_read_transaction,
     graph_write_transaction,
+    merge_graph_nodes,
     replace_graph,
     replace_track_attributions,
     restore_graph,
@@ -122,7 +123,8 @@ def test_m01_m03_e09_sql_exact_sets_distinct_counts_and_unclassified_tracks(data
     assign(dataset, french, "french-dub")
     assign(dataset, british, "british-dub")
     assign(dataset, unknown_region, "dub")
-    assert selected("dub", "canonical") == {"Jamaican", "French", "British", "Unknown region"}
+    assert selected("dub", "canonical") == {"Unknown region"}
+    assert selected("dub") == {"Jamaican", "French", "British", "Unknown region"}
     assert selected("france") == {"French"}
     assert selected("jamaica") == {"Jamaican"}
     assert selected("britain") == {"British"}
@@ -167,11 +169,9 @@ def test_e03_e04_removing_relation_replaces_closure_and_restore_retains_identity
     assign(dataset, song, "french-dub")
     original = dict(dataset.nodes.values_list("identity", "pk"))
     changed = deepcopy(payload)
-    changed["relations"] = [
-        edge
-        for edge in changed["relations"]
-        if not (edge["childId"] == ref("french-dub") and edge["type"] == "regional_membership")
-    ]
+    for edge in changed["relations"]:
+        if edge["childId"] == ref("french-dub") and edge["type"] == "regional_membership":
+            edge["parentId"] = ref("britain")
     for node in changed["nodes"]:
         if node["id"] == ref("french-dub"):
             node.pop("displayParentId", None)
@@ -351,7 +351,7 @@ def test_e07_sql_scopes_and_direct_coverage(dataset):
     assign(dataset, parent, "reggae")
     assign(dataset, expression, "french-dub")
     assign(dataset, exited, "french-reggae-fusion")
-    assert selected("reggae", "canonical") == {"Parent", "Expression"}
+    assert selected("reggae", "canonical") == {"Parent"}
     assert selected("reggae", "regional") == {"Parent", "Expression", "Exited"}
     assert selected("reggae", "all") == {"Parent", "Expression", "Exited"}
     assert set(select_tracks(Track.objects.all(), node=node_of(dataset.key, "reggae"), include_descendants=False)) == {
@@ -890,7 +890,8 @@ def test_direct_sql_assignment_mutations_invalidate_reviewed_tokens(dataset, mut
 
 def test_restore_older_revision_requires_explicit_retirement_for_added_identity(dataset, payload):
     added = deepcopy(payload)
-    added["nodes"].append({"id": ref("added"), "name": "Added", "kind": "genre", "canonicalState": "before_entry"})
+    added["nodes"].append({"id": ref("added"), "name": "Added", "kind": "genre"})
+    added["canonicalRoots"].append({"nodeId": ref("added"), "provenance": provenance("added-root")})
     updated = replace_graph(key=dataset.key, payload=added, expected_revision=dataset.revision)
     permanent = updated.nodes.get(identity=ref("added"))
     with pytest.raises(GraphValidationError, match="Retirements must name"):
@@ -1077,3 +1078,74 @@ def test_read_transaction_with_payload_selects_it_up_front(dataset, payload):
         with CaptureQueriesContext(connection) as queries:
             assert snapshot.payload == payload
         assert len(queries) == 0
+
+
+def test_merge_graph_nodes_retires_the_source_and_moves_attributions(dataset):
+    (song,) = tracks("Roots")
+    assign(dataset, song, "roots")
+    source = node_of(dataset.key, "roots")
+    merged = merge_graph_nodes(
+        key=dataset.key,
+        source=ref("roots"),
+        target=ref("dub"),
+        provenance=provenance("merge-roots-dub"),
+        expected_revision=dataset.revision,
+    )
+    assert merged.revision != dataset.revision
+    source.refresh_from_db()
+    assert not source.is_active
+    assert selected("dub") == {"Roots"}
+    assert set(effective_attributions(key=dataset.key).values_list("node__identity", flat=True)) == {ref("dub")}
+
+
+def test_merge_graph_nodes_is_idempotent_and_checks_the_revision(dataset):
+    merged = merge_graph_nodes(
+        key=dataset.key,
+        source=ref("roots"),
+        target=ref("dub"),
+        provenance=provenance("merge-roots-dub"),
+        expected_revision=dataset.revision,
+    )
+    again = merge_graph_nodes(
+        key=dataset.key,
+        source=ref("roots"),
+        target=ref("dub"),
+        provenance=provenance("merge-roots-dub"),
+        expected_revision=merged.revision,
+    )
+    assert again.revision == merged.revision
+    assert GenreGraphRevision.objects.count() == 2
+    with pytest.raises(GraphRevisionConflict, match="revision changed"):
+        merge_graph_nodes(
+            key=dataset.key,
+            source=ref("dub"),
+            target=ref("reggae-fusion"),
+            provenance=provenance("stale"),
+            expected_revision=dataset.revision,
+        )
+
+
+def test_merge_graph_nodes_rejects_an_invalid_merge_without_writing(dataset):
+    with pytest.raises(GraphValidationError, match="different kinds"):
+        merge_graph_nodes(
+            key=dataset.key,
+            source=ref("dub"),
+            target=ref("jamaica"),
+            provenance=provenance("bad"),
+            expected_revision=dataset.revision,
+        )
+    dataset.refresh_from_db()
+    assert GenreGraphRevision.objects.count() == 1
+    assert node_of(dataset.key, "dub").is_active
+
+
+def test_restore_after_merge_reactivates_the_source(dataset):
+    merged = merge_graph_nodes(
+        key=dataset.key,
+        source=ref("roots"),
+        target=ref("dub"),
+        provenance=provenance("merge-roots-dub"),
+        expected_revision=dataset.revision,
+    )
+    restored = restore_graph(key=dataset.key, revision=dataset.revision, expected_revision=merged.revision)
+    assert restored.nodes.get(identity=ref("roots")).is_active
