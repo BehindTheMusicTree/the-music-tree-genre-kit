@@ -1,5 +1,7 @@
 """Validate semantic relations before deriving presentation, membership or provenance."""
 
+from __future__ import annotations
+
 import json
 from collections import Counter
 from collections.abc import Iterable, Mapping
