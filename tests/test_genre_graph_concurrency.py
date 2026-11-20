@@ -331,8 +331,7 @@ def test_cold_1710_node_shared_ancestry_publication_uses_staged_closure():
         "contractVersion": 2,
         "curationExportedOn": "2026-11-14T00:00:00Z",
         "nodes": [
-            {"id": identity, "name": identity, "kind": "genre", "canonicalState": "before_entry"}
-            for identity in ["LOCAL:root", *parent_ids, *leaf_ids]
+            {"id": identity, "name": identity, "kind": "genre"} for identity in ["LOCAL:root", *parent_ids, *leaf_ids]
         ],
         "relations": [
             {"childId": child, "parentId": parent, "type": "classification", "provenance": evidence}
@@ -341,7 +340,7 @@ def test_cold_1710_node_shared_ancestry_publication_uses_staged_closure():
                 *((leaf, parent) for leaf in leaf_ids for parent in parent_ids),
             ]
         ],
-        "boundaries": [],
+        "canonicalRoots": [{"nodeId": "LOCAL:root", "provenance": evidence}],
     }
     dataset = replace_graph(key="cold-shared", payload=payload, expected_revision=None)
     assert dataset.nodes.count() == 1710

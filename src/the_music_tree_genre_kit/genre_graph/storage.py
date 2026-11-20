@@ -97,7 +97,7 @@ def replace_graph(
             dataset=dataset,
             identity=identity,
             is_umbrella=graph.node(identity).get("isUmbrella", False),
-            canonical_state=graph.node(identity).get("canonicalState"),
+            canonical_state=graph.canonical_state(identity),
         )
         for identity in sorted(graph.node_ids - existing.keys())
     ]
@@ -106,7 +106,7 @@ def replace_graph(
     for identity in graph.node_ids & existing.keys():
         node = existing[identity]
         umbrella = graph.node(identity).get("isUmbrella", False)
-        state = graph.node(identity).get("canonicalState")
+        state = graph.canonical_state(identity)
         if (node.is_active, node.is_umbrella, node.canonical_state) != (True, umbrella, state):
             node.is_active = True
             node.is_umbrella = umbrella
@@ -122,6 +122,33 @@ def replace_graph(
     replace_access(dataset, graph, nodes)
     dataset.refresh_from_db(fields=["membership_revision"])
     return dataset
+
+
+@transaction.atomic
+def merge_graph_nodes(
+    *, key: str, source: str, target: str, provenance: Mapping[str, str], expected_revision: UUID
+) -> GenreGraphDataset:
+    """Absorb ``source`` into ``target`` as one revision; attributions follow the retirement.
+
+    Idempotent: a merge already applied returns the dataset without writing.
+    """
+    require_graph_write_context()
+    try:
+        dataset = GenreGraphDataset.objects.select_for_update().get(pk=key)
+    except GenreGraphDataset.DoesNotExist as error:
+        raise GraphRevisionConflict(f"Graph dataset does not exist: {key}") from error
+    if expected_revision != dataset.revision:
+        raise GraphRevisionConflict(f"Graph revision changed for {key}; reload before merging nodes")
+    current = GenreGraph(dataset.payload)
+    merged = current.merged(source, target, provenance)
+    if merged is current:
+        return dataset
+    return replace_graph(
+        key=key,
+        payload=merged.to_payload(),
+        expected_revision=expected_revision,
+        retirements={source: {"target": target, "provenance": dict(provenance)}},
+    )
 
 
 @contextmanager

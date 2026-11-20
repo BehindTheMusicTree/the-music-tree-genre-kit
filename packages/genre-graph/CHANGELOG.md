@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Breaking
+
+- `boundaries`, `canonicalState` and `isUnacceptedRoot` are removed from the schema; `canonicalRoots` is required. `GenreGraph.canonical_state` returns `canonical` or `regional` for genres. `boundary_results`, `boundary_witness` and `evaluate_boundaries` are gone (`boundaries.py` is now `validation.py`).
+- Scopes follow typed access (one expression-to-style jump, then classification only); `normalize_attributions` is order independent and exact.
+
+### Added
+
+- `GenreGraph.merged(source, target, provenance)`.
+
 ## [0.2.0] - 2026-11-20
 
 ### Added

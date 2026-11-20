@@ -9,14 +9,14 @@ consumers are ready.
 
 ## Identities and relations
 
-`contractVersion: 2`, `curationExportedOn`, `nodes`, `relations` and `boundaries`
-are required. An explicitly empty boundary list is valid; a missing
+`contractVersion: 2`, `curationExportedOn`, `nodes`, `relations` and `canonicalRoots`
+are required. An explicitly empty root list is valid; a missing
 configuration fails. Identities are QIDs or persistent `LOCAL:` identities,
 independent of the label and of the display parent.
 
 | Child → parent relation | Scope | Transmission |
 | --- | --- | --- |
-| `classification` | Genre → genre | Boundary state; population according to the rules below |
+| `classification` | Genre → genre | Canonical state; population according to the rules below |
 | `regional_membership` | Regional node → overview, non-canonical genre or expression | The child's entire regional population |
 | `expression_style` | Expression → style (canonical or not) | Access from the style to the expression; no reverse access |
 | `anchoring` | Genre → overview | Descriptive only |
@@ -28,51 +28,58 @@ canonical or not. A classified genre (a classification parent) cannot be a
 regional member: only a classification root (a genre with no classification
 parent) can belong to a region. Its regional descendants belong to its population.
 
-Relations and boundaries carry `decisionId`, `source` and `rationale`.
+Relations and canonical roots carry `decisionId`, `source` and `rationale`.
 `displayParentId`, when present, designates an accepted parent; it never
 chooses the state or the population. Unknown references, identity or relation
 duplicates, cycles and contradictions fail before a snapshot is returned.
 Cycles are also checked on the unions of transmitting relations.
 
-## Boundaries and provenance
+## Canonical roots
 
-`evaluate_boundaries(parents, boundaries)` computes states from the accepted
-classification parents only. It reads no pre-filled status. A genre with no
-parent inherits `before_entry`. An entry produces `canonical`; an exit from that
-state produces `after_exit`. Any other explicit transition is invalid.
-Independent entries in a forest are allowed.
+A genre is canonical or regional; other kinds have no state
+(`GenreGraph.canonical_state`). `canonicalRoots` lists the classification roots
+(genres with no classification parent) that start a canonical tree, each with its
+provenance. A listed root is canonical and so is every classification descendant.
+A genre that is not reached from a listed root is regional: it must reach an
+overview through regional membership, otherwise the graph is rejected.
 
-Multiple parents must transmit the same state before the local boundary is
-applied. `before_entry` and `after_exit` remain distinct, even though both are
-non-canonical. A conflict provides two witness paths; no local boundary or
-display preference masks it.
-
-Each result keeps the state, the inherited state, a witness predecessor and the
-relevant boundary decision. Paths are rebuilt on demand. Provenance storage
-grows with the number of nodes, not with the number of paths. On import,
-`GenreGraph` recomputes these results and rejects a supplied `canonicalState`
-that contradicts them.
+An entry that is unknown, duplicated, not a genre or that has a classification
+parent is rejected. A genre whose classification parents are partly canonical and
+partly regional is rejected with one witness edge per parent. The state is always
+computed: a supplied `canonicalState`, `boundaries` or `isUnacceptedRoot` is
+refused by the schema. The explicit empty list is valid and yields no canonical genre.
 
 ## Selections and normalization
 
+Access is typed: from a node, any run of regional membership and classification
+edges, then at most one `expression_style` jump, after which only classification
+edges are followed (an expression reaches the classification ancestors of its
+style, never the regions of that style). A node is selected by `n` exactly when
+`n` is one of its access ancestors or `n` itself.
+
 | Selected node / inclusive scope | Attributable node set |
 | --- | --- |
-| Canonical / `canonical` | Chosen genre, canonical classification descendants, associated expressions and their regional population |
-| Canonical / `regional` | Chosen genre, descendants that left the canonical interval and their regional population, associated expressions and their regional population |
+| Canonical / `canonical` | Chosen genre and its classification descendants |
+| Canonical / `regional` | Chosen genre, plus every other node that reaches it: expressions and their regional population |
 | Canonical / `all` | Distinct union of the two scopes |
-| Non-canonical / `all` | Chosen node, population descendants, expressions of each retained non-canonical style and their regional population |
-| Regional / `all` | Chosen node and regional descendants, including non-canonical classification descendants |
+| Regional genre, overview or expression / `all` | Chosen node and everything that reaches it by typed access |
 
 Without descendants, only the chosen node is kept. The `canonical` and
-`regional` scopes are not accepted on a regional node. A `before_entry` prefix
-never crosses a canonical entry to retrieve the style's worldwide population or
-its expressions. A regional selection never climbs a style association to come
-back down into the expressions of other regions.
+`regional` scopes are not accepted on a regional node. Selecting the United
+States keeps Country and Bluegrass but not French country: the jump from
+French country to Country stops at the style, so the region of the style never
+reaches the expression.
 
-`normalize_attributions` removes the direct ancestors covered by a more precise
-attribution along the admissible inclusive access paths. Anchorings do not make
-any attribution redundant. Normalization precedes the computation of the
-directly attributed overviews that remain "to refine".
+`normalize_attributions` drops an attribution only when the surviving ones still
+select it and everything above it. Access is not transitive, so `{USA, French
+country}` keeps both while `{Country, Bluegrass}` keeps Bluegrass. The topmost
+nodes are examined first, so the result does not depend on input order.
+Anchorings do not make any attribution redundant. Normalization precedes the
+computation of the directly attributed overviews that remain "to refine".
+
+An expression of a regional style must live in a region disjoint from the style's
+(a nested region would be a child style); an expression of any style with no
+region is rejected.
 
 A `current` overview is always umbrella. A `historical` overview is umbrella
 exactly when it has an accepted regional child, regardless of its display parent
@@ -91,8 +98,8 @@ would be incorrect.
 ## Fixtures and validation
 
 `tests/fixtures/genre_graph/regional-v2.json` is synthetic. The musical names
-are not an approved curation. The boundary tests also use inputs with no supplied
-state at all, including a 3,001-node graph.
+are not an approved curation. The canonical-root tests also cover a 1,710-node graph
+with a single listed root.
 
 `observed-additional-children.json` freezes the 44 observations of
 `/tmp/regional-staging-validation/leaf-cases.json`, a diagnostic of November 13, 2026.
@@ -102,7 +109,7 @@ children, the selection and the umbrella flag. The replay's roles and types are
 test inputs; they validate neither real chronology nor musical inclusion.
 This replay does not claim to cover the whole pipeline of the historical diagnostic.
 
-The B/M/R/E IDs in test names refer to the matrix
+The C/X/M/R/E IDs in test names refer to the matrix
 [`genre-graph-fixture-matrix.md`](genre-graph-fixture-matrix.md). The kit's tests
 cover the in-memory contract, storage and its SQL selections. The PostgreSQL
 tests use a minimal application and the kit's real migrations; they check
@@ -176,7 +183,7 @@ track deletions. Under PostgreSQL, transition tables limit invalidation to once
 per dataset and SQL statement. SQLite uses per-row triggers. A rollback cancels
 the tokens along with the mutations. The concept and closure index is internal:
 modifying it directly through ORM or SQL is not a graph-editing contract.
-Changes to relations, boundaries and types go through `replace_graph`.
+Changes to relations, canonical roots and types go through `replace_graph`.
 
 `replace_track_attributions` requires a track with no owner, known identities, a
 non-empty array of evidence per identity, the graph's current revision and the
