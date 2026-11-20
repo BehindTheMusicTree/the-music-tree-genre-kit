@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Docs**: `docs/genre-graph-v2.md` and `docs/genre-graph-fixture-matrix.md` are now in English; contract wording, identifiers and witness IDs are unchanged.
+
 ## [0.68.0] - 2026-11-20
 
 ### Added

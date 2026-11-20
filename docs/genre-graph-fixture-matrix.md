@@ -1,8 +1,8 @@
-# Matrice des témoins du graphe v2
+# Graph v2 witness matrix
 
-Cette matrice est synthétique. Les noms musicaux (Reggae, Dub, Breton rock…) ne constituent pas une curation approuvée : ils servent de formes de graphe. Les IDs B/M/R/E sont référencés par les noms de tests du kit et des consommateurs (pipelines, grow, infrastructure, app-kit, genre-tree-view, frontend). Voir `docs/genre-graph-v2.md` §Fixtures et validation.
+This matrix is synthetic. The musical names (Reggae, Dub, Breton rock…) are not an approved curation: they serve as graph shapes. The B/M/R/E IDs are referenced by test names in the kit and in consumers (pipelines, grow, infrastructure, app-kit, genre-tree-view, frontend). See `docs/genre-graph-v2.md` §Fixtures and validation.
 
-Reconstituée le 2026-11-19 depuis les journaux de travail du 13–14 novembre 2026 ; le plan source n'a jamais été commité.
+Reconstructed on 2026-11-19 from the working logs of November 13–14, 2026; the source plan was never committed.
 
 | ID | Fixture | Attendu |
 | --- | --- | --- |
