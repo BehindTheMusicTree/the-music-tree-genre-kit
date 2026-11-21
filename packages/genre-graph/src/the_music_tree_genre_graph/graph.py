@@ -60,14 +60,16 @@ class GenreGraph:
         classification = self._relations["classification"]
         self.classification_order = topological_order(classification, "classification")
         self.regional_order = topological_order(self._relations["regional_membership"], "regional membership")
-        for kind in ("derivation", "influence"):
-            topological_order(self._relations[kind], kind)
-            for child, parents in self._relations[kind].items():
-                for parent in parents & classification[child]:
-                    raise GraphValidationError(
-                        f"{kind.capitalize()} duplicates a classification relation: {child} -> {parent}",
-                        paths=[(child, parent)],
-                    )
+        derivation = self._relations["derivation"]
+        influence = self._relations["influence"]
+        topological_order(derivation, "derivation")
+        topological_order(influence, "influence")
+        for child, parents in influence.items():
+            for parent in sorted(parents & (classification[child] | derivation[child])):
+                raise GraphValidationError(
+                    f"Influence is already implied by classification or derivation: {child} -> {parent}",
+                    paths=[(child, parent)],
+                )
         self._index_regional_ancestors()
         self._index_roots()
         self._index_regions()
