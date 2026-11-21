@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.5.0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/graph-v0.4.0...graph-v0.5.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **genre-graph:** contract 4 with computed restricted/expression classification edges ([#324](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/324))
+
+### Features
+
+* **genre-graph:** contract 4 with computed restricted/expression classification edges ([#324](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/324)) ([4710201](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/4710201b52ed73a2cd1a5d18990eb9bfe2a024c0))
+
 ## [0.4.0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/graph-v0.3.0...graph-v0.4.0) (2026-11-21)
 
 

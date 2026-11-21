@@ -1,6 +1,6 @@
 [project]
 name = "the-music-tree-genre-graph"
-version = "0.4.0"
+version = "0.5.0"
 description = "Pure semantic genre graph validation, canonical roots and selection"
 readme = "README.md"
 license = { file = "LICENSE" }
