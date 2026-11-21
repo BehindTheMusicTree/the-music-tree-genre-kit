@@ -9,6 +9,17 @@ Entries before the release-please adoption were written manually. Changes that r
 (`hear-the-music-tree-api`, `grow-the-music-tree-api`) to update its own code are marked as breaking
 (`feat!:` / `BREAKING CHANGE:`).
 
+## [0.71.0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.70.0...v0.71.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* **genre-graph:** contract 4 with computed restricted/expression classification edges ([#324](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/324))
+
+### Features
+
+* **genre-graph:** contract 4 with computed restricted/expression classification edges ([#324](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/324)) ([4710201](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/4710201b52ed73a2cd1a5d18990eb9bfe2a024c0))
+
 ## [0.70.0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.69.0...v0.70.0) (2026-11-21)
 
 
