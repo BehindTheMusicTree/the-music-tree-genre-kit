@@ -49,7 +49,7 @@ class Migration(migrations.Migration):
     dependencies = [("the_music_tree_genre_kit", "0022_attribution_dataset_unique")]
 
     operations = [
-        migrations.RunPython(clear_access, clear_new_access),
+        migrations.RunPython(clear_access, migrations.RunPython.noop),
         migrations.RunPython(warn_stale_payloads, migrations.RunPython.noop),
         # Reverse order: this runs last on a downgrade, after the table rebuild dropped the triggers.
         migrations.RunPython(migrations.RunPython.noop, reinstall_access_guards),
@@ -61,4 +61,6 @@ class Migration(migrations.Migration):
             ),
         ),
         migrations.RunPython(reinstall_access_guards, migrations.RunPython.noop),
+        # Last forward, so first on a downgrade: rows in the new scopes must go before the old constraint returns.
+        migrations.RunPython(migrations.RunPython.noop, clear_new_access),
     ]

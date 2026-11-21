@@ -1,9 +1,11 @@
+import importlib
 import json
 from copy import deepcopy
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from django.apps import apps as django_apps
 from django.db import IntegrityError, connection, transaction
 from django.test.utils import CaptureQueriesContext
 from the_music_tree_genre_graph import GenreGraph, GraphValidationError
@@ -1160,3 +1162,18 @@ def test_stale_contract_payload_requires_reimport(dataset):
 def test_expressions_scope_without_descendants_selects_nothing(dataset):
     node = node_of(dataset.key, "dub")
     assert not select_tracks(Track.objects.all(), node=node, scope="expressions", include_descendants=False).exists()
+
+
+@pytest.mark.django_db
+def test_migration_0023_downgrade_clears_new_scope_rows_before_the_old_constraint_returns(dataset):
+    migration = importlib.import_module("the_music_tree_genre_kit.migrations.0023_graph_access_scopes")
+    # Operations reverse last to first: the delete must come after every constraint operation.
+    reverse_clears = [
+        i
+        for i, op in enumerate(migration.Migration.operations)
+        if getattr(op, "reverse_code", None) is migration.clear_new_access
+    ]
+    assert reverse_clears == [len(migration.Migration.operations) - 1]
+    assert GenreGraphAccess.objects.filter(dataset=dataset, scope="restricted").exists()
+    migration.clear_new_access(django_apps, None)
+    assert not GenreGraphAccess.objects.exists()
