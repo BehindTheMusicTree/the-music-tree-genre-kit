@@ -11,4 +11,4 @@ permissions:
 
 jobs:
   pr-title:
-    uses: BehindTheMusicTree/github-workflows/.github/workflows/pr-title.yml@62ee427f7a87408fda2eb4c749be66e866f97631 # v6.2.0
+    uses: BehindTheMusicTree/github-workflows/.github/workflows/pr-title.yml@9b5de918c697e4b0cb04201f6df36c861ec81fbe # v6.3.0
