@@ -9,6 +9,10 @@ on:
 permissions:
   pull-requests: read
 
+concurrency:
+  group: pr-title-${{ github.head_ref || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   pr-title:
     uses: BehindTheMusicTree/github-workflows/.github/workflows/pr-title.yml@9b5de918c697e4b0cb04201f6df36c861ec81fbe # v6.3.0
