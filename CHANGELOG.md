@@ -9,6 +9,18 @@ Entries before the release-please adoption were written manually. Changes that r
 (`hear-the-music-tree-api`, `grow-the-music-tree-api`) to update its own code are marked as breaking
 (`feat!:` / `BREAKING CHANGE:`).
 
+## [0.70.0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.69.0...v0.70.0) (2026-11-21)
+
+
+### Features
+
+* **genre-graph:** add derivation relation and contract 3 ([#319](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/319)) ([cfc8f97](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/cfc8f97110d5e8f600632f36d37df2d7fc2fe3ea))
+
+
+### Bug Fixes
+
+* **deps:** allow graph 0.4 in the kit dependency range ([#321](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/321)) ([17c8980](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/17c89804e2d872d26845b5936b4428a284974c5b))
+
 ## [0.69.0] - 2026-11-20
 
 ### Breaking

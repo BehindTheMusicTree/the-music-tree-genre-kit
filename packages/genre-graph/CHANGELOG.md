@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/graph-v0.3.0...graph-v0.4.0) (2026-11-21)
+
+
+### Features
+
+* **genre-graph:** add derivation relation and contract 3 ([#319](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/319)) ([cfc8f97](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/cfc8f97110d5e8f600632f36d37df2d7fc2fe3ea))
+
 ## [Unreleased]
 
 ## [0.3.0] - 2026-11-20
