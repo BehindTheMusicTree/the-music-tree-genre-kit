@@ -2,6 +2,7 @@
 
 import json
 from copy import deepcopy
+from itertools import permutations
 from pathlib import Path
 
 import pytest
@@ -688,7 +689,11 @@ def test_d01_derivation_and_influence_are_inert(payload):
     assert graph.parents(ref("french-dub"), "influence") == {ref("jamaican-dub")}
     for key in graph.node_ids:
         assert graph.state(key) == before.state(key)
-        assert graph.selected_nodes(key) == before.selected_nodes(key)
+        for scope in ("restricted", "extended", "expressions"):
+            assert graph.selected_nodes(key, scope=scope) == before.selected_nodes(key, scope=scope)
+    for child, parent in [("dub", "french-reggae"), ("french-dub", "jamaican-dub")]:
+        attributions = {ref(child), ref(parent)}
+        assert graph.normalize_attributions(attributions) == attributions
     assert GenreGraph(graph.to_payload()).to_payload() == payload
 
 
@@ -706,11 +711,63 @@ def test_d02_invalid_descriptive_scope(payload, kind, child, parent):
         GenreGraph(payload)
 
 
-@pytest.mark.parametrize("kind", ["derivation", "influence"])
-def test_d02_descriptive_relation_duplicating_a_classification_is_rejected(payload, kind):
-    payload["relations"].append(relation("dub", "reggae", kind))
-    with pytest.raises(GraphValidationError, match="duplicates a classification relation"):
+@pytest.mark.parametrize(
+    ("child", "parent", "edge_kind"),
+    [("drill", "trap", "restricted"), ("french-reggae", "reggae", "expression")],
+)
+def test_d02_classification_and_derivation_can_coexist(payload, child, parent, edge_kind):
+    if child == "drill":
+        payload["nodes"].extend([genre("drill"), genre("trap")])
+        payload["canonicalRoots"].append({"nodeId": ref("trap"), "provenance": provenance("trap-root")})
+        payload["relations"].append(relation(child, parent))
+    before = GenreGraph(payload)
+    payload["relations"].append(relation(child, parent, "derivation"))
+    graph = GenreGraph(payload)
+
+    assert graph.parents(ref(child), "classification") == {ref(parent)}
+    assert graph.parents(ref(child), "derivation") == {ref(parent)}
+    assert graph.parents(ref(child), "influence") == frozenset()
+    assert graph.edge_kind(ref(child), ref(parent)) == edge_kind
+    assert ref(child) in graph.selected_nodes(ref(parent), scope="extended")
+    assert (ref(child) in graph.selected_nodes(ref(parent), scope="restricted")) == (edge_kind == "restricted")
+    assert (ref(child) in graph.selected_nodes(ref(parent), scope="expressions")) == (edge_kind == "expression")
+    for scope in ("restricted", "extended", "expressions"):
+        assert graph.selected_nodes(ref(parent), scope=scope) == before.selected_nodes(ref(parent), scope=scope)
+    assert graph.to_payload() == payload
+
+
+@pytest.mark.parametrize("child", ["dub", "french-reggae"], ids=["restricted", "expression"])
+@pytest.mark.parametrize(
+    "kinds",
+    [
+        *permutations(("classification", "influence")),
+        *permutations(("derivation", "influence")),
+        *permutations(("classification", "derivation", "influence")),
+    ],
+)
+def test_d02_redundant_influence_is_rejected_in_any_edge_order(payload, child, kinds):
+    parent = "reggae"
+    classification = next(
+        edge
+        for edge in payload["relations"]
+        if (edge["childId"], edge["parentId"], edge["type"]) == (ref(child), ref(parent), "classification")
+    )
+    payload["relations"].remove(classification)
+    if "classification" not in kinds and child == "dub":
+        payload["canonicalRoots"].append({"nodeId": ref(child), "provenance": provenance("dub-root")})
+    payload["relations"].extend(relation(child, parent, kind) for kind in kinds)
+
+    with pytest.raises(GraphValidationError, match="Influence is already implied") as caught:
         GenreGraph(payload)
+    assert caught.value.paths == ((ref(child), ref(parent)),)
+
+
+def test_d02_reverse_influence_is_valid_on_a_classified_and_derived_pair(payload):
+    payload["relations"].extend([relation("dub", "reggae", "derivation"), relation("reggae", "dub", "influence")])
+    graph = GenreGraph(payload)
+
+    assert graph.parents(ref("reggae"), "influence") == {ref("dub")}
+    assert ref("reggae") not in graph.selected_nodes(ref("dub"))
 
 
 @pytest.mark.parametrize("kind", ["derivation", "influence"])

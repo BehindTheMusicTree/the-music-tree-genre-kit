@@ -19,11 +19,25 @@ independent of the label and of the display parent. Nodes are `genre` or `overvi
 | `classification` | Genre → genre | The whole lineage; each edge is computed `restricted` or `expression` |
 | `regional_membership` | Genre → overview, overview → overview | Geography only |
 | `derivation` | Genre → genre, acyclic | Historical filiation; descriptive, no access |
-| `influence` | Genre → genre | Influence; descriptive, no access |
+| `influence` | Genre → genre, acyclic | Influence; descriptive, no access |
 
-`derivation` and `influence` never duplicate a classification pair. The former
-`expression_style` and `anchoring` relations and the `expression` kind no longer
-exist: a regional expression is a regional genre classified under its style.
+`classification` and `derivation` may coexist on the same directed pair.
+Either implies influence, so the validator rejects an explicit `influence` on
+that pair. This applies to both restricted and expression classification.
+An explicit influence on its own is valid. Only a classification edge counts
+toward classification parent cardinality and grants access to the parent.
+
+Use `the-music-tree-genre-graph` 0.6.0 or later with this rule. Upgrade the graph
+package explicitly if it is resolved independently of the Django kit. Regenerate
+older snapshots that pair derivation with explicit influence before validating them
+with the new runtime. Replay an affected archived revision under its original
+runtime, or import a corrected snapshot as a new revision. Keep a compatible
+snapshot when rolling back to a validator that requires classification and
+derivation to use distinct pairs.
+
+A regional expression is a regional genre classified under its style. This
+classification replaces the former `expression_style` relation. Contract 4
+also removes `anchoring` and the `expression` node kind.
 
 Relations and canonical roots carry `decisionId`, `source` and `rationale`.
 `displayParentId`, when present, designates a classification parent (or an
