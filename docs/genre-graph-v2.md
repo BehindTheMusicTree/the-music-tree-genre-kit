@@ -226,6 +226,16 @@ package; the development branch is not yet a deliverable dependency.
 Publication and pin changes require a separate release authorization. Existing
 pins remain unchanged until then.
 
+Migration `0023` replaces the scopes `all`, `canonical` and `regional` with `restricted`,
+`extended` and `expressions` and drops the old access rows. It does not convert stored payloads:
+datasets and archived revisions stay in their earlier contract, the migration logs a warning per
+dataset, and `merge_graph_nodes` and `restore_graph` fail with "re-import required". Re-import each
+graph with `replace_graph` in contract 4 (until then `select_tracks` finds no descendants); the
+identities that contract 4 removes (`expression` nodes, `anchoring` relations) need explicit
+retirements. A genre with no region of its own and several regional parents has a `restricted`
+edge to each of them, as the classification rule computes per edge. With `include_descendants=False`,
+the `expressions` scope selects nothing, since it excludes the node itself.
+
 Migration `0020` refuses a downgrade if the evidence or history storage is
 populated: flattening several pieces of evidence would destroy provenance.
 Application-level restoration of the graph and attributions remains a forward

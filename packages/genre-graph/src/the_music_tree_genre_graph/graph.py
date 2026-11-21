@@ -311,12 +311,12 @@ class GenreGraph:
 
         ``restricted`` covers the node and its descendants by regional membership and restricted
         classification edges; ``extended`` every descendant by access; ``expressions`` what
-        ``extended`` adds to ``restricted``, without the node itself.
+        ``extended`` adds to ``restricted``, without the node itself (so empty without descendants).
         """
         if scope not in SELECTION_SCOPES or node_id not in self._nodes:
             raise GraphValidationError(f"Invalid selection scope {scope} for {node_id}")
         if not include_descendants:
-            return frozenset({node_id})
+            return frozenset() if scope == "expressions" else frozenset({node_id})
         extended = self._access_descendants[node_id] | {node_id}
         if scope == "extended":
             return extended

@@ -1116,7 +1116,7 @@ def test_merge_graph_nodes_is_idempotent_and_checks_the_revision(dataset):
     assert again.revision == merged.revision
     assert GenreGraphRevision.objects.count() == 2
     with pytest.raises(GraphRevisionConflict, match="revision changed"):
-        merge_graph_nodes(
+        storage.merge_graph_nodes(
             key=dataset.key,
             source=ref("dub"),
             target=ref("reggae-fusion"),
@@ -1127,7 +1127,7 @@ def test_merge_graph_nodes_is_idempotent_and_checks_the_revision(dataset):
 
 def test_merge_graph_nodes_rejects_an_invalid_merge_without_writing(dataset):
     with pytest.raises(GraphValidationError, match="different kinds"):
-        merge_graph_nodes(
+        storage.merge_graph_nodes(
             key=dataset.key,
             source=ref("dub"),
             target=ref("jamaica"),
@@ -1149,3 +1149,14 @@ def test_restore_after_merge_reactivates_the_source(dataset):
     )
     restored = restore_graph(key=dataset.key, revision=dataset.revision, expected_revision=merged.revision)
     assert restored.nodes.get(identity=ref("roots")).is_active
+
+
+def test_stale_contract_payload_requires_reimport(dataset):
+    GenreGraphDataset.objects.filter(pk=dataset.key).update(payload={"contractVersion": 3})
+    with pytest.raises(GraphValidationError, match="re-import required"):
+        merge_graph_nodes(key=dataset.key, source="a", target="b", provenance={}, expected_revision=dataset.revision)
+
+
+def test_expressions_scope_without_descendants_selects_nothing(dataset):
+    node = node_of(dataset.key, "dub")
+    assert not select_tracks(Track.objects.all(), node=node, scope="expressions", include_descendants=False).exists()

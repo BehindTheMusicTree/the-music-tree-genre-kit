@@ -1,14 +1,33 @@
 """Contract 4 scopes (restricted, extended, expressions) replace all, canonical and regional.
 
 The access index is derived from the stored graph, which a contract 4 re-import rebuilds, so
-the old rows are dropped instead of being translated.
+the old rows are dropped instead of being translated. Stored payloads stay in their old contract:
+the migration warns, naming each dataset, and the graph must be re-imported (``replace_graph``)
+before it is read again. Identities that contract 4 drops (``expression``, ``anchoring``) need
+explicit retirements in that re-import.
 """
 
+import logging
+
 from django.db import migrations, models
+
+logger = logging.getLogger(__name__)
 
 
 def clear_access(apps, schema_editor):
     apps.get_model("the_music_tree_genre_kit", "GenreGraphAccess").objects.all().delete()
+
+
+def clear_new_access(apps, schema_editor):
+    # Downgrade: rows in the new scopes violate the restored constraint.
+    apps.get_model("the_music_tree_genre_kit", "GenreGraphAccess").objects.all().delete()
+
+
+def warn_stale_payloads(apps, schema_editor):
+    datasets = apps.get_model("the_music_tree_genre_kit", "GenreGraphDataset")
+    for dataset in datasets.objects.all():
+        if dataset.payload.get("contractVersion") != 4:
+            logger.warning("Graph dataset %s is not in contract 4: re-import required", dataset.key)
 
 
 def reinstall_access_guards(apps, schema_editor):
@@ -30,7 +49,8 @@ class Migration(migrations.Migration):
     dependencies = [("the_music_tree_genre_kit", "0022_attribution_dataset_unique")]
 
     operations = [
-        migrations.RunPython(clear_access, migrations.RunPython.noop),
+        migrations.RunPython(clear_access, clear_new_access),
+        migrations.RunPython(warn_stale_payloads, migrations.RunPython.noop),
         # Reverse order: this runs last on a downgrade, after the table rebuild dropped the triggers.
         migrations.RunPython(migrations.RunPython.noop, reinstall_access_guards),
         migrations.RemoveConstraint(model_name="genregraphaccess", name="graph_access_scope"),

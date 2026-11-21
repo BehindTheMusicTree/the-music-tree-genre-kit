@@ -400,6 +400,7 @@ def test_e07_direct_coverage_and_scope_rules(payload):
     assert ref("french-reggae-fusion") in graph.selected_nodes(ref("reggae"), scope="expressions")
     assert ref("french-reggae-fusion") not in graph.selected_nodes(ref("reggae"), scope="restricted")
     assert graph.selected_nodes(ref("dub"), include_descendants=False) == {ref("dub")}
+    assert graph.selected_nodes(ref("dub"), scope="expressions", include_descendants=False) == frozenset()
     for scope in ("all", "canonical", "regional"):
         with pytest.raises(GraphValidationError, match="Invalid selection scope"):
             graph.selected_nodes(ref("france"), scope=scope)
