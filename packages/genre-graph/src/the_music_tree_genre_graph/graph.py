@@ -26,6 +26,10 @@ def load_genre_graph_schema() -> dict:
     return json.loads(resource.read_text(encoding="utf-8"))
 
 
+RELATION_TYPES = ("classification", "regional_membership", "expression_style", "anchoring", "derivation")
+_GENRE_KINDS = frozenset({"genre", "expression"})
+
+
 class GenreGraph:
     """An immutable validated snapshot. All edges point from child to parent.
 
@@ -33,7 +37,8 @@ class GenreGraph:
     classification only; every other genre is regional. Regional membership and
     classification between regional genres propagate a regional population.
     Expression associations allow access from a style in one direction; anchors
-    never propagate songs.
+    and derivations (a genre's origin outside its classification) never
+    propagate songs.
     """
 
     def __init__(self, payload: dict[str, Any]):
@@ -49,13 +54,13 @@ class GenreGraph:
                 raise GraphValidationError(f"Duplicate node identity: {node['id']}")
             self._nodes[node["id"]] = node
         self._relations: dict[str, dict[str, set[str]]] = {
-            kind: {node: set() for node in self._nodes}
-            for kind in ("classification", "regional_membership", "expression_style", "anchoring")
+            kind: {node: set() for node in self._nodes} for kind in RELATION_TYPES
         }
         self._index_relations()
         classification = self._relations["classification"]
         self.classification_order = topological_order(classification, "classification")
         self.regional_order = topological_order(self._relations["regional_membership"], "regional membership")
+        topological_order(self._relations["derivation"], "derivation")
         self._index_canonical_roots()
         self._validate_semantics()
         self._children: dict[str, dict[str, frozenset[str]]] = {}
@@ -99,6 +104,7 @@ class GenreGraph:
                 "regional_membership": child_kind != "overview" or parent_kind == "overview",
                 "expression_style": child_kind == "expression" and parent_kind == "genre",
                 "anchoring": child_kind == "genre" and parent_kind == "overview",
+                "derivation": child != parent and child_kind in _GENRE_KINDS and parent_kind in _GENRE_KINDS,
             }[kind]
             if not valid:
                 raise GraphValidationError(f"Invalid {kind} scope: {child} -> {parent}")

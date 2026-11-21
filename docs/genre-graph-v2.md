@@ -9,7 +9,7 @@ consumers are ready.
 
 ## Identities and relations
 
-`contractVersion: 2`, `curationExportedOn`, `nodes`, `relations` and `canonicalRoots`
+`contractVersion` (2, or 3 when the graph has a `derivation`), `curationExportedOn`, `nodes`, `relations` and `canonicalRoots`
 are required. An explicitly empty root list is valid; a missing
 configuration fails. Identities are QIDs or persistent `LOCAL:` identities,
 independent of the label and of the display parent.
@@ -20,6 +20,7 @@ independent of the label and of the display parent.
 | `regional_membership` | Regional node → overview, non-canonical genre or expression | The child's entire regional population |
 | `expression_style` | Expression → style (canonical or not) | Access from the style to the expression; no reverse access |
 | `anchoring` | Genre → overview | Descriptive only |
+| `derivation` (contract 3) | Genre or expression → genre or expression, acyclic | Descriptive only: the origin a genre keeps when it is classified under another family |
 
 An overview can only belong to another overview. No canonical genre can be the
 child or the parent of a regional membership: a population limited to a region
