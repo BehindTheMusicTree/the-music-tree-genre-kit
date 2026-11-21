@@ -10,8 +10,8 @@ jobs:
   tag-graph:
     permissions:
       contents: write
-    # The same github-workflows commit SHA (v6.2.0) is pinned for every job below.
-    uses: BehindTheMusicTree/github-workflows/.github/workflows/release-tag.yml@62ee427f7a87408fda2eb4c749be66e866f97631 # v6.2.0
+    # The same github-workflows commit SHA (v6.3.0) is pinned for every job below.
+    uses: BehindTheMusicTree/github-workflows/.github/workflows/release-tag.yml@9b5de918c697e4b0cb04201f6df36c861ec81fbe # v6.3.0
     with:
       app-id: ${{ vars.RELEASE_APP_ID }}
       release-policy-path: .github/genre-graph-release-policy.json
@@ -21,7 +21,7 @@ jobs:
     needs: tag-graph
     # The tag is empty when this push carries no graph release; skipped dependents are handled below.
     if: needs.tag-graph.outputs.tag != ''
-    uses: BehindTheMusicTree/github-workflows/.github/workflows/publish-python.yml@62ee427f7a87408fda2eb4c749be66e866f97631 # v6.2.0
+    uses: BehindTheMusicTree/github-workflows/.github/workflows/publish-python.yml@9b5de918c697e4b0cb04201f6df36c861ec81fbe # v6.3.0
     with:
       release-tag: ${{ needs.tag-graph.outputs.tag }}
       package-name: the-music-tree-genre-graph
@@ -119,7 +119,7 @@ jobs:
     # contents: write lets release-tag.yml publish the GitHub Release once the dependency is verified.
     permissions:
       contents: write
-    uses: BehindTheMusicTree/github-workflows/.github/workflows/release-tag.yml@62ee427f7a87408fda2eb4c749be66e866f97631 # v6.2.0
+    uses: BehindTheMusicTree/github-workflows/.github/workflows/release-tag.yml@9b5de918c697e4b0cb04201f6df36c861ec81fbe # v6.3.0
     with:
       app-id: ${{ vars.RELEASE_APP_ID }}
       release-policy-path: .github/release-policy.json
@@ -131,7 +131,7 @@ jobs:
     # success, so a real upstream failure still blocks the release PR reconciliation until rerun.
     needs: [tag-graph, tag-root]
     if: ${{ !cancelled() && needs.tag-graph.result == 'success' && needs.tag-root.result == 'success' }}
-    uses: BehindTheMusicTree/github-workflows/.github/workflows/release-please.yml@62ee427f7a87408fda2eb4c749be66e866f97631 # v6.2.0
+    uses: BehindTheMusicTree/github-workflows/.github/workflows/release-please.yml@9b5de918c697e4b0cb04201f6df36c861ec81fbe # v6.3.0
     with:
       app-id: ${{ vars.RELEASE_PR_APP_ID }}
       # Publishes with no human review: the release PR merges once the required checks pass.
