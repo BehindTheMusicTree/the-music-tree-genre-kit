@@ -1,9 +1,11 @@
+import importlib
 import json
 from copy import deepcopy
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from django.apps import apps as django_apps
 from django.db import IntegrityError, connection, transaction
 from django.test.utils import CaptureQueriesContext
 from the_music_tree_genre_graph import GenreGraph, GraphValidationError
@@ -85,7 +87,7 @@ def node_of(key, identity):
     return GenreGraphNode.objects.get(dataset_id=key, identity=ref(identity))
 
 
-def selected(identity, scope="all"):
+def selected(identity, scope="extended"):
     return set(
         select_tracks(Track.objects.all(), node=node_of("reference", identity), scope=scope).values_list(
             "title", flat=True
@@ -123,7 +125,7 @@ def test_m01_m03_e09_sql_exact_sets_distinct_counts_and_unclassified_tracks(data
     assign(dataset, french, "french-dub")
     assign(dataset, british, "british-dub")
     assign(dataset, unknown_region, "dub")
-    assert selected("dub", "canonical") == {"Unknown region"}
+    assert selected("dub", "restricted") == {"Unknown region"}
     assert selected("dub") == {"Jamaican", "French", "British", "Unknown region"}
     assert selected("france") == {"French"}
     assert selected("jamaica") == {"Jamaican"}
@@ -266,7 +268,7 @@ def test_e02_scope_accepts_enum_and_string(dataset):
     (song,) = tracks("Dub")
     assign(dataset, song, "dub")
     node = node_of(dataset.key, "dub")
-    for scope in (GraphScope.CANONICAL, "canonical"):
+    for scope in (GraphScope.RESTRICTED, "restricted"):
         assert list(select_tracks(Track.objects.all(), node=node, scope=scope)) == [song]
 
 
@@ -351,9 +353,9 @@ def test_e07_sql_scopes_and_direct_coverage(dataset):
     assign(dataset, parent, "reggae")
     assign(dataset, expression, "french-dub")
     assign(dataset, exited, "french-reggae-fusion")
-    assert selected("reggae", "canonical") == {"Parent"}
-    assert selected("reggae", "regional") == {"Parent", "Expression", "Exited"}
-    assert selected("reggae", "all") == {"Parent", "Expression", "Exited"}
+    assert selected("reggae", "restricted") == {"Parent"}
+    assert selected("reggae", "expressions") == {"Expression", "Exited"}
+    assert selected("reggae", "extended") == {"Parent", "Expression", "Exited"}
     assert set(select_tracks(Track.objects.all(), node=node_of(dataset.key, "reggae"), include_descendants=False)) == {
         parent
     }
@@ -525,7 +527,7 @@ def test_metadata_change_does_not_rewrite_closure_rows(dataset, payload):
 def test_database_rejects_cross_dataset_access(dataset, payload, endpoint):
     other = replace_graph(key="other", payload=payload, expected_revision=None)
     node = dataset.nodes.first()
-    kwargs = {"dataset": dataset, "ancestor": node, "descendant": node, "scope": "all"}
+    kwargs = {"dataset": dataset, "ancestor": node, "descendant": node, "scope": "extended"}
     kwargs[endpoint] = other.nodes.first()
     with pytest.raises(IntegrityError), transaction.atomic():
         GenreGraphAccess.objects.create(**kwargs)
@@ -1116,7 +1118,7 @@ def test_merge_graph_nodes_is_idempotent_and_checks_the_revision(dataset):
     assert again.revision == merged.revision
     assert GenreGraphRevision.objects.count() == 2
     with pytest.raises(GraphRevisionConflict, match="revision changed"):
-        merge_graph_nodes(
+        storage.merge_graph_nodes(
             key=dataset.key,
             source=ref("dub"),
             target=ref("reggae-fusion"),
@@ -1127,7 +1129,7 @@ def test_merge_graph_nodes_is_idempotent_and_checks_the_revision(dataset):
 
 def test_merge_graph_nodes_rejects_an_invalid_merge_without_writing(dataset):
     with pytest.raises(GraphValidationError, match="different kinds"):
-        merge_graph_nodes(
+        storage.merge_graph_nodes(
             key=dataset.key,
             source=ref("dub"),
             target=ref("jamaica"),
@@ -1149,3 +1151,29 @@ def test_restore_after_merge_reactivates_the_source(dataset):
     )
     restored = restore_graph(key=dataset.key, revision=dataset.revision, expected_revision=merged.revision)
     assert restored.nodes.get(identity=ref("roots")).is_active
+
+
+def test_stale_contract_payload_requires_reimport(dataset):
+    GenreGraphDataset.objects.filter(pk=dataset.key).update(payload={"contractVersion": 3})
+    with pytest.raises(GraphValidationError, match="re-import required"):
+        merge_graph_nodes(key=dataset.key, source="a", target="b", provenance={}, expected_revision=dataset.revision)
+
+
+def test_expressions_scope_without_descendants_selects_nothing(dataset):
+    node = node_of(dataset.key, "dub")
+    assert not select_tracks(Track.objects.all(), node=node, scope="expressions", include_descendants=False).exists()
+
+
+@pytest.mark.django_db
+def test_migration_0023_downgrade_clears_new_scope_rows_before_the_old_constraint_returns(dataset):
+    migration = importlib.import_module("the_music_tree_genre_kit.migrations.0023_graph_access_scopes")
+    # Operations reverse last to first: the delete must come after every constraint operation.
+    reverse_clears = [
+        i
+        for i, op in enumerate(migration.Migration.operations)
+        if getattr(op, "reverse_code", None) is migration.clear_new_access
+    ]
+    assert reverse_clears == [len(migration.Migration.operations) - 1]
+    assert GenreGraphAccess.objects.filter(dataset=dataset, scope="restricted").exists()
+    migration.clear_new_access(django_apps, None)
+    assert not GenreGraphAccess.objects.exists()

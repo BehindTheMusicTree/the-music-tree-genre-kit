@@ -6,7 +6,7 @@ from uuid import uuid4
 from django.db import connection
 from the_music_tree_genre_graph import GraphValidationError
 
-from .models import GenreGraphAccess, GenreGraphNode
+from .models import GenreGraphAccess, GenreGraphNode, GraphScope
 
 
 def replace_access(dataset, graph, nodes):
@@ -18,10 +18,9 @@ def replace_access(dataset, graph, nodes):
 
     def desired():
         for identity, node in nodes.items():
-            scopes = ("all", "canonical", "regional") if node.canonical_state == "canonical" else ("all",)
-            for scope in scopes:
-                for descendant in graph.selected_nodes(identity, scope=scope):
-                    yield node.pk, scope, nodes[descendant].pk
+            for scope in GraphScope:
+                for descendant in graph.selected_nodes(identity, scope=scope.value):
+                    yield node.pk, scope.value, nodes[descendant].pk
 
     with connection.cursor() as cursor:
         cursor.execute(

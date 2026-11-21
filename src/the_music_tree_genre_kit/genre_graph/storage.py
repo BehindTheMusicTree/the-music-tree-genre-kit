@@ -29,6 +29,13 @@ class GraphRevisionConflict(GraphValidationError):
     """A concurrent writer changed the graph the caller reviewed."""
 
 
+def load_stored_graph(payload: dict, *, key: str) -> GenreGraph:
+    """Parse a stored payload; one in an earlier contract needs a re-import, not a retry."""
+    if payload.get("contractVersion") != 4:
+        raise GraphValidationError(f"Stored graph {key} is not in contract 4: re-import required")
+    return GenreGraph(payload)
+
+
 def require_graph_write_context():
     if connection.vendor not in {"postgresql", "sqlite"}:
         raise GraphValidationError("Reference graphs require PostgreSQL or SQLite")
@@ -97,7 +104,7 @@ def replace_graph(
             dataset=dataset,
             identity=identity,
             is_umbrella=graph.node(identity).get("isUmbrella", False),
-            canonical_state=graph.canonical_state(identity),
+            canonical_state=graph.state(identity),
         )
         for identity in sorted(graph.node_ids - existing.keys())
     ]
@@ -106,7 +113,7 @@ def replace_graph(
     for identity in graph.node_ids & existing.keys():
         node = existing[identity]
         umbrella = graph.node(identity).get("isUmbrella", False)
-        state = graph.canonical_state(identity)
+        state = graph.state(identity)
         if (node.is_active, node.is_umbrella, node.canonical_state) != (True, umbrella, state):
             node.is_active = True
             node.is_umbrella = umbrella
@@ -139,7 +146,7 @@ def merge_graph_nodes(
         raise GraphRevisionConflict(f"Graph dataset does not exist: {key}") from error
     if expected_revision != dataset.revision:
         raise GraphRevisionConflict(f"Graph revision changed for {key}; reload before merging nodes")
-    current = GenreGraph(dataset.payload)
+    current = load_stored_graph(dataset.payload, key=key)
     merged = current.merged(source, target, provenance)
     if merged is current:
         return dataset
@@ -201,6 +208,7 @@ def restore_graph(
     *, key: str, revision: UUID, expected_revision: UUID, retirements: Mapping | None = None
 ) -> GenreGraphDataset:
     archived = GenreGraphRevision.objects.get(dataset_id=key, revision=revision)
+    load_stored_graph(archived.payload, key=key)
     return replace_graph(
         key=key, payload=archived.payload, expected_revision=expected_revision, retirements=retirements
     )
@@ -215,7 +223,7 @@ def select_tracks(
     tracks: QuerySet,
     *,
     node: GenreGraphNode,
-    scope: GraphScope | str = GraphScope.ALL,
+    scope: GraphScope | str = GraphScope.EXTENDED,
     include_descendants: bool = True,
 ) -> QuerySet:
     """Tracks attributed to ``node`` or, by default, to any of its descendants.
@@ -227,11 +235,11 @@ def select_tracks(
         scope = GraphScope(scope)
     except ValueError:
         raise GraphValidationError(f"Invalid selection scope {scope} for {node.identity}") from None
-    if node.canonical_state != "canonical" and scope != GraphScope.ALL:
-        raise GraphValidationError(f"Invalid selection scope {scope} for {node.identity}")
     if not node.is_active:
         return tracks.none()
     attributions = effective_attributions(key=node.dataset_id)
+    if scope == GraphScope.EXPRESSIONS and not include_descendants:
+        return tracks.none()
     if include_descendants:
         descendants = GenreGraphAccess.objects.filter(
             dataset_id=node.dataset_id, ancestor_id=node.pk, scope=scope

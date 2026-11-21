@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/src/the_music_tree_genre_kit/schemas/genre_graph.schema.json",
-  "title": "Semantic genre graph, contracts 2 and 3",
+  "title": "Semantic genre graph, contract 4",
   "type": "object",
   "required": [
     "contractVersion",
@@ -15,8 +15,7 @@
     "contractVersion": {
       "type": "integer",
       "enum": [
-        2,
-        3
+        4
       ]
     },
     "curationExportedOn": {
@@ -90,7 +89,6 @@
         "kind": {
           "enum": [
             "genre",
-            "expression",
             "overview"
           ]
         },
@@ -237,9 +235,8 @@
           "enum": [
             "classification",
             "regional_membership",
-            "expression_style",
-            "anchoring",
-            "derivation"
+            "derivation",
+            "influence"
           ]
         },
         "provenance": {
@@ -261,26 +258,6 @@
         "provenance": {
           "$ref": "#/$defs/provenance"
         }
-      }
-    }
-  },
-  "if": {
-    "properties": {
-      "relations": {
-        "contains": {
-          "properties": {
-            "type": {
-              "const": "derivation"
-            }
-          }
-        }
-      }
-    }
-  },
-  "then": {
-    "properties": {
-      "contractVersion": {
-        "const": 3
       }
     }
   }

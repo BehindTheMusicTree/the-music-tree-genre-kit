@@ -7,11 +7,11 @@ from django.db import models
 
 
 class GraphScope(StrEnum):
-    """Which descendants a selection reaches: every one, or only one tree."""
+    """Which descendants a selection reaches: restricted, every one (extended), or only the expressions."""
 
-    ALL = "all"
-    CANONICAL = "canonical"
-    REGIONAL = "regional"
+    RESTRICTED = "restricted"
+    EXTENDED = "extended"
+    EXPRESSIONS = "expressions"
 
 
 class GenreGraphDataset(models.Model):

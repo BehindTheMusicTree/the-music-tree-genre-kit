@@ -326,7 +326,7 @@ def test_cold_1710_node_shared_ancestry_publication_uses_staged_closure():
     parent_ids = [f"LOCAL:parent-{index}" for index in range(8)]
     leaf_ids = [f"LOCAL:leaf-{index}" for index in range(1701)]
     payload = {
-        "contractVersion": 2,
+        "contractVersion": 4,
         "curationExportedOn": "2026-11-14T00:00:00Z",
         "nodes": [
             {"id": identity, "name": identity, "kind": "genre"} for identity in ["LOCAL:root", *parent_ids, *leaf_ids]
@@ -342,9 +342,9 @@ def test_cold_1710_node_shared_ancestry_publication_uses_staged_closure():
     }
     dataset = replace_graph(key="cold-shared", payload=payload, expected_revision=None)
     assert dataset.nodes.count() == 1710
-    # Every node classified under the canonical root is canonical and indexed in the all, canonical and regional scopes.
+    # Pure classification edges: every closure row is indexed in the restricted and extended scopes, none as expressions.
     closure_rows = 1 + 8 * 2 + 1701 * 10
-    assert dataset.access.count() == 2 * closure_rows + 1710
+    assert dataset.access.count() == 2 * closure_rows
     song = Track(title="Shared leaf assignment")
     Track.objects.bulk_create([song])
     replace_track_attributions(
