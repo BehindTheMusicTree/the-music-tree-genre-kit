@@ -574,3 +574,36 @@ def test_merged_rejects_cycles_kinds_and_unknown_target(payload):
         graph.merged(ref("dub"), ref("nowhere"), merge_provenance())
     with pytest.raises(GraphValidationError, match="into itself"):
         graph.merged(ref("dub"), ref("dub"), merge_provenance())
+
+
+def test_d01_derivation_is_inert_and_requires_contract_3(payload):
+    before = GenreGraph(payload)
+    payload["relations"].append(relation("dub", "french-reggae", "derivation"))
+    with pytest.raises(GraphValidationError, match="contractVersion"):
+        GenreGraph(payload)
+    payload["contractVersion"] = 3
+    graph = GenreGraph(payload)
+    assert graph.parents(ref("dub"), "derivation") == {ref("french-reggae")}
+    assert graph.children(ref("french-reggae"), "derivation") == {ref("dub")}
+    for key in graph.node_ids:
+        assert graph.canonical_state(key) == before.canonical_state(key)
+    assert graph.selected_nodes(ref("french-reggae")) == before.selected_nodes(ref("french-reggae"))
+    assert GenreGraph(graph.to_payload()).to_payload() == payload
+
+
+@pytest.mark.parametrize(
+    ("child", "parent"),
+    [("france", "dub"), ("dub", "france"), ("dub", "dub")],
+)
+def test_d02_invalid_derivation_scope(payload, child, parent):
+    payload["contractVersion"] = 3
+    payload["relations"].append(relation(child, parent, "derivation"))
+    with pytest.raises(GraphValidationError, match="Invalid derivation scope"):
+        GenreGraph(payload)
+
+
+def test_d03_derivation_cycle_is_rejected(payload):
+    payload["contractVersion"] = 3
+    payload["relations"] += [relation("dub", "french-dub", "derivation"), relation("french-dub", "dub", "derivation")]
+    with pytest.raises(GraphValidationError, match="Cycle in derivation"):
+        GenreGraph(payload)

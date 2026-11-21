@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-21
+
+### Added
+
+- Contract 3 and the `derivation` relation (genre or expression → genre or expression, acyclic, no self-edge): the origin a genre keeps outside its classification. It transmits no songs and never affects canonical state or access. Contract 2 payloads stay valid; a `derivation` requires `contractVersion: 3`.
+
 ## [0.3.0] - 2026-11-20
 
 ### Breaking
