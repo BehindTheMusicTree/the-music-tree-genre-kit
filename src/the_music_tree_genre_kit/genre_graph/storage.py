@@ -97,7 +97,7 @@ def replace_graph(
             dataset=dataset,
             identity=identity,
             is_umbrella=graph.node(identity).get("isUmbrella", False),
-            canonical_state=graph.canonical_state(identity),
+            canonical_state=graph.state(identity),
         )
         for identity in sorted(graph.node_ids - existing.keys())
     ]
@@ -106,7 +106,7 @@ def replace_graph(
     for identity in graph.node_ids & existing.keys():
         node = existing[identity]
         umbrella = graph.node(identity).get("isUmbrella", False)
-        state = graph.canonical_state(identity)
+        state = graph.state(identity)
         if (node.is_active, node.is_umbrella, node.canonical_state) != (True, umbrella, state):
             node.is_active = True
             node.is_umbrella = umbrella
@@ -215,7 +215,7 @@ def select_tracks(
     tracks: QuerySet,
     *,
     node: GenreGraphNode,
-    scope: GraphScope | str = GraphScope.ALL,
+    scope: GraphScope | str = GraphScope.EXTENDED,
     include_descendants: bool = True,
 ) -> QuerySet:
     """Tracks attributed to ``node`` or, by default, to any of its descendants.
@@ -227,8 +227,6 @@ def select_tracks(
         scope = GraphScope(scope)
     except ValueError:
         raise GraphValidationError(f"Invalid selection scope {scope} for {node.identity}") from None
-    if node.canonical_state != "canonical" and scope != GraphScope.ALL:
-        raise GraphValidationError(f"Invalid selection scope {scope} for {node.identity}")
     if not node.is_active:
         return tracks.none()
     attributions = effective_attributions(key=node.dataset_id)

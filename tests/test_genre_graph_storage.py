@@ -85,7 +85,7 @@ def node_of(key, identity):
     return GenreGraphNode.objects.get(dataset_id=key, identity=ref(identity))
 
 
-def selected(identity, scope="all"):
+def selected(identity, scope="extended"):
     return set(
         select_tracks(Track.objects.all(), node=node_of("reference", identity), scope=scope).values_list(
             "title", flat=True
@@ -123,7 +123,7 @@ def test_m01_m03_e09_sql_exact_sets_distinct_counts_and_unclassified_tracks(data
     assign(dataset, french, "french-dub")
     assign(dataset, british, "british-dub")
     assign(dataset, unknown_region, "dub")
-    assert selected("dub", "canonical") == {"Unknown region"}
+    assert selected("dub", "restricted") == {"Unknown region"}
     assert selected("dub") == {"Jamaican", "French", "British", "Unknown region"}
     assert selected("france") == {"French"}
     assert selected("jamaica") == {"Jamaican"}
@@ -266,7 +266,7 @@ def test_e02_scope_accepts_enum_and_string(dataset):
     (song,) = tracks("Dub")
     assign(dataset, song, "dub")
     node = node_of(dataset.key, "dub")
-    for scope in (GraphScope.CANONICAL, "canonical"):
+    for scope in (GraphScope.RESTRICTED, "restricted"):
         assert list(select_tracks(Track.objects.all(), node=node, scope=scope)) == [song]
 
 
@@ -351,9 +351,9 @@ def test_e07_sql_scopes_and_direct_coverage(dataset):
     assign(dataset, parent, "reggae")
     assign(dataset, expression, "french-dub")
     assign(dataset, exited, "french-reggae-fusion")
-    assert selected("reggae", "canonical") == {"Parent"}
-    assert selected("reggae", "regional") == {"Parent", "Expression", "Exited"}
-    assert selected("reggae", "all") == {"Parent", "Expression", "Exited"}
+    assert selected("reggae", "restricted") == {"Parent"}
+    assert selected("reggae", "expressions") == {"Expression", "Exited"}
+    assert selected("reggae", "extended") == {"Parent", "Expression", "Exited"}
     assert set(select_tracks(Track.objects.all(), node=node_of(dataset.key, "reggae"), include_descendants=False)) == {
         parent
     }
@@ -525,7 +525,7 @@ def test_metadata_change_does_not_rewrite_closure_rows(dataset, payload):
 def test_database_rejects_cross_dataset_access(dataset, payload, endpoint):
     other = replace_graph(key="other", payload=payload, expected_revision=None)
     node = dataset.nodes.first()
-    kwargs = {"dataset": dataset, "ancestor": node, "descendant": node, "scope": "all"}
+    kwargs = {"dataset": dataset, "ancestor": node, "descendant": node, "scope": "extended"}
     kwargs[endpoint] = other.nodes.first()
     with pytest.raises(IntegrityError), transaction.atomic():
         GenreGraphAccess.objects.create(**kwargs)

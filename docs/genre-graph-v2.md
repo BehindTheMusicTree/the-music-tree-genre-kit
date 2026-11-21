@@ -9,78 +9,83 @@ consumers are ready.
 
 ## Identities and relations
 
-`contractVersion` (2, or 3 when the graph has a `derivation`), `curationExportedOn`, `nodes`, `relations` and `canonicalRoots`
+`contractVersion` (4; contract 3 is rejected with "Invalid graph contract"), `curationExportedOn`, `nodes`, `relations` and `canonicalRoots`
 are required. An explicitly empty root list is valid; a missing
 configuration fails. Identities are QIDs or persistent `LOCAL:` identities,
-independent of the label and of the display parent.
+independent of the label and of the display parent. Nodes are `genre` or `overview`.
 
-| Child → parent relation | Scope | Transmission |
+| Child → parent relation | Scope | Role |
 | --- | --- | --- |
-| `classification` | Genre → genre | Canonical state; population according to the rules below |
-| `regional_membership` | Regional node → overview, non-canonical genre or expression | The child's entire regional population |
-| `expression_style` | Expression → style (canonical or not) | Access from the style to the expression; no reverse access |
-| `anchoring` | Genre → overview | Descriptive only |
-| `derivation` (contract 3) | Genre or expression → genre or expression, acyclic | Descriptive only: the origin a genre keeps when it is classified under another family |
+| `classification` | Genre → genre | The whole lineage; each edge is computed `restricted` or `expression` |
+| `regional_membership` | Genre → overview, overview → overview | Geography only |
+| `derivation` | Genre → genre, acyclic | Historical filiation; descriptive, no access |
+| `influence` | Genre → genre | Influence; descriptive, no access |
 
-An overview can only belong to another overview. No canonical genre can be the
-child or the parent of a regional membership: a population limited to a region
-requires a distinct expression. An expression has at least one explicit style,
-canonical or not. A classified genre (a classification parent) cannot be a
-regional member: only a classification root (a genre with no classification
-parent) can belong to a region. Its regional descendants belong to its population.
+`derivation` and `influence` never duplicate a classification pair. The former
+`expression_style` and `anchoring` relations and the `expression` kind no longer
+exist: a regional expression is a regional genre classified under its style.
 
 Relations and canonical roots carry `decisionId`, `source` and `rationale`.
-`displayParentId`, when present, designates an accepted parent; it never
-chooses the state or the population. Unknown references, identity or relation
-duplicates, cycles and contradictions fail before a snapshot is returned.
-Cycles are also checked on the unions of transmitting relations.
+`displayParentId`, when present, designates a classification parent (or an
+overview parent for an overview); it never chooses the state or the population.
+Unknown references, identity or relation duplicates, cycles and contradictions
+fail before a snapshot is returned.
 
-## Canonical roots
+## Regions, state and edge kinds
 
-A genre is canonical or regional; other kinds have no state
-(`GenreGraph.canonical_state`). `canonicalRoots` lists the classification roots
-(genres with no classification parent) that start a canonical tree, each with its
-provenance. A listed root is canonical and so is every classification descendant.
-A genre that is not reached from a listed root is regional: it must reach an
-overview through regional membership, otherwise the graph is rejected.
+All values are computed, in classification order (parents first). A supplied
+`canonicalState`, `boundaries` or `isUnacceptedRoot` is refused by the schema.
 
-An entry that is unknown, duplicated, not a genre or that has a classification
-parent is rejected. A genre whose classification parents are partly canonical and
-partly regional is rejected with one witness edge per parent. The state is always
-computed: a supplied `canonicalState`, `boundaries` or `isUnacceptedRoot` is
-refused by the schema. The explicit empty list is valid and yields no canonical genre.
+1. **Own regions** `D(n)`: overviews that are direct `regional_membership` parents of `n`.
+2. **Regions** `R(n)` (`GenreGraph.regions`): `D(n)` when non-empty (localized genre);
+   otherwise the union, reduced to the most specific, of the regions of its regional
+   classification parents; otherwise empty.
+3. **State** (`GenreGraph.state`): `regional` when `R(n)` is non-empty; `canonical` when
+   `R(n)` is empty and `n` is a listed root or all its parents are canonical. Anything
+   else is rejected ("genre without region or root"). Overviews have no state. A genre
+   without region that has both canonical and regional parents is regional.
+4. **Edge kind** (`GenreGraph.edge_kind(child, parent)`), with `r ⊑ s` meaning `r = s` or
+   `s` is a regional-membership ancestor of `r`:
+
+| Child | Parent | Edge |
+| --- | --- | --- |
+| canonical | canonical | `restricted` |
+| regional | canonical | `expression` (French country → Country) |
+| regional, not localized | regional | `restricted` (its regions come from this edge) |
+| localized, every region ⊑ a region of the parent | regional | `restricted` (Marseille rap → French rap) |
+| localized, disjoint or partly overlapping regions | regional | `expression` (Belgian rap → French rap) |
+| localized, strictly wider than the parent | regional | rejected, naming the edge |
+
+`GenreGraph.expression_parents(node)` lists the parents of a node through `expression` edges.
+`canonicalRoots` lists the classification roots (genres with no classification parent) that
+start a canonical tree, each with its provenance; an entry that is unknown, duplicated, not a
+genre or that has a classification parent is rejected.
 
 ## Selections and normalization
 
-Access is typed: from a node, any run of regional membership and classification
-edges, then at most one `expression_style` jump, after which only classification
-edges are followed (an expression reaches the classification ancestors of its
-style, never the regions of that style). A node is selected by `n` exactly when
-`n` is one of its access ancestors or `n` itself.
+Access goes up through every classification edge (restricted or expression) and
+through the overviews above `R(n)`. An expression therefore reaches the lineage of its
+parent but never the parent's regions: the United States selects Country and Bluegrass
+but not French country, and the United Kingdom does not select French drill.
+Expression of expression is transitive with no extra edge. A node is selected by `n`
+exactly when `n` is one of its access ancestors or `n` itself.
 
-| Selected node / inclusive scope | Attributable node set |
+`selected_nodes(node, scope=...)` works on any node, canonical or regional:
+
+| Scope | Attributable node set |
 | --- | --- |
-| Canonical / `canonical` | Chosen genre and its classification descendants |
-| Canonical / `regional` | Chosen genre, plus every other node that reaches it: expressions and their regional population |
-| Canonical / `all` | Distinct union of the two scopes |
-| Regional genre, overview or expression / `all` | Chosen node and everything that reaches it by typed access |
+| `restricted` | The node and its descendants through restricted edges (and members, for an overview) |
+| `extended` | Every access descendant |
+| `expressions` | `extended − restricted`: the regional expressions only, without the node or its restricted subgenres (Country → French country, not Bluegrass) |
 
-Without descendants, only the chosen node is kept. The `canonical` and
-`regional` scopes are not accepted on a regional node. Selecting the United
-States keeps Country and Bluegrass but not French country: the jump from
-French country to Country stops at the style, so the region of the style never
-reaches the expression.
+The contract 3 scopes `canonical` and `all` become `restricted` and `extended`; the old
+`regional` scope is replaced by `expressions`. Without descendants, only the chosen node is kept.
 
 `normalize_attributions` drops an attribution only when the surviving ones still
-select it and everything above it. Access is not transitive, so `{USA, French
+select it and everything above it. Access is not transitive through regions, so `{USA, French
 country}` keeps both while `{Country, Bluegrass}` keeps Bluegrass. The topmost
 nodes are examined first, so the result does not depend on input order.
-Anchorings do not make any attribution redundant. Normalization precedes the
-computation of the directly attributed overviews that remain "to refine".
-
-An expression of a regional style must live in a region disjoint from the style's
-(a nested region would be a child style); an expression of any style with no
-region is rejected.
+Normalization precedes the computation of the directly attributed overviews that remain "to refine".
 
 A `current` overview is always umbrella. A `historical` overview is umbrella
 exactly when it has an accepted regional child, regardless of its display parent
@@ -88,9 +93,9 @@ and of the number of songs. The type and its provenance are explicit. A supplied
 `isUmbrella` flag that contradicts this is rejected.
 
 Reduction applies only to `regional_membership` relations, never to
-classification, anchorings or associations. `ancestry_subgraph` returns the
-shared nodes and the regional population relations, including non-canonical
-classification; it does not enumerate every route.
+classification. `ancestry_subgraph` returns the shared nodes and the regional
+population relations. Behavior change: for a canonical genre it now follows the
+classification edges of every kind, so expressions appear under their parent.
 
 These functions work on concepts, not on catalog songs. Consumers must apply the
 resulting sets and count distinct songs in SQL; summing per-attribution buckets
@@ -146,8 +151,8 @@ while duplicates exist; it never picks a node.
 `select_tracks(tracks, *, node, scope, include_descendants)` takes the
 already-loaded `GenreGraphNode` (read in the same snapshot as the result
 evaluation) and issues no query at call time; an inactive node selects nothing,
-and an invalid scope or a scope other than `all` on a non-canonical node raises
-`GraphValidationError`. `select_tracks`, `effective_attributions` and
+and an invalid scope raises `GraphValidationError` (valid scopes: `restricted`,
+`extended`, `expressions`; default `extended`). `select_tracks`, `effective_attributions` and
 `tracks_needing_refinement` use SQL subqueries: they do not materialize track
 populations in Python. `effective_attributions` returns the dataset's active
 attributions (there is no longer any "more precise" normalization to do);

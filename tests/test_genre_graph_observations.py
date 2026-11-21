@@ -58,7 +58,7 @@ def test_r19_all_observed_additional_children_drive_umbrella_validation(case):
             for destination in (parent, other)
         )
     payload = {
-        "contractVersion": 2,
+        "contractVersion": 4,
         "curationExportedOn": "2026-11-14T00:00:00Z",
         "nodes": nodes,
         "relations": edges,
@@ -85,7 +85,7 @@ def test_r03_all_four_child_roles_and_display_positions(child_kind, additional):
     elif child_kind == "genre":
         child_node.update(kind="genre")
     else:
-        child_node.update(kind="expression")
+        child_node.update(kind="genre")
     nodes.append(child_node)
     edges = [{"childId": child, "parentId": parent, "type": "regional_membership", "provenance": provenance()}]
     roots = []
@@ -95,10 +95,10 @@ def test_r03_all_four_child_roles_and_display_positions(child_kind, additional):
     if child_kind == "expression":
         nodes.append({"id": style, "name": "Style", "kind": "genre"})
         roots.append({"nodeId": style, "provenance": provenance()})
-        edges.append({"childId": child, "parentId": style, "type": "expression_style", "provenance": provenance()})
+        edges.append({"childId": child, "parentId": style, "type": "classification", "provenance": provenance()})
     graph = GenreGraph(
         {
-            "contractVersion": 2,
+            "contractVersion": 4,
             "curationExportedOn": "2026-11-14T00:00:00Z",
             "nodes": nodes,
             "relations": edges,

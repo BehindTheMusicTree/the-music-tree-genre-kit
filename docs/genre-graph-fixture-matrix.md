@@ -4,6 +4,8 @@ This matrix is synthetic. The musical names (Reggae, Dub, Breton rock…) are no
 
 Reconstructed on 2026-11-19 from the working logs of November 13–14, 2026; the source plan was never committed.
 
+Contract 4 mapping: `expression_style` edges became `classification` edges from a regional genre, the `expression` kind became `genre`, and the scopes `canonical`/`regional`/`all` became `restricted`/`expressions`/`extended`. Rows below keep their original wording.
+
 | ID | Fixture | Attendu |
 | --- | --- | --- |
 | C01 | Genre outside every listed root, with and without a region | Regional genre reaching no overview rejected; listing it as a root makes it canonical |
