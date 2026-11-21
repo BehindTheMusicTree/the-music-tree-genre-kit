@@ -4,7 +4,10 @@ on:
     branches: [main]
 permissions:
   contents: read
-# No concurrency group: cancelling or queueing runs could drop a pending release bump.
+# One run per pushed commit, never cancelled or replaced: a replaced run could drop a pending release bump.
+concurrency:
+  group: release-${{ github.sha }}
+  cancel-in-progress: false
 # Recover from a failed job with "Re-run failed jobs"; prepare only uploads the files still missing.
 jobs:
   tag-graph:
