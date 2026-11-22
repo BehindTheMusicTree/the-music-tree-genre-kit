@@ -250,6 +250,10 @@ retirements. A genre with no region of its own and several regional parents has 
 edge to each of them, as the classification rule computes per edge. With `include_descendants=False`,
 the `expressions` scope selects nothing, since it excludes the node itself.
 
+Migration `0024` removes restricted access rows that are absent from extended access and changes
+the membership revision of affected datasets. It is irreversible; restore a database backup to
+return to the previous schema and access index.
+
 Migration `0020` refuses a downgrade if the evidence or history storage is
 populated: flattening several pieces of evidence would destroy provenance.
 Application-level restoration of the graph and attributions remains a forward

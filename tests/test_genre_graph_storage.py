@@ -2,6 +2,7 @@ import importlib
 import json
 from copy import deepcopy
 from pathlib import Path
+from types import SimpleNamespace
 from uuid import uuid4
 
 import pytest
@@ -521,6 +522,27 @@ def test_metadata_change_does_not_rewrite_closure_rows(dataset, payload):
     payload["nodes"][0]["name"] = "Changed label"
     replace_graph(key=dataset.key, payload=payload, expected_revision=dataset.revision)
     assert set(GenreGraphAccess.objects.values_list("pk", flat=True)) == original
+
+
+def test_access_scope_migration_removes_only_invalid_rows_and_invalidates_membership(dataset, payload):
+    other = replace_graph(key="other", payload=payload, expected_revision=None)
+    ancestor = node_of("reference", "france")
+    descendant = node_of("reference", "dub")
+    assert not GenreGraphAccess.objects.filter(ancestor=ancestor, descendant=descendant, scope="extended").exists()
+    GenreGraphAccess.objects.create(dataset=dataset, ancestor=ancestor, descendant=descendant, scope="restricted")
+    previous = dataset.membership_revision
+    other_revision = other.membership_revision
+    before = GenreGraphAccess.objects.count()
+    migration = importlib.import_module("the_music_tree_genre_kit.migrations.0024_restrict_regional_access")
+    migration.restrict_access(django_apps, SimpleNamespace(connection=connection))
+    dataset.refresh_from_db()
+    other.refresh_from_db()
+    assert GenreGraphAccess.objects.count() == before - 1
+    assert dataset.membership_revision != previous
+    assert other.membership_revision == other_revision
+    assert (
+        replace_graph(key=dataset.key, payload=payload, expected_revision=dataset.revision).revision == dataset.revision
+    )
 
 
 @pytest.mark.parametrize("endpoint", ["ancestor", "descendant"])
