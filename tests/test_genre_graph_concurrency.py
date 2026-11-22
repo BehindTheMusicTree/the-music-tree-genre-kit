@@ -58,6 +58,8 @@ def test_e03_graph_migrations_reverse_and_reapply_without_losing_tracks(payload)
     previous = [("the_music_tree_genre_kit", "0015_trackplaylistrel_playlist_genre_pos_idx")]
     executor = MigrationExecutor(connection)
     latest = executor.loader.graph.leaf_nodes()
+    executor.recorder.record_unapplied("the_music_tree_genre_kit", "0024_restrict_regional_access")
+    executor = MigrationExecutor(connection)
     try:
         executor.migrate(previous)
         assert GenreGraphDataset._meta.db_table not in connection.introspection.table_names()
@@ -287,6 +289,8 @@ def test_populated_assignment_migration_preserves_historical_evidence(payload):
     Track.objects.bulk_create([song])
     executor = MigrationExecutor(connection)
     latest = executor.loader.graph.leaf_nodes()
+    executor.recorder.record_unapplied("the_music_tree_genre_kit", "0024_restrict_regional_access")
+    executor = MigrationExecutor(connection)
     previous = [("the_music_tree_genre_kit", "0019_dataset_owned_access")]
     executor.migrate(previous)
     old = executor.loader.project_state(previous).apps
@@ -433,6 +437,8 @@ def test_dataset_unique_migration_backfills_dataset_and_fails_on_duplicates(payl
     Track.objects.bulk_create([song])
     executor = MigrationExecutor(connection)
     latest = executor.loader.graph.leaf_nodes()
+    executor.recorder.record_unapplied("the_music_tree_genre_kit", "0024_restrict_regional_access")
+    executor = MigrationExecutor(connection)
     previous = [("the_music_tree_genre_kit", "0021_assignment_guards")]
     executor.migrate(previous)
     old = executor.loader.project_state(previous).apps
