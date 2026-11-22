@@ -88,7 +88,7 @@ exactly when `n` is one of its access ancestors or `n` itself.
 
 | Scope | Attributable node set |
 | --- | --- |
-| `restricted` | The node and its descendants through restricted edges (and members, for an overview) |
+| `restricted` | The node and its descendants through restricted edges (and members, for an overview), limited to nodes that reach it by access |
 | `extended` | Every access descendant |
 | `expressions` | `extended − restricted`: the regional expressions only, without the node or its restricted subgenres (Country → French country, not Bluegrass) |
 

@@ -247,6 +247,28 @@ def test_scopes_split_the_restricted_from_the_expressions(payload):
         graph.selected_nodes(ref("country"), scope="all")
 
 
+def test_regional_selection_respects_child_localization(payload):
+    payload["nodes"].extend([genre("shared-parent"), genre("local-child")])
+    payload["relations"].extend(
+        [
+            relation("shared-parent", "france", "regional_membership"),
+            relation("shared-parent", "jamaica", "regional_membership"),
+            relation("local-child", "france", "regional_membership"),
+            relation("local-child", "shared-parent"),
+        ]
+    )
+    graph = GenreGraph(payload)
+    assert graph.edge_kind(ref("local-child"), ref("shared-parent")) == "restricted"
+    assert ref("local-child") in graph.selected_nodes(ref("shared-parent"), scope="restricted")
+    assert ref("local-child") in graph.selected_nodes(ref("france"), scope="restricted")
+    for scope in ("restricted", "extended", "expressions"):
+        assert ref("local-child") not in graph.selected_nodes(ref("jamaica"), scope=scope)
+    for node_id in graph.node_ids:
+        restricted = graph.selected_nodes(node_id, scope="restricted")
+        expressions = graph.selected_nodes(node_id, scope="expressions")
+        assert graph.selected_nodes(node_id, scope="extended") == restricted | expressions
+
+
 def access_ancestors(graph, start):
     """Independent walk: classification ancestors via every edge, plus the node's own regions and their ancestors."""
     found, pending = set(), [start]

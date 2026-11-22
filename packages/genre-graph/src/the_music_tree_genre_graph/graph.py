@@ -312,7 +312,7 @@ class GenreGraph:
         """Select a node and everything that reaches it by access.
 
         ``restricted`` covers the node and its descendants by regional membership and restricted
-        classification edges; ``extended`` every descendant by access; ``expressions`` what
+        classification edges that also reach the node by access; ``extended`` every descendant by access; ``expressions`` what
         ``extended`` adds to ``restricted``, without the node itself (so empty without descendants).
         """
         if scope not in SELECTION_SCOPES or node_id not in self._nodes:
@@ -322,7 +322,7 @@ class GenreGraph:
         extended = self._access_descendants[node_id] | {node_id}
         if scope == "extended":
             return extended
-        restricted = self.descendants(node_id, "restricted") | {node_id}
+        restricted = (self.descendants(node_id, "restricted") | {node_id}) & extended
         return restricted if scope == "restricted" else extended - restricted
 
     def normalize_attributions(self, node_ids: Iterable[str]) -> frozenset[str]:
