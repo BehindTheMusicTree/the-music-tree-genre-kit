@@ -88,7 +88,7 @@ exactly when `n` is one of its access ancestors or `n` itself.
 
 | Scope | Attributable node set |
 | --- | --- |
-| `restricted` | The node and its descendants through restricted edges (and members, for an overview) |
+| `restricted` | The node and its descendants through restricted edges (and members, for an overview), limited to nodes that reach it by access |
 | `extended` | Every access descendant |
 | `expressions` | `extended − restricted`: the regional expressions only, without the node or its restricted subgenres (Country → French country, not Bluegrass) |
 
@@ -249,6 +249,10 @@ identities that contract 4 removes (`expression` nodes, `anchoring` relations) n
 retirements. A genre with no region of its own and several regional parents has a `restricted`
 edge to each of them, as the classification rule computes per edge. With `include_descendants=False`,
 the `expressions` scope selects nothing, since it excludes the node itself.
+
+Migration `0024` removes restricted access rows that are absent from extended access and changes
+the membership revision of affected datasets. It is irreversible; restore a database backup to
+return to the previous schema and access index.
 
 Migration `0020` refuses a downgrade if the evidence or history storage is
 populated: flattening several pieces of evidence would destroy provenance.

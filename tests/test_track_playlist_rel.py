@@ -45,6 +45,9 @@ def test_duplicate_playlist_track_rel_is_rejected(user, playlist):
 def test_migration_dedupes_and_renumbers_rels(user, playlist):
     first, second, unpositioned = (Track.objects.create(user=user) for _ in range(3))
     executor = MigrationExecutor(connection)
+    # The data-only migration is irreversible; this disposable database has no graph data to restore.
+    executor.recorder.record_unapplied(APP, "0024_restrict_regional_access")
+    executor = MigrationExecutor(connection)
     executor.migrate([(APP, "0008_remove_track_archived")])
     old_rel = executor.loader.project_state([(APP, "0008_remove_track_archived")]).apps.get_model(
         APP, "TrackPlaylistRel"
