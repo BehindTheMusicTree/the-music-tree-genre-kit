@@ -9,6 +9,13 @@ Entries before the release-please adoption were written manually. Changes that r
 (`hear-the-music-tree-api`, `grow-the-music-tree-api`) to update its own code are marked as breaking
 (`feat!:` / `BREAKING CHANGE:`).
 
+## [0.72.1](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.72.0...v0.72.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* **graph:** respect regional access in restricted scope ([#329](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/329)) ([52fa2d0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/52fa2d06d37954de58e984c5af60e85eef6a90eb))
+
 ## [0.72.0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.71.0...v0.72.0) (2026-11-21)
 
 

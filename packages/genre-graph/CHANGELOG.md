@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.1](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/graph-v0.6.0...graph-v0.6.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* **graph:** respect regional access in restricted scope ([#329](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/329)) ([52fa2d0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/52fa2d06d37954de58e984c5af60e85eef6a90eb))
+
 ## [0.6.0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/graph-v0.5.0...graph-v0.6.0) (2026-11-21)
 
 
