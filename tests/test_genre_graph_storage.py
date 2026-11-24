@@ -1,5 +1,6 @@
 import importlib
 import json
+from contextlib import contextmanager
 from copy import deepcopy
 from pathlib import Path
 from types import SimpleNamespace
@@ -877,6 +878,164 @@ def test_staged_publication_preserves_complete_sets_empty_tokens_and_reviewed_re
             assert GenreGraphDataset.objects.get(pk=locked.pk).membership_revision == membership
             cursor.execute(f"DROP TABLE {quote(desired)}")
             cursor.execute(f"DROP TABLE {quote(population)}")
+
+
+def _publish_staged(locked, rows, population_tracks, **options):
+    """Publish `rows` ((track, identity, evidence) tuples) for `population_tracks` through temporary staging tables."""
+    population, desired = "population_" + uuid4().hex, "desired_" + uuid4().hex
+    quote = connection.ops.quote_name
+    uuid_type = "char(32)" if connection.vendor == "sqlite" else "uuid"
+    prep = Track._meta.pk.get_db_prep_value
+    with connection.cursor() as cursor:
+        cursor.execute(f"CREATE TEMPORARY TABLE {quote(population)} (track_id {uuid_type} PRIMARY KEY)")
+        cursor.execute(
+            f"CREATE TEMPORARY TABLE {quote(desired)} (track_id {uuid_type}, node_id bigint, evidence_id bigint)"
+        )
+        cursor.executemany(
+            f"INSERT INTO {quote(population)} VALUES (%s)", [(prep(song.pk, connection),) for song in population_tracks]
+        )
+        cursor.executemany(
+            f"INSERT INTO {quote(desired)} VALUES (%s, %s, %s)",
+            [(prep(song.pk, connection), locked.nodes.get(identity=ref(name)).pk, ev.pk) for song, name, ev in rows],
+        )
+        try:
+            publish_staged_attributions(dataset=locked, population=population, assignments=desired, **options)
+        finally:
+            cursor.execute(f"DROP TABLE {quote(desired)}")
+            cursor.execute(f"DROP TABLE {quote(population)}")
+
+
+def _first_publication(dataset, chunk_size, steps=None):
+    new, bare, same, changed = tracks("New", "Bare", "Same", "Changed")
+    assign(dataset, same, "dub")
+    assign(dataset, changed, "reggae")
+    same_token, changed_token = assignment_revision(dataset, same), assignment_revision(dataset, changed)
+    same_history = GenreGraphAttributionRevision.objects.filter(track_id=same.pk).count()
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        evidence = register_evidence(locked, [provenance("dub"), provenance("reggae")])
+        same_evidence = GenreGraphAttributionEvidence.objects.get(
+            attribution__track=same, attribution__dataset=locked
+        ).evidence
+        rows = [
+            (new, "dub", evidence["dub"]),
+            (same, "dub", same_evidence),
+            (changed, "french-dub", evidence["reggae"]),
+        ]
+
+        @contextmanager
+        def on_step(name):
+            steps.append(name)
+            yield
+
+        options = {"chunk_size": chunk_size, **({"on_step": on_step} if steps is not None else {})}
+        _publish_staged(locked, rows, [new, bare, same, changed], **options)
+    return new, bare, same, changed, same_token, changed_token, same_history
+
+
+@pytest.mark.parametrize("chunk_size", [None, 2])
+def test_staged_publication_touches_only_changed_tracks(dataset, chunk_size):
+    steps = []
+    new, bare, same, changed, same_token, changed_token, same_history = _first_publication(dataset, chunk_size, steps)
+    assert steps == ["affected", "lock", "archive_before", "write", "state", "archive_after", "analyze"]
+    assert assignment_snapshot(dataset=dataset, track_id=new.pk).keys() == {ref("dub")}
+    assert assignment_revision(dataset, new) is not None
+    # A new track without genre gets neither a state nor a history.
+    assert assignment_revision(dataset, bare) is None
+    assert not GenreGraphAttributionRevision.objects.filter(track_id=bare.pk).exists()
+    # An unchanged track keeps its token and writes nothing.
+    assert assignment_revision(dataset, same) == same_token
+    assert GenreGraphAttributionRevision.objects.filter(track_id=same.pk).count() == same_history
+    # A modified track archives the set before and after.
+    after = assignment_revision(dataset, changed)
+    assert after != changed_token
+    assert GenreGraphAttributionRevision.objects.get(revision=changed_token).attributions.keys() == {ref("reggae")}
+    assert GenreGraphAttributionRevision.objects.get(revision=after).attributions.keys() == {ref("french-dub")}
+    # A new track is archived once, after the write.
+    assert GenreGraphAttributionRevision.objects.filter(track_id=new.pk).count() == 1
+
+
+def _membership(dataset):
+    return type(dataset).objects.values_list("membership_revision", flat=True).get(pk=dataset.pk)
+
+
+def test_staged_publication_spans_chunks_and_bumps_membership_once(dataset):
+    songs = tracks("C1", "C2", "C3", "C4", "C5")
+    before = _membership(dataset)
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        evidence = register_evidence(locked, [provenance("dub")])["dub"]
+        _publish_staged(locked, [(song, "dub", evidence) for song in songs], songs, chunk_size=2)
+    assert all(assignment_snapshot(dataset=dataset, track_id=song.pk).keys() == {ref("dub")} for song in songs)
+    assert all(assignment_revision(dataset, song) is not None for song in songs)
+    assert _membership(dataset) != before
+
+
+def test_staged_publication_without_change_keeps_membership(dataset):
+    (song,) = tracks("Stable")
+    assign(dataset, song, "dub")
+    evidence = GenreGraphAttributionEvidence.objects.get(attribution__track=song).evidence
+    before = _membership(dataset)
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        _publish_staged(locked, [(song, "dub", evidence)], [song])
+    assert _membership(dataset) == before
+
+
+def test_staged_publication_empties_an_existing_set(dataset):
+    (song,) = tracks("Emptied")
+    assign(dataset, song, "dub")
+    before = assignment_revision(dataset, song)
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        _publish_staged(locked, [], [song])
+    assert not GenreGraphAttribution.objects.filter(track=song, dataset=dataset).exists()
+    assert assignment_revision(dataset, song) != before
+
+
+def test_staged_publication_write_failure_leaves_nothing(dataset):
+    (song,) = tracks("Failing")
+
+    @contextmanager
+    def on_step(name):
+        if name == "write":
+            raise RuntimeError("Interrupted write")
+        yield
+
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        evidence = register_evidence(locked, [provenance("dub")])["dub"]
+        with pytest.raises(RuntimeError, match="Interrupted"), transaction.atomic():
+            _publish_staged(locked, [(song, "dub", evidence)], [song], on_step=on_step)
+    assert not GenreGraphAttribution.objects.filter(track=song, dataset=dataset).exists()
+
+
+@pytest.mark.skipif(connection.vendor != "postgresql", reason="Row guards are bypassed on PostgreSQL only")
+def test_staged_publication_bypass_resets_after_error_and_guards_stay_active(dataset, django_user_model):
+    (song,) = tracks("Guarded")
+
+    def bypass_value():
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT current_setting('the_music_tree_genre_kit.staged_publication', true)")
+            return cursor.fetchone()[0]
+
+    seen = []
+
+    @contextmanager
+    def on_step(name):
+        if name == "state":
+            seen.append(bypass_value())
+            raise RuntimeError("Interrupted publication")
+        yield
+
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        evidence = register_evidence(locked, [provenance("dub")])["dub"]
+        with pytest.raises(RuntimeError, match="Interrupted"), transaction.atomic():
+            _publish_staged(locked, [(song, "dub", evidence)], [song], on_step=on_step)
+        assert seen == ["on"]
+        assert bypass_value() != "on"
+    owner = django_user_model.objects.create(username="private-owner")
+    private = Track(title="Private", user=owner)
+    Track.objects.bulk_create([private])
+    with pytest.raises(IntegrityError), transaction.atomic():
+        GenreGraphAttribution.objects.create(
+            track=private, node=dataset.nodes.get(identity=ref("dub")), dataset=dataset
+        )
 
 
 @pytest.mark.parametrize("mutation", ["remove_evidence", "move_assignment"])
