@@ -89,6 +89,44 @@ def _staged_publication_bypass(cursor):
             pass
 
 
+def _affected_select(*, population, desired, attribution, link, state, dataset_pk):
+    """SQL and parameters selecting `(n, track_id)` for the tracks whose stored set differs from the desired one.
+
+    Anti/semi-joins on both sides of the difference between the stored and the desired sets; a stored
+    attribution without evidence never matches, so it always counts as a difference. Never put an EXISTS under
+    an OR: the planner then cannot turn it into a semi-join and, once the hash no longer fits in memory (16 M
+    tracks), runs a non-hashed subplan per row. Split the OR into UNION branches instead.
+    """
+    has_state = f"EXISTS (SELECT 1 FROM {state} s WHERE s.dataset_id = %s AND s.track_id = {{track}})"
+    current = (
+        f"SELECT a.track_id, a.node_id, l.evidence_id FROM {attribution} a "
+        f"JOIN {population} p ON p.track_id = a.track_id "
+        f"LEFT JOIN {link} l ON l.attribution_id = a.id WHERE a.dataset_id = %s"
+    )
+    select = f"""SELECT row_number() OVER (ORDER BY track_id) AS n, track_id FROM (
+                    SELECT p.track_id FROM {population} p
+                    WHERE NOT {has_state.format(track="p.track_id")}
+                        AND EXISTS (SELECT 1 FROM {desired} d WHERE d.track_id = p.track_id)
+                    UNION
+                    SELECT p.track_id FROM {population} p
+                    WHERE NOT {has_state.format(track="p.track_id")}
+                        AND EXISTS (SELECT 1 FROM {attribution} a
+                            WHERE a.dataset_id = %s AND a.track_id = p.track_id)
+                    UNION
+                    SELECT c.track_id FROM ({current}) c
+                    WHERE {has_state.format(track="c.track_id")} AND NOT EXISTS (
+                        SELECT 1 FROM {desired} d
+                        WHERE d.track_id = c.track_id AND d.node_id = c.node_id AND d.evidence_id = c.evidence_id)
+                    UNION
+                    SELECT d.track_id FROM {desired} d
+                    WHERE {has_state.format(track="d.track_id")} AND NOT EXISTS (
+                        SELECT 1 FROM {attribution} a JOIN {link} l ON l.attribution_id = a.id
+                        WHERE a.dataset_id = %s AND a.track_id = d.track_id AND a.node_id = d.node_id
+                            AND l.evidence_id = d.evidence_id)
+                ) changed"""
+    return select, [dataset_pk] * 7
+
+
 def publish_staged_attributions(*, dataset, population, assignments, chunk_size=None, on_step=None):
     """Replace complete sets for population(track_id) from assignments(track_id,node_id,evidence_id).
 
@@ -128,7 +166,6 @@ def publish_staged_attributions(*, dataset, population, assignments, chunk_size=
     suffix = uuid4().hex
     affected = quote(f"graph_assignment_changes_{suffix}")
     token = "gen_random_uuid()" if postgresql else "lower(hex(randomblob(16)))"
-    has_state = f"EXISTS (SELECT 1 FROM {state} s WHERE s.dataset_id = %s AND s.track_id = {{track}})"
     with connection.cursor() as cursor:
         cursor.execute(
             f"""SELECT EXISTS (
@@ -153,35 +190,15 @@ def publish_staged_attributions(*, dataset, population, assignments, chunk_size=
         if cursor.fetchone()[0]:
             raise GraphValidationError("A track holds at most one node per dataset in staged assignments")
         with step("affected"):
-            # Anti/semi-joins on both sides of the difference between the stored and the desired sets;
-            # a stored attribution without evidence never matches, so it always counts as a difference.
-            current = (
-                f"SELECT a.track_id, a.node_id, l.evidence_id FROM {attribution} a "
-                f"JOIN {population} p ON p.track_id = a.track_id "
-                f"LEFT JOIN {link} l ON l.attribution_id = a.id WHERE a.dataset_id = %s"
+            select, params = _affected_select(
+                population=population,
+                desired=desired,
+                attribution=attribution,
+                link=link,
+                state=state,
+                dataset_pk=dataset.pk,
             )
-            cursor.execute(
-                f"""CREATE TEMPORARY TABLE {affected} AS
-                SELECT row_number() OVER (ORDER BY track_id) AS n, track_id FROM (
-                    SELECT p.track_id FROM {population} p
-                    WHERE NOT {has_state.format(track="p.track_id")}
-                        AND (EXISTS (SELECT 1 FROM {desired} d WHERE d.track_id = p.track_id)
-                            OR EXISTS (SELECT 1 FROM {attribution} a
-                                WHERE a.dataset_id = %s AND a.track_id = p.track_id))
-                    UNION
-                    SELECT c.track_id FROM ({current}) c
-                    WHERE {has_state.format(track="c.track_id")} AND NOT EXISTS (
-                        SELECT 1 FROM {desired} d
-                        WHERE d.track_id = c.track_id AND d.node_id = c.node_id AND d.evidence_id = c.evidence_id)
-                    UNION
-                    SELECT d.track_id FROM {desired} d
-                    WHERE {has_state.format(track="d.track_id")} AND NOT EXISTS (
-                        SELECT 1 FROM {attribution} a JOIN {link} l ON l.attribution_id = a.id
-                        WHERE a.dataset_id = %s AND a.track_id = d.track_id AND a.node_id = d.node_id
-                            AND l.evidence_id = d.evidence_id)
-                ) changed""",
-                [dataset.pk] * 6,
-            )
+            cursor.execute(f"CREATE TEMPORARY TABLE {affected} AS {select}", params)
             cursor.execute(f"CREATE UNIQUE INDEX {quote(f'graph_changes_n_{suffix}')} ON {affected} (n)")
             cursor.execute(f"CREATE UNIQUE INDEX {quote(f'graph_changes_track_{suffix}')} ON {affected} (track_id)")
             cursor.execute(f"ANALYZE {affected}")
