@@ -446,7 +446,7 @@ requires-dist = [{ name = "jsonschema", specifier = "==4.26.0" }]
 
 [[package]]
 name = "the-music-tree-genre-kit"
-version = "0.72.3"
+version = "0.72.4"
 source = { editable = "." }
 dependencies = [
     { name = "django" },
