@@ -15,4 +15,4 @@ concurrency:
 
 jobs:
   pr-title:
-    uses: BehindTheMusicTree/github-workflows/.github/workflows/pr-title.yml@9b5de918c697e4b0cb04201f6df36c861ec81fbe # v6.3.0
+    uses: BehindTheMusicTree/github-workflows/.github/workflows/pr-title.yml@8b10f1dfcb88a245e4e4256e61164b49e595faea # v6.5.0
