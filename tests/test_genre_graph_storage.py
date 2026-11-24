@@ -1358,3 +1358,38 @@ def test_migration_0023_downgrade_clears_new_scope_rows_before_the_old_constrain
     assert GenreGraphAccess.objects.filter(dataset=dataset, scope="restricted").exists()
     migration.clear_new_access(django_apps, None)
     assert not GenreGraphAccess.objects.exists()
+
+
+@pytest.mark.skipif(connection.vendor != "postgresql", reason="Plan shape is checked on PostgreSQL only")
+@pytest.mark.django_db
+def test_affected_select_keeps_exists_out_of_per_row_subplans(dataset):
+    def subplans(node):
+        if node.get("Parent Relationship") == "SubPlan":
+            yield node
+        for child in node.get("Plans", []):
+            yield from subplans(child)
+
+    quote = connection.ops.quote_name
+    population, desired = quote("population_" + uuid4().hex), quote("desired_" + uuid4().hex)
+    with connection.cursor() as cursor:
+        cursor.execute(f"CREATE TEMPORARY TABLE {population} (track_id uuid PRIMARY KEY)")
+        cursor.execute(f"CREATE TEMPORARY TABLE {desired} (track_id uuid, node_id bigint, evidence_id bigint)")
+        cursor.execute(f"INSERT INTO {population} SELECT gen_random_uuid() FROM generate_series(1, 20000)")
+        cursor.execute(f"INSERT INTO {desired} SELECT track_id, 1, 1 FROM {population}")
+        cursor.execute(f"ANALYZE {population}")
+        cursor.execute(f"ANALYZE {desired}")
+        # A tiny work_mem stands in for 16 M tracks at 256 MB: the hash no longer fits.
+        cursor.execute("SET LOCAL work_mem = '64kB'")
+        select, params = publication._affected_select(
+            population=population,
+            desired=desired,
+            attribution=quote(GenreGraphAttribution._meta.db_table),
+            link=quote(GenreGraphAttributionEvidence._meta.db_table),
+            state=quote(GenreGraphAssignmentState._meta.db_table),
+            dataset_pk=dataset.pk,
+        )
+        cursor.execute(f"EXPLAIN (FORMAT JSON) {select}", params)
+        plan = cursor.fetchone()[0]
+        plan = json.loads(plan) if isinstance(plan, str) else plan
+    # A hashed SubPlan is built once; any other SubPlan is re-evaluated for each row.
+    assert not [node for node in subplans(plan[0]["Plan"]) if not node["Subplan Name"].startswith("hashed")]
