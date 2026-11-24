@@ -165,7 +165,9 @@ def publish_staged_attributions(*, dataset, population, assignments, chunk_size=
                 SELECT row_number() OVER (ORDER BY track_id) AS n, track_id FROM (
                     SELECT p.track_id FROM {population} p
                     WHERE NOT {has_state.format(track="p.track_id")}
-                        AND EXISTS (SELECT 1 FROM {desired} d WHERE d.track_id = p.track_id)
+                        AND (EXISTS (SELECT 1 FROM {desired} d WHERE d.track_id = p.track_id)
+                            OR EXISTS (SELECT 1 FROM {attribution} a
+                                WHERE a.dataset_id = %s AND a.track_id = p.track_id))
                     UNION
                     SELECT c.track_id FROM ({current}) c
                     WHERE {has_state.format(track="c.track_id")} AND NOT EXISTS (
@@ -178,7 +180,7 @@ def publish_staged_attributions(*, dataset, population, assignments, chunk_size=
                         WHERE a.dataset_id = %s AND a.track_id = d.track_id AND a.node_id = d.node_id
                             AND l.evidence_id = d.evidence_id)
                 ) changed""",
-                [dataset.pk] * 5,
+                [dataset.pk] * 6,
             )
             cursor.execute(f"CREATE UNIQUE INDEX {quote(f'graph_changes_n_{suffix}')} ON {affected} (n)")
             cursor.execute(f"CREATE UNIQUE INDEX {quote(f'graph_changes_track_{suffix}')} ON {affected} (track_id)")
@@ -205,13 +207,29 @@ def publish_staged_attributions(*, dataset, population, assignments, chunk_size=
         chunks = [(low, low + size - 1) for low in range(1, total + 1, size)]
         restore_immediate = []
         if postgresql:
-            cursor.execute("SELECT conname FROM pg_constraint WHERE condeferrable AND NOT condeferred")
-            restore_immediate = sorted({row[0] for row in cursor.fetchall()})
+            tables = [
+                model._meta.db_table
+                for model in (
+                    GenreGraphAttribution,
+                    GenreGraphAttributionEvidence,
+                    GenreGraphAssignmentState,
+                    GenreGraphEvidence,
+                    GenreGraphNode,
+                    GenreGraphAttributionRevision,
+                )
+            ]
+            cursor.execute(
+                "SELECT DISTINCT conname FROM pg_constraint WHERE condeferrable AND NOT condeferred "
+                "AND conrelid::regclass::text = ANY(%s)",
+                [[quote(table) if quote(table) != table else table for table in tables]],
+            )
+            restore_immediate = sorted(row[0] for row in cursor.fetchall())
 
         def check_constraints():
             if not postgresql:
                 return
             cursor.execute("SET CONSTRAINTS ALL IMMEDIATE")
+            # Overrides any mode the caller set; the constraints are re-checked at commit anyway.
             cursor.execute("SET CONSTRAINTS ALL DEFERRED")
             if restore_immediate:
                 cursor.execute("SET CONSTRAINTS " + ", ".join(quote(name) for name in restore_immediate) + " IMMEDIATE")
@@ -258,6 +276,9 @@ def publish_staged_attributions(*, dataset, population, assignments, chunk_size=
                         [dataset.pk, low, high, dataset.pk],
                     )
                     check_constraints()
+        if total:
+            # The row-level CAS triggers bumped this token; the bypass skips them, so bump it once here.
+            cursor.execute(f"UPDATE {dataset_table} SET membership_revision = {token} WHERE key = %s", [dataset.pk])
         with step("archive_after"):
             archive_population(cursor, dataset=dataset, affected=affected)
         with step("analyze"):

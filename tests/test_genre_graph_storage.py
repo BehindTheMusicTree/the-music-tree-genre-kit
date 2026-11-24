@@ -954,6 +954,57 @@ def test_staged_publication_touches_only_changed_tracks(dataset, chunk_size):
     assert GenreGraphAttributionRevision.objects.filter(track_id=new.pk).count() == 1
 
 
+def _membership(dataset):
+    return type(dataset).objects.values_list("membership_revision", flat=True).get(pk=dataset.pk)
+
+
+def test_staged_publication_spans_chunks_and_bumps_membership_once(dataset):
+    songs = tracks("C1", "C2", "C3", "C4", "C5")
+    before = _membership(dataset)
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        evidence = register_evidence(locked, [provenance("dub")])["dub"]
+        _publish_staged(locked, [(song, "dub", evidence) for song in songs], songs, chunk_size=2)
+    assert all(assignment_snapshot(dataset=dataset, track_id=song.pk).keys() == {ref("dub")} for song in songs)
+    assert all(assignment_revision(dataset, song) is not None for song in songs)
+    assert _membership(dataset) != before
+
+
+def test_staged_publication_without_change_keeps_membership(dataset):
+    (song,) = tracks("Stable")
+    assign(dataset, song, "dub")
+    evidence = GenreGraphAttributionEvidence.objects.get(attribution__track=song).evidence
+    before = _membership(dataset)
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        _publish_staged(locked, [(song, "dub", evidence)], [song])
+    assert _membership(dataset) == before
+
+
+def test_staged_publication_empties_an_existing_set(dataset):
+    (song,) = tracks("Emptied")
+    assign(dataset, song, "dub")
+    before = assignment_revision(dataset, song)
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        _publish_staged(locked, [], [song])
+    assert not GenreGraphAttribution.objects.filter(track=song, dataset=dataset).exists()
+    assert assignment_revision(dataset, song) != before
+
+
+def test_staged_publication_write_failure_leaves_nothing(dataset):
+    (song,) = tracks("Failing")
+
+    @contextmanager
+    def on_step(name):
+        if name == "write":
+            raise RuntimeError("Interrupted write")
+        yield
+
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        evidence = register_evidence(locked, [provenance("dub")])["dub"]
+        with pytest.raises(RuntimeError, match="Interrupted"), transaction.atomic():
+            _publish_staged(locked, [(song, "dub", evidence)], [song], on_step=on_step)
+    assert not GenreGraphAttribution.objects.filter(track=song, dataset=dataset).exists()
+
+
 @pytest.mark.skipif(connection.vendor != "postgresql", reason="Row guards are bypassed on PostgreSQL only")
 def test_staged_publication_bypass_resets_after_error_and_guards_stay_active(dataset, django_user_model):
     (song,) = tracks("Guarded")
