@@ -9,6 +9,13 @@ Entries before the release-please adoption were written manually. Changes that r
 (`hear-the-music-tree-api`, `grow-the-music-tree-api`) to update its own code are marked as breaking
 (`feat!:` / `BREAKING CHANGE:`).
 
+## [0.72.5](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.72.4...v0.72.5) (2026-11-25)
+
+
+### Bug Fixes
+
+* **deps:** bump api-kit to v0.12.4 for page_size validation ([#341](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/341)) ([d486785](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/d4867859b22ced4a7fef4d8621f6315553e87f8f))
+
 ## [0.72.4](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.72.3...v0.72.4) (2026-11-24)
 
 
