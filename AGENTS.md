@@ -27,8 +27,9 @@ DJANGO_SETTINGS_MODULE=tests.settings PYTHONPATH=. uv run django-admin makemigra
 
 The last command must stay clean — this package ships some concrete tables (not only abstract
 bases, e.g. `CriteriaType`, `TrackPlaylistRel`), so it carries its own migrations directory
-alongside the fixture app's. These are exactly the checks CI runs (`.github/workflows/validate.yml`:
-`Lint`, `Fixture makemigrations check`, `Pytest`).
+alongside the fixture app's. CI (`.github/workflows/validate.yml`) runs these checks as `Lint`, `Fixture makemigrations check`
+and the test jobs; the test jobs and the shared `coverage` job (merged SQLite and PostgreSQL
+reports, line 85 %, branch 70 %, patch 90 %) are enforced through the required `Tests success` gate.
 
 Ruff config extends `baselines/ruff.toml` (vendored from `hear-the-music-tree-api`), with
 `PLC0415` (deferred imports) allowed under `src/**` — deferred imports are used deliberately
