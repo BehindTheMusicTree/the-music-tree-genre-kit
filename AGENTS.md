@@ -29,7 +29,7 @@ The last command must stay clean — this package ships some concrete tables (no
 bases, e.g. `CriteriaType`, `TrackPlaylistRel`), so it carries its own migrations directory
 alongside the fixture app's. CI (`.github/workflows/validate.yml`) runs these checks as `Lint`, `Fixture makemigrations check`
 and the test jobs; the test jobs and the shared `coverage` job (merged SQLite and PostgreSQL
-reports, line 85 %, branch 70 %, patch 90 %) are enforced through the required `Tests success` gate.
+reports, line 85 %, branch 70 %, patch 90 %) are enforced through the `Tests success` gate.
 
 Ruff config extends `baselines/ruff.toml` (vendored from `hear-the-music-tree-api`), with
 `PLC0415` (deferred imports) allowed under `src/**` — deferred imports are used deliberately
