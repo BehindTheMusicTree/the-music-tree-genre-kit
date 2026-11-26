@@ -141,7 +141,7 @@ def test_e04_read_transaction_keeps_queries_and_tokens_consistent_during_import(
     )
     changed = deepcopy(payload)
     for edge in changed["relations"]:
-        if edge["childId"] == "LOCAL:french-dub" and edge["type"] == "regional_membership":
+        if edge["childId"] == "LOCAL:french-dub" and edge["parentId"] == "LOCAL:france":
             edge["parentId"] = "LOCAL:jamaica"
     for node in changed["nodes"]:
         if node["id"] == "LOCAL:french-dub":
@@ -330,7 +330,7 @@ def test_cold_1710_node_shared_ancestry_publication_uses_staged_closure():
     parent_ids = [f"LOCAL:parent-{index}" for index in range(8)]
     leaf_ids = [f"LOCAL:leaf-{index}" for index in range(1701)]
     payload = {
-        "contractVersion": 4,
+        "contractVersion": 5,
         "curationExportedOn": "2026-11-14T00:00:00Z",
         "nodes": [
             {"id": identity, "name": identity, "kind": "genre"} for identity in ["LOCAL:root", *parent_ids, *leaf_ids]
@@ -342,7 +342,7 @@ def test_cold_1710_node_shared_ancestry_publication_uses_staged_closure():
                 *((leaf, parent) for leaf in leaf_ids for parent in parent_ids),
             ]
         ],
-        "canonicalRoots": [{"nodeId": "LOCAL:root", "provenance": evidence}],
+        "globalRoots": [{"nodeId": "LOCAL:root", "provenance": evidence}],
     }
     dataset = replace_graph(key="cold-shared", payload=payload, expected_revision=None)
     assert dataset.nodes.count() == 1710
@@ -465,7 +465,7 @@ def test_deferred_payload_read_stays_on_the_snapshot_during_import(payload):
     dataset = replace_graph(key="reference", payload=payload, expected_revision=None)
     changed = deepcopy(payload)
     for edge in changed["relations"]:
-        if edge["childId"] == "LOCAL:french-dub" and edge["type"] == "regional_membership":
+        if edge["childId"] == "LOCAL:french-dub" and edge["parentId"] == "LOCAL:france":
             edge["parentId"] = "LOCAL:jamaica"
     for node in changed["nodes"]:
         if node["id"] == "LOCAL:french-dub":

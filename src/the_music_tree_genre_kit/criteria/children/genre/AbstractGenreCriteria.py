@@ -101,7 +101,7 @@ class AbstractGenreCriteria(CommonsImage, models.Model):
     is_unaccepted_root = models.BooleanField(default=False)
     """
     Copied from the imported node's `is_unaccepted_root`: the pipeline emitted this node as a
-    canonical root it hasn't accepted yet, so it waits for an admin to accept it as a root
+    global root it hasn't accepted yet, so it waits for an admin to accept it as a root
     (which locks it via `is_manually_edited`) or for the pipeline to give it a parent.
     Recomputed on every import of an unlocked row.
     """

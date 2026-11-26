@@ -174,7 +174,7 @@ def test_e03_e04_removing_relation_replaces_closure_and_restore_retains_identity
     original = dict(dataset.nodes.values_list("identity", "pk"))
     changed = deepcopy(payload)
     for edge in changed["relations"]:
-        if edge["childId"] == ref("french-dub") and edge["type"] == "regional_membership":
+        if edge["childId"] == ref("french-dub") and edge["parentId"] == ref("france"):
             edge["parentId"] = ref("britain")
     for node in changed["nodes"]:
         if node["id"] == ref("french-dub"):
@@ -1074,7 +1074,7 @@ def test_direct_sql_assignment_mutations_invalidate_reviewed_tokens(dataset, mut
 def test_restore_older_revision_requires_explicit_retirement_for_added_identity(dataset, payload):
     added = deepcopy(payload)
     added["nodes"].append({"id": ref("added"), "name": "Added", "kind": "genre"})
-    added["canonicalRoots"].append({"nodeId": ref("added"), "provenance": provenance("added-root")})
+    added["globalRoots"].append({"nodeId": ref("added"), "provenance": provenance("added-root")})
     updated = replace_graph(key=dataset.key, payload=added, expected_revision=dataset.revision)
     permanent = updated.nodes.get(identity=ref("added"))
     with pytest.raises(GraphValidationError, match="Retirements must name"):
@@ -1335,7 +1335,7 @@ def test_restore_after_merge_reactivates_the_source(dataset):
 
 
 def test_stale_contract_payload_requires_reimport(dataset):
-    GenreGraphDataset.objects.filter(pk=dataset.key).update(payload={"contractVersion": 3})
+    GenreGraphDataset.objects.filter(pk=dataset.key).update(payload={"contractVersion": 4})
     with pytest.raises(GraphValidationError, match="re-import required"):
         merge_graph_nodes(key=dataset.key, source="a", target="b", provenance={}, expected_revision=dataset.revision)
 

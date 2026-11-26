@@ -9,25 +9,36 @@ consumers are ready.
 
 ## Identities and relations
 
-`contractVersion` (4; contract 3 is rejected with "Invalid graph contract"), `curationExportedOn`, `nodes`, `relations` and `canonicalRoots`
+`contractVersion` (5; contract 4 is rejected with "Invalid graph contract"), `curationExportedOn`, `nodes`, `relations` and `globalRoots`
 are required. An explicitly empty root list is valid; a missing
 configuration fails. Identities are QIDs or persistent `LOCAL:` identities,
 independent of the label and of the display parent. Nodes are `genre` or `overview`.
 
 | Child → parent relation | Scope | Role |
 | --- | --- | --- |
-| `classification` | Genre → genre | The whole lineage; each edge is computed `restricted` or `expression` |
-| `regional_membership` | Genre → overview, overview → overview | Geography only |
+| `classification` | Genre → genre, genre → overview, overview → overview | A genre target is the lineage; an overview target is geography |
 | `derivation` | Genre → genre, acyclic | Historical filiation; descriptive, no access |
 | `influence` | Genre → genre, acyclic | Influence; descriptive, no access |
 
-`classification` and `derivation` may coexist on the same directed pair.
-Either implies influence, so the validator rejects an explicit `influence` on
-that pair. This applies to both restricted and expression classification.
-An explicit influence on its own is valid. Only a classification edge counts
-toward classification parent cardinality and grants access to the parent.
+An overview cannot be classified under a genre. `parents`, `children`, `ancestors`
+and `descendants` take a view name:
 
-Use `the-music-tree-genre-graph` 0.6.0 or later with this rule. Upgrade the graph
+| View | Content |
+| --- | --- |
+| `classification` | Every `classification` relation of the payload |
+| `lineage` | `classification` with a genre target; each edge is computed `restricted` or `expression` |
+| `membership` | `classification` with an overview target |
+| `derivation`, `influence` | The payload relations of the same name |
+| `restricted` | Computed: `membership` plus the `restricted` lineage edges |
+
+`derivation` implies influence, so the validator rejects an explicit `influence`
+that doubles a `derivation` on the same directed pair. `classification` does not
+imply influence: an explicit `influence` may coexist with it, and a
+classification alone yields no influence. `classification` and `derivation` may
+coexist on the same directed pair. Only a lineage edge counts toward
+classification parent cardinality and grants access to the parent.
+
+Use `the-music-tree-genre-graph` 0.7.0 or later with this contract. Upgrade the graph
 package explicitly if it is resolved independently of the Django kit. Regenerate
 older snapshots that pair derivation with explicit influence before validating them
 with the new runtime. Replay an affected archived revision under its original
@@ -37,9 +48,11 @@ derivation to use distinct pairs.
 
 A regional expression is a regional genre classified under its style. This
 classification replaces the former `expression_style` relation. Contract 4
-also removes `anchoring` and the `expression` node kind.
+removed `anchoring` and the `expression` node kind; contract 5 replaces
+`regional_membership` with `classification` to an overview and renames
+`canonicalRoots` to `globalRoots` and the `canonical` state to `global`.
 
-Relations and canonical roots carry `decisionId`, `source` and `rationale`.
+Relations and global roots carry `decisionId`, `source` and `rationale`.
 `displayParentId`, when present, designates a classification parent (or an
 overview parent for an overview); it never chooses the state or the population.
 Unknown references, identity or relation duplicates, cycles and contradictions
@@ -50,30 +63,30 @@ fail before a snapshot is returned.
 All values are computed, in classification order (parents first). A supplied
 `canonicalState`, `boundaries` or `isUnacceptedRoot` is refused by the schema.
 
-1. **Own regions** `D(n)`: overviews that are direct `regional_membership` parents of `n`.
+1. **Own regions** `D(n)`: overviews that are direct `membership` parents of `n`.
 2. **Regions** `R(n)` (`GenreGraph.regions`): `D(n)` when non-empty (localized genre);
    otherwise the union, reduced to the most specific, of the regions of its regional
    classification parents; otherwise empty.
-3. **State** (`GenreGraph.state`): `regional` when `R(n)` is non-empty; `canonical` when
-   `R(n)` is empty and `n` is a listed root or all its parents are canonical. Anything
+3. **State** (`GenreGraph.state`): `regional` when `R(n)` is non-empty; `global` when
+   `R(n)` is empty and `n` is a listed root or all its parents are global. Anything
    else is rejected ("genre without region or root"). Overviews have no state. A genre
-   without region that has both canonical and regional parents is regional.
+   without region that has both global and regional parents is regional.
 4. **Edge kind** (`GenreGraph.edge_kind(child, parent)`), with `r ⊑ s` meaning `r = s` or
    `s` is a regional-membership ancestor of `r`:
 
 | Child | Parent | Edge |
 | --- | --- | --- |
-| canonical | canonical | `restricted` |
-| regional | canonical | `expression` (French country → Country) |
+| global | global | `restricted` |
+| regional | global | `expression` (French country → Country) |
 | regional, not localized | regional | `restricted` (its regions come from this edge) |
 | localized, every region ⊑ a region of the parent | regional | `restricted` (Marseille rap → French rap) |
 | localized, disjoint or partly overlapping regions | regional | `expression` (Belgian rap → French rap) |
 | localized, strictly wider than the parent | regional | rejected, naming the edge |
 
 `GenreGraph.expression_parents(node)` lists the parents of a node through `expression` edges.
-`canonicalRoots` lists the classification roots (genres with no classification parent) that
-start a canonical tree, each with its provenance; an entry that is unknown, duplicated, not a
-genre or that has a classification parent is rejected.
+`globalRoots` lists the lineage roots (genres with no `lineage` parent) that
+start a global tree, each with its provenance; an entry that is unknown, duplicated, not a
+genre, that has a lineage parent or that is a regional member is rejected.
 
 ## Selections and normalization
 
@@ -84,7 +97,7 @@ but not French country, and the United Kingdom does not select French drill.
 Expression of expression is transitive with no extra edge. A node is selected by `n`
 exactly when `n` is one of its access ancestors or `n` itself.
 
-`selected_nodes(node, scope=...)` works on any node, canonical or regional:
+`selected_nodes(node, scope=...)` works on any node, global or regional:
 
 | Scope | Attributable node set |
 | --- | --- |
@@ -106,10 +119,9 @@ exactly when it has an accepted regional child, regardless of its display parent
 and of the number of songs. The type and its provenance are explicit. A supplied
 `isUmbrella` flag that contradicts this is rejected.
 
-Reduction applies only to `regional_membership` relations, never to
-classification. `ancestry_subgraph` returns the shared nodes and the regional
-population relations. Behavior change: for a canonical genre it now follows the
-classification edges of every kind, so expressions appear under their parent.
+Reduction applies only to the `membership` view, never to the lineage.
+`ancestry_subgraph` returns the shared ancestor nodes and the `classification`
+relations along the `restricted` view (membership and restricted lineage edges).
 
 These functions work on concepts, not on catalog songs. Consumers must apply the
 resulting sets and count distinct songs in SQL; summing per-attribution buckets
@@ -118,7 +130,7 @@ would be incorrect.
 ## Fixtures and validation
 
 `tests/fixtures/genre_graph/regional-v2.json` is synthetic. The musical names
-are not an approved curation. The canonical-root tests also cover a 1,710-node graph
+are not an approved curation. The global-root tests also cover a 1,710-node graph
 with a single listed root.
 
 `observed-additional-children.json` freezes the 44 observations of
@@ -203,7 +215,7 @@ track deletions. Under PostgreSQL, transition tables limit invalidation to once
 per dataset and SQL statement. SQLite uses per-row triggers. A rollback cancels
 the tokens along with the mutations. The concept and closure index is internal:
 modifying it directly through ORM or SQL is not a graph-editing contract.
-Changes to relations, canonical roots and types go through `replace_graph`.
+Changes to relations, global roots and types go through `replace_graph`.
 
 `replace_track_attributions` requires a track with no owner, known identities, a
 non-empty array of evidence per identity, the graph's current revision and the
@@ -249,6 +261,14 @@ identities that contract 4 removes (`expression` nodes, `anchoring` relations) n
 retirements. A genre with no region of its own and several regional parents has a `restricted`
 edge to each of them, as the classification rule computes per edge. With `include_descendants=False`,
 the `expressions` scope selects nothing, since it excludes the node itself.
+
+Migration `0026` converts stored datasets and archived revisions between contract 4
+and contract 5 in place, without changing their revision tokens, and renames the
+node column `canonical_state` to `state`. It briefly drops the revision immutability
+trigger and recreates it. The reverse direction is not validated: a contract 5 graph
+with both `influence` and `classification` on one pair is invalid in contract 4.
+The criteria tree name `canonical` is now `global`; the criteria table belongs to the
+consumer, which needs its own migration (see the fixture application's `0027`).
 
 Migration `0024` removes restricted access rows that are absent from extended access and changes
 the membership revision of affected datasets. It is irreversible; restore a database backup to

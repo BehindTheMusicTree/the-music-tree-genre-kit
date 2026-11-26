@@ -1,5 +1,5 @@
 {
-  "contractVersion": 4,
+  "contractVersion": 5,
   "curationExportedOn": "2026-11-14T00:00:00Z",
   "nodes": [
     {
@@ -218,9 +218,9 @@
     {
       "childId": "LOCAL:french-reggae",
       "parentId": "LOCAL:france",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-french-reggae-france",
+        "decisionId": "membership-french-reggae-france",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -240,7 +240,7 @@
       "parentId": "LOCAL:french-reggae",
       "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-french-reggae-child-french-reggae",
+        "decisionId": "membership-french-reggae-child-french-reggae",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -248,9 +248,9 @@
     {
       "childId": "LOCAL:brittany",
       "parentId": "LOCAL:france",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-brittany-france",
+        "decisionId": "membership-brittany-france",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -258,9 +258,9 @@
     {
       "childId": "LOCAL:breton-rock",
       "parentId": "LOCAL:brittany",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-breton-rock-brittany",
+        "decisionId": "membership-breton-rock-brittany",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -268,9 +268,9 @@
     {
       "childId": "LOCAL:breton-rock",
       "parentId": "LOCAL:france",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-breton-rock-france",
+        "decisionId": "membership-breton-rock-france",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -288,9 +288,9 @@
     {
       "childId": "LOCAL:french-reggae-fusion",
       "parentId": "LOCAL:france",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-french-reggae-fusion-france",
+        "decisionId": "membership-french-reggae-fusion-france",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -298,9 +298,9 @@
     {
       "childId": "LOCAL:kingdom-france",
       "parentId": "LOCAL:france",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-kingdom-france-france",
+        "decisionId": "membership-kingdom-france-france",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -318,9 +318,9 @@
     {
       "childId": "LOCAL:jamaican-dub",
       "parentId": "LOCAL:jamaica",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-jamaican-dub-jamaica",
+        "decisionId": "membership-jamaican-dub-jamaica",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -338,9 +338,9 @@
     {
       "childId": "LOCAL:french-dub",
       "parentId": "LOCAL:france",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-french-dub-france",
+        "decisionId": "membership-french-dub-france",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -358,9 +358,9 @@
     {
       "childId": "LOCAL:british-dub",
       "parentId": "LOCAL:britain",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-british-dub-britain",
+        "decisionId": "membership-british-dub-britain",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -378,9 +378,9 @@
     {
       "childId": "LOCAL:jamaican-roots",
       "parentId": "LOCAL:jamaica",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-jamaican-roots-jamaica",
+        "decisionId": "membership-jamaican-roots-jamaica",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -398,9 +398,9 @@
     {
       "childId": "LOCAL:french-roots",
       "parentId": "LOCAL:france",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-french-roots-france",
+        "decisionId": "membership-french-roots-france",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -408,9 +408,9 @@
     {
       "childId": "LOCAL:france",
       "parentId": "LOCAL:world",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-france-world",
+        "decisionId": "membership-france-world",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -418,9 +418,9 @@
     {
       "childId": "LOCAL:jamaica",
       "parentId": "LOCAL:world",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-jamaica-world",
+        "decisionId": "membership-jamaica-world",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -428,9 +428,9 @@
     {
       "childId": "LOCAL:britain",
       "parentId": "LOCAL:world",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
-        "decisionId": "regional_membership-britain-world",
+        "decisionId": "membership-britain-world",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -438,7 +438,7 @@
     {
       "childId": "LOCAL:usa",
       "parentId": "LOCAL:world",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
         "decisionId": "reggae-entry",
         "source": "fixture:regional-graph-v2",
@@ -468,7 +468,7 @@
     {
       "childId": "LOCAL:french-country",
       "parentId": "LOCAL:france",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
         "decisionId": "reggae-entry",
         "source": "fixture:regional-graph-v2",
@@ -488,7 +488,7 @@
     {
       "childId": "LOCAL:french-bluegrass",
       "parentId": "LOCAL:france",
-      "type": "regional_membership",
+      "type": "classification",
       "provenance": {
         "decisionId": "reggae-entry",
         "source": "fixture:regional-graph-v2",
@@ -496,11 +496,11 @@
       }
     }
   ],
-  "canonicalRoots": [
+  "globalRoots": [
     {
       "nodeId": "LOCAL:reggae",
       "provenance": {
-        "decisionId": "reggae-canonical-root",
+        "decisionId": "reggae-global-root",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }
@@ -508,7 +508,7 @@
     {
       "nodeId": "LOCAL:country",
       "provenance": {
-        "decisionId": "country-canonical-root",
+        "decisionId": "country-global-root",
         "source": "fixture:regional-graph-v2",
         "rationale": "Synthetic acceptance fixture; no production taxonomy decision."
       }

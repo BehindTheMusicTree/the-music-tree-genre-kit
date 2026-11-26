@@ -163,9 +163,9 @@ def test_import_scopes_by_tree_name_and_round_trips_parent_refs(user, genre_type
             "children": [{"name": "Nu Fusion", "id": "Q2", "children": []}],
         }
     ]
-    import_tree(user, "canonical", single_tree)
+    import_tree(user, "global", single_tree)
     import_tree(user, "regional", multi_tree)
-    import_tree(user, "canonical", single_tree)
+    import_tree(user, "global", single_tree)
 
     fusion = Genre.objects.get(user=user, wikidata_id="Q1")
     nu_fusion = Genre.objects.get(user=user, wikidata_id="Q2")
@@ -177,7 +177,7 @@ def test_import_scopes_by_tree_name_and_round_trips_parent_refs(user, genre_type
         "Jazz": 2,
     }
 
-    exported_single = Genre.objects.build_criteria_tree(user, tree_name="canonical")
+    exported_single = Genre.objects.build_criteria_tree(user, tree_name="global")
     exported_multi = Genre.objects.build_criteria_tree(user, tree_name="regional")
     assert [node["secondary_parents"] for node in exported_single if node["name"] == "Rock"] == [["Q8341"]]
     assert [node["name"] for node in exported_multi] == ["Fusion"]
@@ -189,13 +189,13 @@ def test_import_scopes_by_tree_name_and_round_trips_parent_refs(user, genre_type
 def test_import_rejects_unknown_ref_and_primary_parents_in_single_tree(user, genre_type):
     unknown = [{"name": "Fusion", "id": "Q3", "children": [], "primary_parents": ["Q404"]}]
     assert error_code(lambda: import_tree(user, "regional", unknown)) == FieldValidationErrorCode.REFERENCE_INVALID
-    assert error_code(lambda: import_tree(user, "canonical", unknown)) == FieldValidationErrorCode.DEPENDENCY_MISSING
+    assert error_code(lambda: import_tree(user, "global", unknown)) == FieldValidationErrorCode.DEPENDENCY_MISSING
 
 
 @pytest.mark.django_db
 def test_import_flags_name_conflict_instead_of_failing(user, make, tag_type):
     make("Arabesque", criteria_type=tag_type)
-    import_tree(user, "canonical", [{"name": "Pub rock", "id": "Q1431327", "children": []}])
+    import_tree(user, "global", [{"name": "Pub rock", "id": "Q1431327", "children": []}])
     regional = [
         {"name": "pub rock", "id": "Q16250593", "children": [], "primary_parents": ["Q1431327"]},
         {"name": "arabesque", "id": "Q623824", "children": []},
@@ -203,8 +203,8 @@ def test_import_flags_name_conflict_instead_of_failing(user, make, tag_type):
     import_tree(user, "regional", regional)
     import_tree(user, "regional", regional)
 
-    canonical = Genre.objects.get(user=user, wikidata_id="Q1431327")
-    assert (canonical.name, canonical.has_name_conflict) == ("Pub rock", False)
+    global_row = Genre.objects.get(user=user, wikidata_id="Q1431327")
+    assert (global_row.name, global_row.has_name_conflict) == ("Pub rock", False)
     flagged = Genre.objects.filter(user=user, has_name_conflict=True).order_by("wikidata_id")
     assert [g.name for g in flagged] == ["pub rock (Q16250593)", "arabesque (Q623824)"]
 
@@ -218,13 +218,13 @@ def test_import_flags_name_conflict_instead_of_failing(user, make, tag_type):
 @pytest.mark.django_db
 def test_import_flags_umbrella_and_rewrites_it_even_on_locked_rows(user, genre_type):
     tree = [{"name": "Techno", "id": "Q170611", "is_umbrella": True, "children": [{"name": "Acid techno", "id": "Q1"}]}]
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert Genre.objects.get(user=user, wikidata_id="Q170611").is_umbrella
     assert not Genre.objects.get(user=user, wikidata_id="Q1").is_umbrella
 
     Genre.objects.filter(user=user, wikidata_id="Q170611").update(is_manually_edited=True)
     tree[0]["is_umbrella"] = False
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert not Genre.objects.get(user=user, wikidata_id="Q170611").is_umbrella
 
 
@@ -240,19 +240,19 @@ def test_import_sets_scene_and_rewrites_it_even_on_locked_rows(user, genre_type)
             ],
         }
     ]
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert Genre.objects.get(user=user, wikidata_id="Q851213").scene == "commercial"
     assert Genre.objects.get(user=user, wikidata_id="LOCAL:core-electronic").scene is None
 
     Genre.objects.filter(user=user, wikidata_id="Q851213").update(is_manually_edited=True)
     tree[0]["children"][0]["scene"] = "underground"
     tree[0]["children"][1]["scene"] = "commercial"
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert Genre.objects.get(user=user, wikidata_id="Q851213").scene == "underground"
 
     del tree[0]["children"][0]["scene"]
     del tree[0]["children"][1]["scene"]
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert Genre.objects.get(user=user, wikidata_id="Q851213").scene is None
 
 
@@ -273,16 +273,16 @@ def _genre_image(user, key):
 @pytest.mark.django_db
 def test_import_sets_replaces_and_removes_the_image(user, genre_type):
     tree = [{"name": "Techno", "id": "Q170611", "image": IMAGE, "children": [{"name": "Acid", "id": "Q1"}]}]
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert _genre_image(user, "Q170611") == (IMAGE["url"], "Jane Doe", "CC BY-SA 4.0")
     assert _genre_image(user, "Q1") == (None, None, None)
 
     tree[0]["image"] = {**IMAGE, "url": "https://upload.wikimedia.org/b.jpg", "author": None}
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert _genre_image(user, "Q170611") == ("https://upload.wikimedia.org/b.jpg", None, "CC BY-SA 4.0")
 
     del tree[0]["image"]
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert _genre_image(user, "Q170611") == (None, None, None)
 
 
@@ -291,17 +291,17 @@ def test_import_rewrites_the_image_even_on_locked_rows(user, genre_type):
     tree = [
         {"name": "Techno", "id": "Q170611", "image": IMAGE, "children": [{"name": "Acid", "id": "Q1"}]},
     ]
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     Genre.objects.filter(user=user, wikidata_id__in=["Q170611", "Q1"]).update(is_manually_edited=True)
 
     tree[0]["image"] = {**IMAGE, "url": "https://upload.wikimedia.org/b.jpg"}
     tree[0]["children"][0]["image"] = IMAGE
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert _genre_image(user, "Q170611")[0] == "https://upload.wikimedia.org/b.jpg"
     assert _genre_image(user, "Q1")[0] == IMAGE["url"]
 
     del tree[0]["image"]
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert _genre_image(user, "Q170611") == (None, None, None)
 
 
@@ -329,7 +329,7 @@ def test_tree_node_serializer_accepts_a_valid_or_null_image():
 @pytest.mark.django_db
 def test_incomplete_image_hits_the_db_backstop_as_a_validation_error(user, genre_type):
     with pytest.raises(AppValidationException, match="image needs a url"):
-        import_tree(user, "canonical", [{"name": "Techno", "id": "Q170611", "image": {"url": IMAGE["url"]}}])
+        import_tree(user, "global", [{"name": "Techno", "id": "Q170611", "image": {"url": IMAGE["url"]}}])
 
 
 def _split_tree(*children):
@@ -352,7 +352,7 @@ UNDERGROUND_NODE = {"name": "Underground electronic", "id": "LOCAL:underground",
 )
 def test_import_rejects_scene_split_that_is_not_one_of_each(user, genre_type, children):
     with pytest.raises(AppValidationException) as raised:
-        import_tree(user, "canonical", _split_tree(*children))
+        import_tree(user, "global", _split_tree(*children))
 
     assert "Core electronic" in str(raised.value.message)
     assert not Genre.objects.filter(user=user).exists()
@@ -365,7 +365,7 @@ def test_import_accepts_scene_split_with_descendants_under_each_scene(user, genr
         {**UNDERGROUND_NODE, "children": [{"name": "Techno", "id": "Q170611"}]},
     )
 
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
 
     assert Genre.objects.filter(user=user).count() == 6
 
@@ -376,28 +376,28 @@ def test_import_flags_unaccepted_root_until_parented_or_locked(user, genre_type)
         {"name": "Rock", "id": "Q11399", "children": []},
         {"name": "Pala", "id": "Q15724583", "children": [], "is_unaccepted_root": True},
     ]
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     flagged = Genre.objects.filter(user=user, is_unaccepted_root=True)
     assert [g.wikidata_id for g in flagged] == ["Q15724583"]
 
     parented = [{"name": "Rock", "id": "Q11399", "children": [{"name": "Pala", "id": "Q15724583", "children": []}]}]
-    import_tree(user, "canonical", parented)
+    import_tree(user, "global", parented)
     assert not Genre.objects.filter(user=user, is_unaccepted_root=True).exists()
 
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     Genre.objects.filter(user=user, wikidata_id="Q15724583").update(is_unaccepted_root=False, is_manually_edited=True)
-    import_tree(user, "canonical", tree)
+    import_tree(user, "global", tree)
     assert not Genre.objects.get(user=user, wikidata_id="Q15724583").is_unaccepted_root
 
 
 @pytest.mark.django_db
 def test_import_post_apply_check_ignores_same_qid_in_other_tree(user, genre_type):
     import_tree(user, "regional", [{"name": "Fusion", "id": "Q1", "children": []}])
-    # Locked, so the canonical import can't adopt it and the QID ends up in both trees.
+    # Locked, so the global import can't adopt it and the QID ends up in both trees.
     Genre.objects.filter(user=user, wikidata_id="Q1").update(is_manually_edited=True)
     import_tree(
         user,
-        "canonical",
+        "global",
         [{"name": "Rock", "id": "Q11399", "children": [{"name": "Fusion", "id": "Q1", "children": []}]}],
     )
     assert Genre.objects.filter(user=user, wikidata_id="Q1").count() == 2
@@ -405,7 +405,7 @@ def test_import_post_apply_check_ignores_same_qid_in_other_tree(user, genre_type
 
 @pytest.mark.django_db
 def test_import_adopts_genre_moved_from_the_other_tree(user, genre_type):
-    import_tree(user, "canonical", [{"name": "Metal", "id": "Q1", "children": []}])
+    import_tree(user, "global", [{"name": "Metal", "id": "Q1", "children": []}])
     regional = [
         {
             "name": "Heavy metal",
@@ -420,7 +420,7 @@ def test_import_adopts_genre_moved_from_the_other_tree(user, genre_type):
     locked = Genre.objects.get(user=user, wikidata_id="Q3")
     Genre.objects.filter(pk=locked.pk).update(is_manually_edited=True)
 
-    canonical = [
+    global_tree = [
         {
             "name": "Metal",
             "id": "Q1",
@@ -430,18 +430,18 @@ def test_import_adopts_genre_moved_from_the_other_tree(user, genre_type):
             ],
         }
     ]
-    import_tree(user, "canonical", canonical)
+    import_tree(user, "global", global_tree)
     adopted = Genre.objects.get(user=user, wikidata_id="Q38848")
     assert (adopted.pk, adopted.tree_name, adopted.name, adopted.has_name_conflict) == (
         moved.pk,
-        "canonical",
+        "global",
         "Heavy metal",
         False,
     )
     assert adopted.parent_id == Genre.objects.get(user=user, wikidata_id="Q1").pk
     assert set(Genre.objects.filter(user=user, wikidata_id="Q3").values_list("tree_name", "_name")) == {
         ("regional", "Folk"),
-        ("canonical", "Folk (Q3)"),
+        ("global", "Folk (Q3)"),
     }
 
     import_tree(
@@ -454,7 +454,7 @@ def test_import_adopts_genre_moved_from_the_other_tree(user, genre_type):
 
 @pytest.mark.django_db
 def test_import_leaves_genre_with_locked_descendant_in_the_other_tree(user, genre_type, tag_type):
-    import_tree(user, "canonical", [{"name": "Metal", "id": "Q1", "children": []}])
+    import_tree(user, "global", [{"name": "Metal", "id": "Q1", "children": []}])
     regional = [
         {
             "name": "Heavy metal",
@@ -474,12 +474,12 @@ def test_import_leaves_genre_with_locked_descendant_in_the_other_tree(user, genr
 
     import_tree(
         user,
-        "canonical",
+        "global",
         [{"name": "Metal", "id": "Q1", "children": [{"name": "Heavy metal", "id": "Q38848", "children": []}]}],
     )
     assert set(Genre.objects.filter(user=user, wikidata_id="Q38848").values_list("tree_name", "_name")) == {
         ("regional", "Heavy metal"),
-        ("canonical", "Heavy metal (Q38848)"),
+        ("global", "Heavy metal (Q38848)"),
     }
 
     bootstrap_criterialess_playlists_for_user(user=user, criteria_playlist_model=CriteriaPlaylist)
@@ -497,13 +497,13 @@ def import_with_cross_tree_links(user, tree_name, tree, links):
 
 
 def secondary_parent_keys(wikidata_id, user):
-    genre = Genre.objects.get(user=user, wikidata_id=wikidata_id, tree_name="canonical")
+    genre = Genre.objects.get(user=user, wikidata_id=wikidata_id, tree_name="global")
     return set(genre.secondary_parents.values_list("genre__wikidata_id", flat=True))
 
 
 @pytest.mark.django_db
-def test_regional_import_links_canonical_rows_to_regional_secondary_parents(user, genre_type):
-    canonical = [
+def test_regional_import_links_global_rows_to_regional_secondary_parents(user, genre_type):
+    global_tree = [
         {"name": "Reggae", "id": "Q9794", "children": [], "secondary_parents": ["Q8341"]},
         {"name": "Jazz", "id": "Q8341", "children": []},
     ]
@@ -511,7 +511,7 @@ def test_regional_import_links_canonical_rows_to_regional_secondary_parents(user
         {"name": "Music of Jamaica", "id": "Q1", "children": []},
         {"name": "Caribbean", "id": "Q2", "children": []},
     ]
-    import_tree(user, "canonical", canonical)
+    import_tree(user, "global", global_tree)
     import_with_cross_tree_links(user, "regional", regional, [{"id": "Q9794", "secondary_parents": ["Q1", "Q2"]}])
     assert secondary_parent_keys("Q9794", user) == {"Q8341", "Q1", "Q2"}
 
@@ -524,7 +524,7 @@ def test_regional_import_links_canonical_rows_to_regional_secondary_parents(user
 
 @pytest.mark.django_db
 def test_cross_tree_links_skip_locked_rows(user, genre_type):
-    import_tree(user, "canonical", [{"name": "Reggae", "id": "Q9794", "children": []}])
+    import_tree(user, "global", [{"name": "Reggae", "id": "Q9794", "children": []}])
     Genre.objects.filter(user=user, wikidata_id="Q9794").update(is_manually_edited=True)
     import_with_cross_tree_links(
         user,
@@ -537,7 +537,7 @@ def test_cross_tree_links_skip_locked_rows(user, genre_type):
 
 @pytest.mark.django_db
 def test_cross_tree_links_reject_unknown_or_same_tree_refs(user, genre_type):
-    import_tree(user, "canonical", [{"name": "Reggae", "id": "Q9794", "children": []}])
+    import_tree(user, "global", [{"name": "Reggae", "id": "Q9794", "children": []}])
     regional = [{"name": "Music of Jamaica", "id": "Q1", "children": []}]
     for links in (
         [{"id": "Q404", "secondary_parents": ["Q1"]}],
@@ -568,7 +568,7 @@ def test_tree_import_serializer_validates_cross_tree_links():
 
 @pytest.mark.django_db
 def test_cross_tree_links_reject_a_descendant_and_roll_back_on_dry_run(user, genre_type):
-    import_tree(user, "canonical", [{"name": "Reggae", "id": "Q9794", "children": []}])
+    import_tree(user, "global", [{"name": "Reggae", "id": "Q9794", "children": []}])
     regional = [{"name": "Jamaican reggae", "id": "Q1", "children": [], "primary_parents": ["Q9794"]}]
     assert (
         error_code(
@@ -592,14 +592,14 @@ def test_cross_tree_links_reject_a_descendant_and_roll_back_on_dry_run(user, gen
 
 
 @pytest.mark.django_db
-def test_canonical_reimport_clears_cross_tree_links(user, genre_type):
-    canonical = [{"name": "Reggae", "id": "Q9794", "children": []}]
-    import_tree(user, "canonical", canonical)
+def test_global_reimport_clears_cross_tree_links(user, genre_type):
+    global_tree = [{"name": "Reggae", "id": "Q9794", "children": []}]
+    import_tree(user, "global", global_tree)
     import_with_cross_tree_links(
         user,
         "regional",
         [{"name": "Music of Jamaica", "id": "Q1", "children": []}],
         [{"id": "Q9794", "secondary_parents": ["Q1"]}],
     )
-    import_tree(user, "canonical", canonical)
+    import_tree(user, "global", global_tree)
     assert secondary_parent_keys("Q9794", user) == set()

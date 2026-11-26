@@ -26,7 +26,7 @@ class AbstractCriteriaViewSet[T: AbstractCriteria](AppModelViewSet[T]):
     def tree(self, request):
         """
         Returns the tree of the criteria matching the required
-        `treeName` query parameter (`canonical`/`regional`).
+        `treeName` query parameter (`global`/`regional`).
         The structure follows the format:
         {
           "name": "Criteria name",

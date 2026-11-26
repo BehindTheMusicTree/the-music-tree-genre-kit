@@ -1,21 +1,21 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/src/the_music_tree_genre_kit/schemas/genre_graph.schema.json",
-  "title": "Semantic genre graph, contract 4",
+  "title": "Semantic genre graph, contract 5",
   "type": "object",
   "required": [
     "contractVersion",
     "curationExportedOn",
     "nodes",
     "relations",
-    "canonicalRoots"
+    "globalRoots"
   ],
   "additionalProperties": false,
   "properties": {
     "contractVersion": {
       "type": "integer",
       "enum": [
-        4
+        5
       ]
     },
     "curationExportedOn": {
@@ -34,10 +34,10 @@
         "$ref": "#/$defs/relation"
       }
     },
-    "canonicalRoots": {
+    "globalRoots": {
       "type": "array",
       "items": {
-        "$ref": "#/$defs/canonicalRoot"
+        "$ref": "#/$defs/globalRoot"
       }
     }
   },
@@ -234,7 +234,6 @@
         "type": {
           "enum": [
             "classification",
-            "regional_membership",
             "derivation",
             "influence"
           ]
@@ -244,7 +243,7 @@
         }
       }
     },
-    "canonicalRoot": {
+    "globalRoot": {
       "type": "object",
       "required": [
         "nodeId",

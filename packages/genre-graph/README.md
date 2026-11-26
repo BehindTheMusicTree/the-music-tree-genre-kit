@@ -10,10 +10,10 @@ graph = GenreGraph(payload)
 schema = load_genre_graph_schema()
 ```
 
-The package owns the bundled JSON Schema, canonical-root evaluation, node merging (`GenreGraph.merged`), typed
-regional membership, computed `restricted`/`expression` classification edges (contract 4),
+The package owns the bundled JSON Schema, global-root evaluation, node merging (`GenreGraph.merged`), typed
+`lineage`/`membership` views of `classification`, computed `restricted`/`expression` lineage edges (contract 5),
 scoped selections (`restricted`, `extended`, `expressions`) and attribution normalization.
-Canonical roots, regions and display parents remain distinct.
+Global roots, regions and display parents remain distinct.
 Structural examples do not approve editorial roots or memberships.
 
 See the [contract and usage documentation](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/blob/main/docs/genre-graph-v2.md).

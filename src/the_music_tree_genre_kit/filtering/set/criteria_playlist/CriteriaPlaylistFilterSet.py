@@ -33,7 +33,7 @@ class CriteriaPlaylistFilterSet(PrivateUniqueResourceFilterSet):
 
     def filter_tree_name(self, queryset, name, value):
         tree_name_filter = Q(**{f"{Fields.CRITERIA}__{name}": value})
-        if value == CriteriaTreeName.CANONICAL:
-            # Genreless/Tagless playlists have no criteria and belong to the canonical tree.
+        if value == CriteriaTreeName.GLOBAL:
+            # Genreless/Tagless playlists have no criteria and belong to the global tree.
             tree_name_filter |= Q(**{f"{Fields.CRITERIA}__isnull": True})
         return queryset.filter(tree_name_filter)

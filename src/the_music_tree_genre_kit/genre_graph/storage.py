@@ -31,8 +31,8 @@ class GraphRevisionConflict(GraphValidationError):
 
 def load_stored_graph(payload: dict, *, key: str) -> GenreGraph:
     """Parse a stored payload; one in an earlier contract needs a re-import, not a retry."""
-    if payload.get("contractVersion") != 4:
-        raise GraphValidationError(f"Stored graph {key} is not in contract 4: re-import required")
+    if payload.get("contractVersion") != 5:
+        raise GraphValidationError(f"Stored graph {key} is not in contract 5: re-import required")
     return GenreGraph(payload)
 
 
@@ -104,7 +104,7 @@ def replace_graph(
             dataset=dataset,
             identity=identity,
             is_umbrella=graph.node(identity).get("isUmbrella", False),
-            canonical_state=graph.state(identity),
+            state=graph.state(identity),
         )
         for identity in sorted(graph.node_ids - existing.keys())
     ]
@@ -114,12 +114,12 @@ def replace_graph(
         node = existing[identity]
         umbrella = graph.node(identity).get("isUmbrella", False)
         state = graph.state(identity)
-        if (node.is_active, node.is_umbrella, node.canonical_state) != (True, umbrella, state):
+        if (node.is_active, node.is_umbrella, node.state) != (True, umbrella, state):
             node.is_active = True
             node.is_umbrella = umbrella
-            node.canonical_state = state
+            node.state = state
             updated.append(node)
-    GenreGraphNode.objects.bulk_update(updated, ["is_active", "is_umbrella", "canonical_state"])
+    GenreGraphNode.objects.bulk_update(updated, ["is_active", "is_umbrella", "state"])
     nodes = {node.identity: node for node in dataset.nodes.all()}
     remap_retirements(dataset=dataset, decisions=decisions, nodes=nodes, previous_revision=previous_revision)
     retired_count = dataset.nodes.filter(identity__in=stale).update(is_active=False)

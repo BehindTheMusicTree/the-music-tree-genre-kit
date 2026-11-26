@@ -40,7 +40,7 @@ class GenreGraphNode(models.Model):
     identity = models.CharField(max_length=255)
     is_active = models.BooleanField(default=True)
     is_umbrella = models.BooleanField()
-    canonical_state = models.CharField(max_length=16, null=True)
+    state = models.CharField(max_length=16, null=True)
 
     class Meta:
         app_label = "the_music_tree_genre_kit"

@@ -54,19 +54,19 @@ def test_r19_all_observed_additional_children_drive_umbrella_validation(case):
             }
         )
         edges.extend(
-            {"childId": child["id"], "parentId": destination, "type": "regional_membership", "provenance": provenance()}
+            {"childId": child["id"], "parentId": destination, "type": "classification", "provenance": provenance()}
             for destination in (parent, other)
         )
     payload = {
-        "contractVersion": 4,
+        "contractVersion": 5,
         "curationExportedOn": "2026-11-14T00:00:00Z",
         "nodes": nodes,
         "relations": edges,
-        "canonicalRoots": [],
+        "globalRoots": [],
     }
     graph = GenreGraph(payload)
     expected = {child["id"] for child in case["additional_children"]}
-    assert graph.children(parent, "regional_membership") == expected
+    assert graph.children(parent, "membership") == expected
     assert graph.selected_nodes(parent) == expected | {parent}
     assert graph.refinement_nodes([parent]) == {parent}
     nodes[0]["isUmbrella"] = False
@@ -87,7 +87,7 @@ def test_r03_all_four_child_roles_and_display_positions(child_kind, additional):
     else:
         child_node.update(kind="genre")
     nodes.append(child_node)
-    edges = [{"childId": child, "parentId": parent, "type": "regional_membership", "provenance": provenance()}]
+    edges = [{"childId": child, "parentId": parent, "type": "classification", "provenance": provenance()}]
     roots = []
     if additional:
         nodes.append(overview(other, "Other parent", True))
@@ -98,12 +98,12 @@ def test_r03_all_four_child_roles_and_display_positions(child_kind, additional):
         edges.append({"childId": child, "parentId": style, "type": "classification", "provenance": provenance()})
     graph = GenreGraph(
         {
-            "contractVersion": 4,
+            "contractVersion": 5,
             "curationExportedOn": "2026-11-14T00:00:00Z",
             "nodes": nodes,
             "relations": edges,
-            "canonicalRoots": roots,
+            "globalRoots": roots,
         }
     )
-    assert graph.children(parent, "regional_membership") == {child}
+    assert graph.children(parent, "membership") == {child}
     assert graph.node(parent)["isUmbrella"] is True

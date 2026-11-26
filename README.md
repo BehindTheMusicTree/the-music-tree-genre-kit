@@ -6,7 +6,7 @@ Shared genre/tag/criteria/tree library for `hear-the-music-tree-api` and `grow-t
 
 ## Multiple parents
 
-A criteria (genre or tag) has a main `parent` plus optional `additional_primary_parents` (only when `tree_name` is `regional`, see `CriteriaTreeName`) and `secondary_parents` (always allowed). Tracks flow up through primary parents only; secondary parents are classification links. The tree import/export (`tree/import`, `tree/`) handles one `tree_name` at a time (required `tree_name` body field on import, `treeName` query parameter on export; the manager's `import_criteria_trees` imports several trees in one transaction, which is what lets a genre move between trees keeping its pk and songs): import the `canonical` tree first, then the `regional` tree (the one allowing multiple primary parents), whose nodes reference the first via `primaryParents` / `secondaryParents` (wikidata id or name). A canonical row can only get a regional secondary parent from the regional import's optional `crossTreeSecondaryParents` list (`[{"id": ref, "secondaryParents": [refs]}]`).
+A criteria (genre or tag) has a main `parent` plus optional `additional_primary_parents` (only when `tree_name` is `regional`, see `CriteriaTreeName`) and `secondary_parents` (always allowed). Tracks flow up through primary parents only; secondary parents are classification links. The tree import/export (`tree/import`, `tree/`) handles one `tree_name` at a time (required `tree_name` body field on import, `treeName` query parameter on export; the manager's `import_criteria_trees` imports several trees in one transaction, which is what lets a genre move between trees keeping its pk and songs): import the `global` tree first, then the `regional` tree (the one allowing multiple primary parents), whose nodes reference the first via `primaryParents` / `secondaryParents` (wikidata id or name). A global row can only get a regional secondary parent from the regional import's optional `crossTreeSecondaryParents` list (`[{"id": ref, "secondaryParents": [refs]}]`).
 
 ## Not shipped: consumer-defined criteria querysets
 
@@ -34,7 +34,7 @@ This package has no concrete, queryable `Criteria` model — only `AbstractCrite
 This package owns the JSON Schema of the Gold genre-tree export (`src/the_music_tree_genre_kit/schemas/genre_tree.schema.json`, loaded with `load_genre_tree_schema()`). Consumers read it from the installed package; the producer vendors a copy pinned to a release tag.
 
 The separate [semantic graph v2 contract](docs/genre-graph-v2.md) provides a strict
-schema and in-memory `GenreGraph` validation, canonical-root evaluation, node merging,
+schema and in-memory `GenreGraph` validation, global-root evaluation, node merging,
 scoped expression selections, attribution normalization and regional ancestry.
 The pure implementation lives in `packages/genre-graph` as `the-music-tree-genre-graph`
 (Python 3.12+, jsonschema only). Import `GenreGraph`, `GraphValidationError` and

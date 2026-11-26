@@ -709,7 +709,7 @@ class AbstractCriteriaManager(StandardResourceManager[T]):
         Imports one tree structure of criteria, replacing the rows of its tree; see `import_criteria_trees`.
         The input follows the format:
         {
-          "tree_name": "canonical",
+          "tree_name": "global",
           "tree": [{"id": "Q1", "name": "Criteria name", "children": [{"id": "Q2", "name": "Child", "children": []}]}],
           "cross_tree_secondary_parents": []
         }

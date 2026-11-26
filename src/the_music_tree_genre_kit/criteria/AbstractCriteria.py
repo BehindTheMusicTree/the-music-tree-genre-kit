@@ -48,7 +48,7 @@ class AbstractCriteria(PrivateUniqueResource):
     # `parent` is the main primary parent (drives root, side, the criteria-playlist
     # tree). Additional primary parents also receive the criteria's tracks; secondary
     # parents are classification links only.
-    tree_name = models.CharField(max_length=16, choices=CriteriaTreeName.choices, default=CriteriaTreeName.CANONICAL)
+    tree_name = models.CharField(max_length=16, choices=CriteriaTreeName.choices, default=CriteriaTreeName.GLOBAL)
     additional_primary_parents: QuerySet[AbstractCriteria] = PrivateManyToManyField(
         "self", symmetrical=False, blank=True, related_name=Fields.ADDITIONAL_PRIMARY_CHILDREN
     )  # type: ignore
