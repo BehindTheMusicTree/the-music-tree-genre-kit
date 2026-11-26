@@ -7,5 +7,5 @@ class CriteriaTreeName(models.TextChoices):
     primary parents (see `AbstractCriteria.allows_multiple_primary_parents`).
     """
 
-    CANONICAL = "canonical"
+    GLOBAL = "global"
     REGIONAL = "regional"

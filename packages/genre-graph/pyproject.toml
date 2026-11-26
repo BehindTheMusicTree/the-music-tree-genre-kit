@@ -1,7 +1,7 @@
 [project]
 name = "the-music-tree-genre-graph"
 version = "0.6.1"
-description = "Pure semantic genre graph validation, canonical roots and selection"
+description = "Pure semantic genre graph validation, global roots and selection"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "mignot", email = "garcia.andreas.1991@gmail.com" }]

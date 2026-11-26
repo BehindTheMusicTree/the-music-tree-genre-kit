@@ -4,7 +4,7 @@
   "title": "Genre tree export",
   "type": "object",
   "properties": {
-    "treeName": { "enum": ["canonical", "regional"] },
+    "treeName": { "enum": ["global", "regional"] },
     "curationExportedOn": { "type": "string", "format": "date-time", "minLength": 1 },
     "tree": {
       "type": "array",

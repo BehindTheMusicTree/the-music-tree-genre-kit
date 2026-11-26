@@ -112,10 +112,10 @@ def test_criteria_playlist_filterset_name_matches_criterialess_playlist(user):
     }
 
 
-def test_criteria_playlist_filterset_canonical_tree_includes_criterialess(user):
+def test_criteria_playlist_filterset_global_tree_includes_criterialess(user):
     _criteria(user, "Rock")
 
-    assert _names(CriteriaPlaylistFilterSet, CriteriaPlaylist.objects.all(), tree_name="canonical") == {
+    assert _names(CriteriaPlaylistFilterSet, CriteriaPlaylist.objects.all(), tree_name="global") == {
         "Genreless",
         "Tagless",
         "Rock",

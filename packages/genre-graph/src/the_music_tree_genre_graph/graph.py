@@ -26,19 +26,21 @@ def load_genre_graph_schema() -> dict:
     return json.loads(resource.read_text(encoding="utf-8"))
 
 
-RELATION_TYPES = ("classification", "regional_membership", "derivation", "influence")
+RELATION_TYPES = ("classification", "derivation", "influence")
+QUERY_RELATIONS = ("classification", "lineage", "membership", "derivation", "influence", "restricted")
 SELECTION_SCOPES = ("restricted", "extended", "expressions")
 
 
 class GenreGraph:
     """An immutable validated snapshot. All edges point from child to parent.
 
-    Lineage is a single relation, ``classification``. Each genre has regions (``regions``):
-    its own overviews by ``regional_membership`` or, when it has none, those inherited from its
-    regional classification parents. A genre with regions is regional; without, it is canonical
-    and must descend from a listed root. A classification edge is computed as restricted (the
-    child stays inside the parent's region) or an expression (the child leaves it, or a regional
-    genre sits under a canonical one). ``derivation`` and ``influence`` are descriptive only.
+    ``classification`` relations split by target into two views: ``lineage`` (genre under genre)
+    and ``membership`` (genre or overview under overview); ``classification`` is their union. Each
+    genre has regions (``regions``): its own overviews by membership or, when it has none, those
+    inherited from its regional lineage parents. A genre with regions is regional; without, it is
+    global and must descend from a listed global root. A lineage edge is computed as restricted
+    (the child stays inside the parent's region) or an expression (the child leaves it, or a
+    regional genre sits under a global one). ``derivation`` and ``influence`` are descriptive only.
     """
 
     def __init__(self, payload: dict[str, Any]):
@@ -54,20 +56,19 @@ class GenreGraph:
                 raise GraphValidationError(f"Duplicate node identity: {node['id']}")
             self._nodes[node["id"]] = node
         self._relations: dict[str, dict[str, set[str]]] = {
-            kind: {node: set() for node in self._nodes} for kind in RELATION_TYPES
+            view: {node: set() for node in self._nodes} for view in QUERY_RELATIONS if view != "restricted"
         }
         self._index_relations()
-        classification = self._relations["classification"]
-        self.classification_order = topological_order(classification, "classification")
-        self.regional_order = topological_order(self._relations["regional_membership"], "regional membership")
+        self.classification_order = topological_order(self._relations["lineage"], "classification")
+        self.regional_order = topological_order(self._relations["membership"], "regional membership")
         derivation = self._relations["derivation"]
         influence = self._relations["influence"]
         topological_order(derivation, "derivation")
         topological_order(influence, "influence")
         for child, parents in influence.items():
-            for parent in sorted(parents & (classification[child] | derivation[child])):
+            for parent in sorted(parents & derivation[child]):
                 raise GraphValidationError(
-                    f"Influence is already implied by classification or derivation: {child} -> {parent}",
+                    f"Influence is already implied by derivation: {child} -> {parent}",
                     paths=[(child, parent)],
                 )
         self._index_regional_ancestors()
@@ -106,21 +107,25 @@ class GenreGraph:
             child, parent, kind = relation["childId"], relation["parentId"], relation["type"]
             if child not in self._nodes or parent not in self._nodes:
                 raise GraphValidationError(f"Missing {kind} reference: {child} -> {parent}")
+            child_kind, parent_kind = self._nodes[child]["kind"], self._nodes[parent]["kind"]
+            if kind == "classification":
+                if parent_kind == "overview":
+                    views = ("membership",)
+                elif child_kind == parent_kind == "genre":
+                    views = ("lineage",)
+                else:
+                    raise GraphValidationError(f"Invalid classification scope: {child} -> {parent}")
+            elif child != parent and child_kind == parent_kind == "genre":
+                views = ()
+            else:
+                raise GraphValidationError(f"Invalid {kind} scope: {child} -> {parent}")
             if parent in self._relations[kind][child]:
                 raise GraphValidationError(f"Duplicate {kind} relation: {child} -> {parent}")
-            self._relations[kind][child].add(parent)
-            child_kind, parent_kind = self._nodes[child]["kind"], self._nodes[parent]["kind"]
-            valid = {
-                "classification": child_kind == parent_kind == "genre",
-                "regional_membership": parent_kind == "overview",
-                "derivation": child != parent and child_kind == parent_kind == "genre",
-                "influence": child != parent and child_kind == parent_kind == "genre",
-            }[kind]
-            if not valid:
-                raise GraphValidationError(f"Invalid {kind} scope: {child} -> {parent}")
+            for view in (kind, *views):
+                self._relations[view][child].add(parent)
 
     def state(self, node_id: str) -> str | None:
-        """``canonical`` or ``regional`` for a genre, ``None`` for an overview."""
+        """``global`` or ``regional`` for a genre, ``None`` for an overview."""
         return self._state.get(node_id)
 
     def regions(self, node_id: str) -> frozenset[str]:
@@ -128,22 +133,22 @@ class GenreGraph:
         return self._regions.get(node_id, frozenset())
 
     def edge_kind(self, child: str, parent: str) -> str:
-        """``restricted`` or ``expression`` for a classification edge."""
+        """``restricted`` or ``expression`` for a lineage edge."""
         try:
             return self._edge_kind[(child, parent)]
         except KeyError:
-            raise GraphValidationError(f"Not a classification relation: {child} -> {parent}") from None
+            raise GraphValidationError(f"Not a lineage relation: {child} -> {parent}") from None
 
     def expression_parents(self, node_id: str) -> frozenset[str]:
-        """Classification parents this node is a regional expression of."""
+        """Lineage parents this node is a regional expression of."""
         return frozenset(
             parent
-            for parent in self._relations["classification"][node_id]
+            for parent in self._relations["lineage"][node_id]
             if self._edge_kind[(node_id, parent)] == "expression"
         )
 
     def _index_regional_ancestors(self) -> None:
-        regional = self._relations["regional_membership"]
+        regional = self._relations["membership"]
         found: dict[str, frozenset[str]] = {}
         for node in self.regional_order:
             above: set[str] = set()
@@ -166,32 +171,32 @@ class GenreGraph:
 
     def _index_roots(self) -> None:
         roots: set[str] = set()
-        for root in self._payload["canonicalRoots"]:
+        for root in self._payload["globalRoots"]:
             node = root["nodeId"]
             if node not in self._nodes:
-                raise GraphValidationError(f"Unknown canonical root: {node}")
+                raise GraphValidationError(f"Unknown global root: {node}")
             if node in roots:
-                raise GraphValidationError(f"Duplicate canonical root: {node}")
+                raise GraphValidationError(f"Duplicate global root: {node}")
             if self._nodes[node]["kind"] != "genre":
-                raise GraphValidationError(f"Canonical root is not a genre: {node}")
-            if self._relations["classification"][node]:
-                raise GraphValidationError(f"Canonical root has a classification parent: {node}")
-            if self._relations["regional_membership"][node]:
-                raise GraphValidationError(f"Canonical root cannot be a regional member: {node}")
+                raise GraphValidationError(f"Global root is not a genre: {node}")
+            if self._relations["lineage"][node]:
+                raise GraphValidationError(f"Global root has a classification parent: {node}")
+            if self._relations["membership"][node]:
+                raise GraphValidationError(f"Global root cannot be a regional member: {node}")
             roots.add(node)
         self._roots = frozenset(roots)
 
     def _index_regions(self) -> None:
         """Regions, state and edge kinds, computed parents first."""
-        classification = self._relations["classification"]
-        regional = self._relations["regional_membership"]
+        lineage = self._relations["lineage"]
+        regional = self._relations["membership"]
         regions: dict[str, frozenset[str]] = {}
         state: dict[str, str] = {}
         edge_kind: dict[tuple[str, str], str] = {}
         for node in self.classification_order:
             if self._nodes[node]["kind"] != "genre":
                 continue
-            parents = sorted(classification[node])
+            parents = sorted(lineage[node])
             own = regional[node]
             if own:
                 found = frozenset(own)
@@ -200,19 +205,19 @@ class GenreGraph:
             regions[node] = found
             if found:
                 state[node] = "regional"
-            elif node in self._roots or (parents and all(state[parent] == "canonical" for parent in parents)):
-                state[node] = "canonical"
+            elif node in self._roots or (parents and all(state[parent] == "global" for parent in parents)):
+                state[node] = "global"
             else:
-                raise GraphValidationError(f"Genre without region or canonical root: {node}", paths=[(node,)])
+                raise GraphValidationError(f"Genre without region or global root: {node}", paths=[(node,)])
             for parent in parents:
                 kind = self._boundary(node, parent, own_regions=bool(own), regions=regions, state=state)
                 edge_kind[(node, parent)] = kind
         self._regions, self._state, self._edge_kind = regions, state, edge_kind
 
     def _boundary(self, node, parent, *, own_regions, regions, state) -> str:
-        if state[node] == "canonical":
+        if state[node] == "global":
             return "restricted"
-        if state[parent] == "canonical":
+        if state[parent] == "global":
             return "expression"
         if not own_regions:
             return "restricted"
@@ -230,14 +235,14 @@ class GenreGraph:
     def _validate_display_parents(self) -> None:
         for node, data in self._nodes.items():
             if parent := data.get("displayParentId"):
-                transmitting = self._relations["classification"][node] | self._relations["regional_membership"][node]
+                transmitting = self._relations["classification"][node]
                 if parent not in transmitting:
                     raise GraphValidationError(f"Display parent is not an accepted parent: {node} -> {parent}")
 
     def _validate_overviews(self) -> None:
         for node, data in self._nodes.items():
             if data["kind"] == "overview":
-                expected = data["overviewType"] == "current" or bool(self.children(node, "regional_membership"))
+                expected = data["overviewType"] == "current" or bool(self.children(node, "membership"))
                 if data["isUmbrella"] != expected:
                     raise GraphValidationError(f"Contradictory isUmbrella on {node}: expected {expected}")
 
@@ -262,8 +267,8 @@ class GenreGraph:
         return frozenset(found)
 
     def _index_restricted(self) -> None:
-        """Population and regions only climb regional membership and restricted classification edges."""
-        restricted = {node: set(parents) for node, parents in self._relations["regional_membership"].items()}
+        """Population and regions only climb membership and restricted lineage edges."""
+        restricted = {node: set(parents) for node, parents in self._relations["membership"].items()}
         for (child, parent), kind in self._edge_kind.items():
             if kind == "restricted":
                 restricted[child].add(parent)
@@ -276,16 +281,16 @@ class GenreGraph:
         self._children["restricted"] = {node: frozenset(values) for node, values in children.items()}
 
     def _index_access(self) -> None:
-        """Access climbs every classification edge, then the regions of the node and their ancestors.
+        """Access climbs every lineage edge, then the regions of the node and their ancestors.
 
         An expression therefore reaches the lineage of its parent but never the parent's regions.
         Ancestors are computed once, parents first.
         """
-        classification = self._relations["classification"]
+        parents_by_node = self._relations["lineage"]
         lineage: dict[str, frozenset[str]] = {}
         for node in self.classification_order:
             found: set[str] = set()
-            for parent in classification[node]:
+            for parent in parents_by_node[node]:
                 found.add(parent)
                 found.update(lineage[parent])
             lineage[node] = frozenset(found)
@@ -311,8 +316,8 @@ class GenreGraph:
     ) -> frozenset[str]:
         """Select a node and everything that reaches it by access.
 
-        ``restricted`` covers the node and its descendants by regional membership and restricted
-        classification edges that also reach the node by access; ``extended`` every descendant by access; ``expressions`` what
+        ``restricted`` covers the node and its descendants by membership and restricted
+        lineage edges that also reach the node by access; ``extended`` every descendant by access; ``expressions`` what
         ``extended`` adds to ``restricted``, without the node itself (so empty without descendants).
         """
         if scope not in SELECTION_SCOPES or node_id not in self._nodes:
@@ -349,12 +354,12 @@ class GenreGraph:
         )
 
     def reduced_regional_relations(self) -> frozenset[tuple[str, str]]:
-        """Return the unique DAG reduction using only accepted regional membership."""
+        """Return the unique DAG reduction using only accepted membership."""
         result = set()
-        for child, parents in self._relations["regional_membership"].items():
+        for child, parents in self._relations["membership"].items():
             redundant = set()
             for parent in parents:
-                redundant.update(self.ancestors(parent, "regional_membership"))
+                redundant.update(self.ancestors(parent, "membership"))
             result.update((child, parent) for parent in parents - redundant)
         return frozenset(result)
 
@@ -362,7 +367,7 @@ class GenreGraph:
         """Return the graph where ``source`` is absorbed by ``target``.
 
         Idempotent: once ``source`` is gone the graph is returned unchanged. Relations and
-        display parents of ``source`` move to ``target``. A merge may not change the canonical
+        display parents of ``source`` move to ``target``. A merge may not change the global
         state of any other node; a root merged into its descendant passes its rootship on.
         """
         if target not in self._nodes:
@@ -405,14 +410,14 @@ class GenreGraph:
                     node["displayParentId"] = target
             if node["id"] == target and node["kind"] == "overview":
                 node["isUmbrella"] = node["overviewType"] == "current" or any(
-                    r["type"] == "regional_membership" and r["parentId"] == target for r in relations
+                    r["type"] == "classification" and r["parentId"] == target for r in relations
                 )
             nodes.append(node)
-        roots = [root for root in payload["canonicalRoots"] if root["nodeId"] != source]
+        roots = [root for root in payload["globalRoots"] if root["nodeId"] != source]
         if source in self._roots:
             if all(root["nodeId"] != target for root in roots):
                 roots.append({"nodeId": target, "provenance": dict(provenance)})
-        merged = GenreGraph({**payload, "nodes": nodes, "relations": relations, "canonicalRoots": roots})
+        merged = GenreGraph({**payload, "nodes": nodes, "relations": relations, "globalRoots": roots})
         changed = sorted(node for node in merged.node_ids if node != source and merged.state(node) != self.state(node))
         if changed:
             raise GraphValidationError(
@@ -428,7 +433,7 @@ class GenreGraph:
             "relations": [
                 deepcopy(edge)
                 for edge in self._payload["relations"]
-                if edge["type"] in {"classification", "regional_membership"}
+                if edge["type"] == "classification"
                 and edge["childId"] in reachable
                 and edge["parentId"] in self._relations["restricted"][edge["childId"]]
             ],

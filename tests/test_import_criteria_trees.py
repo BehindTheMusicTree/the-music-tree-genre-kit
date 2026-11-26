@@ -28,10 +28,10 @@ def node(name, key, *children, **extra):
     return {"name": name, "id": key, "children": list(children), **extra}
 
 
-def run(user, canonical, regional, **kwargs):
+def run(user, global_tree, regional, **kwargs):
     return Genre.objects.import_criteria_trees(
         user,
-        [{"tree_name": "canonical", "tree": canonical}, {"tree_name": "regional", "tree": regional}],
+        [{"tree_name": "global", "tree": global_tree}, {"tree_name": "regional", "tree": regional}],
         **kwargs,
     )
 
@@ -76,10 +76,10 @@ def test_genre_moves_between_trees_in_either_direction_keeping_pk_and_tracks(use
         [node("Heavy metal", "Q2")],
     )
 
-    assert counts["canonical"]["deleted_count"] == counts["regional"]["deleted_count"] == 0
+    assert counts["global"]["deleted_count"] == counts["regional"]["deleted_count"] == 0
     assert Genre.objects.filter(user=user, wikidata_id__in=["Q2", "Q4"]).count() == 2
     assert (genre(user, "Q2").pk, genre(user, "Q2").tree_name) == (heavy.pk, "regional")
-    assert (genre(user, "Q4").pk, genre(user, "Q4").tree_name) == (polka.pk, "canonical")
+    assert (genre(user, "Q4").pk, genre(user, "Q4").tree_name) == (polka.pk, "global")
     assert genre(user, "Q4").parent_id == genre(user, "Q3").pk
     assert genre(user, "Q2").parent_id is None
     assert TrackPlaylistRel.objects.filter(track=heavy_track, playlist=heavy.criteria_playlist).exists()
@@ -90,13 +90,13 @@ def test_genre_moves_between_trees_in_either_direction_keeping_pk_and_tracks(use
 @pytest.mark.django_db
 def test_key_in_both_payloads_keeps_one_row_per_tree(user):
     run(user, [node("Fusion", "Q1")], [])
-    canonical_row = genre(user, "Q1", "canonical")
+    global_row = genre(user, "Q1", "global")
 
     run(user, [node("Fusion", "Q1")], [node("Fusion", "Q1")])
 
     assert Genre.objects.filter(user=user, wikidata_id="Q1").count() == 2
-    assert genre(user, "Q1", "canonical").pk == canonical_row.pk
-    assert genre(user, "Q1", "regional").pk != canonical_row.pk
+    assert genre(user, "Q1", "global").pk == global_row.pk
+    assert genre(user, "Q1", "regional").pk != global_row.pk
 
 
 @pytest.mark.django_db
@@ -107,7 +107,7 @@ def test_genre_with_a_locked_descendant_is_replaced_not_moved(user):
 
     run(user, [node("Metal", "Q1", node("Heavy metal", "Q2"))], [node("Local metal", "Q3")])
 
-    moved = genre(user, "Q2", "canonical")
+    moved = genre(user, "Q2", "global")
     assert moved.pk != old.pk
     assert not Genre.objects.filter(pk=old.pk).exists()
 
@@ -127,10 +127,10 @@ def test_stale_guard_applies_per_tree_and_force_overrides_it(user):
 
     with pytest.raises(AppValidationException):
         run(user, [node("A", "Q1")], [node("D", "Q4")])
-    assert Genre.objects.filter(user=user, tree_name="canonical").count() == 3
+    assert Genre.objects.filter(user=user, tree_name="global").count() == 3
 
     run(user, [node("A", "Q1")], [node("D", "Q4")], force=True)
-    assert Genre.objects.filter(user=user, tree_name="canonical").count() == 1
+    assert Genre.objects.filter(user=user, tree_name="global").count() == 1
 
 
 @pytest.mark.django_db
@@ -139,8 +139,8 @@ def test_dry_run_reports_counts_without_persisting(user):
 
     counts = run(user, [node("A", "Q1"), node("C", "Q3")], [node("B", "Q2"), node("D", "Q4")], dry_run=True)
 
-    assert counts["canonical"]["created_count"] == counts["regional"]["created_count"] == 1
-    assert counts["canonical"]["dry_run"] is True
+    assert counts["global"]["created_count"] == counts["regional"]["created_count"] == 1
+    assert counts["global"]["dry_run"] is True
     assert Genre.objects.filter(user=user).count() == 2
 
 
@@ -148,7 +148,7 @@ def test_dry_run_reports_counts_without_persisting(user):
 def test_same_tree_name_twice_is_rejected(user):
     with pytest.raises(AppValidationException):
         Genre.objects.import_criteria_trees(
-            user, [{"tree_name": "canonical", "tree": []}, {"tree_name": "canonical", "tree": []}]
+            user, [{"tree_name": "global", "tree": []}, {"tree_name": "global", "tree": []}]
         )
 
 
@@ -182,9 +182,9 @@ def test_renamed_genre_frees_its_name_for_a_new_namesake_of_the_other_tree(user)
 
 
 @pytest.mark.django_db
-def test_primary_graph_of_the_ownerless_canonical_dataset_is_loadable(user):
+def test_primary_graph_of_the_ownerless_global_dataset_is_loadable(user):
     # The fixture models have a mandatory owner, so an ownerless import itself can't run here: this covers the
-    # only owner-dependent lookup of the import (grow's canonical rows have `user IS NULL`).
+    # only owner-dependent lookup of the import (grow's global rows have `user IS NULL`).
     run(user, [node("Metal", "Q1")], [])
     assert Genre.objects._load_primary_graph(None) == ({}, {}, {})
     assert len(Genre.objects._load_primary_graph(user.pk)[0]) == 1
