@@ -39,7 +39,7 @@ scoped expression selections, attribution normalization and regional ancestry.
 The pure implementation lives in `packages/genre-graph` as `the-music-tree-genre-graph`
 (Python 3.12+, jsonschema only). Import `GenreGraph`, `GraphValidationError` and
 `load_genre_graph_schema` from `the_music_tree_genre_graph`. The Django package depends on it
-with the constraint `>=0.1.0,<0.2.0`, resolved locally through the uv workspace.
+with the version range declared in the root `pyproject.toml`, resolved locally through the uv workspace.
 Local consumers must explicitly provide both package paths; a uv
 workspace source override is local to this repository and is not inherited by Git consumers.
 The extracted package is released independently on PyPI; consumers can update their kit pins after publication. CI tests the pure wheel and sdist on Python 3.12 and 3.14, plus kit wheel/sdist
