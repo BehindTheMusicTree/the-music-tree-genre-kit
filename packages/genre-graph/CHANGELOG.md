@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.7.0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/graph-v0.6.1...graph-v0.7.0) (2026-11-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **genre-graph:** contract 5 with global roots and three relations ([#348](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/348))
+
+### Features
+
+* **genre-graph:** contract 5 with global roots and three relations ([#348](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/348)) ([3721139](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/37211390ff3483b87809dd6d3e20680def471700))
+
 ## [0.6.1](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/graph-v0.6.0...graph-v0.6.1) (2026-11-22)
 
 

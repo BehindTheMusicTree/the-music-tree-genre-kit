@@ -9,6 +9,17 @@ Entries before the release-please adoption were written manually. Changes that r
 (`hear-the-music-tree-api`, `grow-the-music-tree-api`) to update its own code are marked as breaking
 (`feat!:` / `BREAKING CHANGE:`).
 
+## [0.73.0](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.72.6...v0.73.0) (2026-11-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **genre-graph:** contract 5 with global roots and three relations ([#348](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/348))
+
+### Features
+
+* **genre-graph:** contract 5 with global roots and three relations ([#348](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/348)) ([3721139](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/37211390ff3483b87809dd6d3e20680def471700))
+
 ## [0.72.6](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.72.5...v0.72.6) (2026-11-25)
 
 
