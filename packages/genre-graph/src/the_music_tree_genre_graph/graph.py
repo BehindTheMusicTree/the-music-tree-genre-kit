@@ -137,7 +137,7 @@ class GenreGraph:
         try:
             return self._edge_kind[(child, parent)]
         except KeyError:
-            raise GraphValidationError(f"Not a classification relation: {child} -> {parent}") from None
+            raise GraphValidationError(f"Not a lineage relation: {child} -> {parent}") from None
 
     def expression_parents(self, node_id: str) -> frozenset[str]:
         """Lineage parents this node is a regional expression of."""

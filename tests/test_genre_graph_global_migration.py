@@ -75,6 +75,8 @@ def test_contract_5_migration_converts_stored_graphs_and_keeps_guards():
         old.get_model(APP, "GenreGraphRevision").objects.create(
             dataset=dataset, revision=revision, payload=payload_v4()
         )
+        older = {"contractVersion": 3, "canonicalRoots": []}
+        old.get_model(APP, "GenreGraphDataset").objects.create(key="older", payload=older)
         old.get_model(APP, "GenreGraphNode").objects.create(
             dataset=dataset, identity="LOCAL:dub", is_umbrella=False, canonical_state="canonical"
         )
@@ -84,6 +86,7 @@ def test_contract_5_migration_converts_stored_graphs_and_keeps_guards():
         archived = new.get_model(APP, "GenreGraphRevision").objects.get(revision=revision)
         assert stored.payload == archived.payload == payload_v5()
         assert (stored.revision, stored.membership_revision) == (dataset.revision, dataset.membership_revision)
+        assert new.get_model(APP, "GenreGraphDataset").objects.get(pk="older").payload == older
         assert GenreGraph(stored.payload).state("LOCAL:dub") == "global"
         node = new.get_model(APP, "GenreGraphNode").objects.get(dataset_id="contract")
         assert node.state == "global"
@@ -94,6 +97,7 @@ def test_contract_5_migration_converts_stored_graphs_and_keeps_guards():
 
         old = migrate(BEFORE)
         assert old.get_model(APP, "GenreGraphDataset").objects.get(pk="contract").payload == payload_v4()
+        assert old.get_model(APP, "GenreGraphDataset").objects.get(pk="older").payload == older
         assert old.get_model(APP, "GenreGraphRevision").objects.get(revision=revision).payload == payload_v4()
         assert old.get_model(APP, "GenreGraphNode").objects.get(dataset_id="contract").canonical_state == "canonical"
         with pytest.raises(IntegrityError, match="immutable"), transaction.atomic():

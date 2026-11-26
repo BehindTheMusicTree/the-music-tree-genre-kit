@@ -90,7 +90,7 @@ genre, that has a lineage parent or that is a regional member is rejected.
 
 ## Selections and normalization
 
-Access goes up through every classification edge (restricted or expression) and
+Access goes up through every lineage edge (restricted or expression) and
 through the overviews above `R(n)`. An expression therefore reaches the lineage of its
 parent but never the parent's regions: the United States selects Country and Bluegrass
 but not French country, and the United Kingdom does not select French drill.
@@ -240,7 +240,7 @@ The Django kit requires Python 3.14. The independent package
 depends only on `jsonschema`. Producers import `GenreGraph`,
 `GraphValidationError` and `load_genre_graph_schema` from
 `the_music_tree_genre_graph`; they do not copy the Django kit's classifier. The
-kit's dependency is bounded to `>=0.1.0,<0.2.0`. CI builds the wheel and the
+kit's dependency range is declared in the root `pyproject.toml`. CI builds the wheel and the
 sdist and replays the same tests outside the workspace on Python 3.12 and 3.14,
 without Django. It also installs the kit's wheel and sdist with an explicit pure
 wheel on Python 3.14 and replays the SQLite storage tests. These checks validate
@@ -256,7 +256,7 @@ Migration `0023` replaces the scopes `all`, `canonical` and `regional` with `res
 `extended` and `expressions` and drops the old access rows. It does not convert stored payloads:
 datasets and archived revisions stay in their earlier contract, the migration logs a warning per
 dataset, and `merge_graph_nodes` and `restore_graph` fail with "re-import required". Re-import each
-graph with `replace_graph` in contract 4 (until then `select_tracks` finds no descendants); the
+graph with `replace_graph` in contract 5 (until then `select_tracks` finds no descendants); the
 identities that contract 4 removes (`expression` nodes, `anchoring` relations) need explicit
 retirements. A genre with no region of its own and several regional parents has a `restricted`
 edge to each of them, as the classification rule computes per edge. With `include_descendants=False`,
