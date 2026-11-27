@@ -16,8 +16,12 @@ from .models import (
 )
 
 
-def archive_population(cursor, *, dataset, affected):
-    """Archive SQL populations; only graph-sized decisions ever enter Python."""
+def archive_population(cursor, *, dataset, affected, fresh=False):
+    """Archive SQL populations; only graph-sized decisions ever enter Python.
+
+    `fresh` asserts every state revision of `affected` was just minted, so none is archived yet: the history
+    insert then never reads the table it writes, whose statistics cannot reflect the rows it adds.
+    """
     quote = connection.ops.quote_name
     attribution, link, evidence, node, state, history = (
         quote(model._meta.db_table)
@@ -41,7 +45,9 @@ def archive_population(cursor, *, dataset, affected):
         evidence_set = "json_group_array(json(evidence))"
         assignment_set = "json_group_object(identity, json(evidence))"
         empty = "'{}'"
-        timestamp = "strftime('%Y-%m-%d %H:%M:%f', 'now')"
+        # Doubled: the statement takes parameters, so `%` is a placeholder marker.
+        timestamp = "strftime('%%Y-%%m-%%d %%H:%%M:%%f', 'now')"
+    archived = "" if fresh else f" AND NOT EXISTS (SELECT 1 FROM {history} h WHERE h.revision = s.revision)"
     # The inner grouping captures complete assignments, including unaffected destinations.
     cursor.execute(
         f"""INSERT INTO {history} (revision, dataset_id, track_id, graph_revision, attributions, created_at)
@@ -58,7 +64,7 @@ def archive_population(cursor, *, dataset, affected):
                 ) ordered_evidence GROUP BY track_id, identity
             ) sets GROUP BY track_id
         ) population ON population.track_id = s.track_id
-        WHERE s.dataset_id = %s AND NOT EXISTS (SELECT 1 FROM {history} h WHERE h.revision = s.revision)""",
+        WHERE s.dataset_id = %s{archived}""",
         [
             GenreGraphAttributionRevision._meta.get_field("graph_revision").get_db_prep_value(
                 dataset.revision, connection
@@ -90,7 +96,10 @@ def _staged_publication_bypass(cursor):
 
 
 def _affected_select(*, population, desired, attribution, link, state, dataset_pk):
-    """SQL and parameters selecting `(n, track_id)` for the tracks whose stored set differs from the desired one.
+    """SQL and parameters selecting `(n, track_id, had_state, has_desired)` for the tracks whose stored set differs.
+
+    `had_state` and `has_desired` let the later writes skip reading `state` and `desired` per row: on a first
+    load these tables have no statistics, and a statement reading the table it fills degenerates quadratically.
 
     Anti/semi-joins on both sides of the difference between the stored and the desired sets; a stored
     attribution without evidence never matches, so it always counts as a difference. Never put an EXISTS under
@@ -103,7 +112,8 @@ def _affected_select(*, population, desired, attribution, link, state, dataset_p
         f"JOIN {population} p ON p.track_id = a.track_id "
         f"LEFT JOIN {link} l ON l.attribution_id = a.id WHERE a.dataset_id = %s"
     )
-    select = f"""SELECT row_number() OVER (ORDER BY track_id) AS n, track_id FROM (
+    select = f"""SELECT row_number() OVER (ORDER BY changed.track_id) AS n, changed.track_id,
+                    s.track_id IS NOT NULL AS had_state, d.track_id IS NOT NULL AS has_desired FROM (
                     SELECT p.track_id FROM {population} p
                     WHERE NOT {has_state.format(track="p.track_id")}
                         AND EXISTS (SELECT 1 FROM {desired} d WHERE d.track_id = p.track_id)
@@ -123,8 +133,10 @@ def _affected_select(*, population, desired, attribution, link, state, dataset_p
                         SELECT 1 FROM {attribution} a JOIN {link} l ON l.attribution_id = a.id
                         WHERE a.dataset_id = %s AND a.track_id = d.track_id AND a.node_id = d.node_id
                             AND l.evidence_id = d.evidence_id)
-                ) changed"""
-    return select, [dataset_pk] * 7
+                ) changed
+                LEFT JOIN {state} s ON s.dataset_id = %s AND s.track_id = changed.track_id
+                LEFT JOIN (SELECT DISTINCT track_id FROM {desired}) d ON d.track_id = changed.track_id"""
+    return select, [dataset_pk] * 8
 
 
 def publish_staged_attributions(*, dataset, population, assignments, chunk_size=None, on_step=None):
@@ -204,6 +216,8 @@ def publish_staged_attributions(*, dataset, population, assignments, chunk_size=
             cursor.execute(f"ANALYZE {affected}")
             cursor.execute(f"SELECT count(*) FROM {affected}")
             total = cursor.fetchone()[0]
+            cursor.execute(f"SELECT EXISTS (SELECT 1 FROM {affected} WHERE had_state)")
+            any_state = cursor.fetchone()[0]
         with step("lock"):
             if postgresql:
                 cursor.execute(f"SELECT 1 FROM {dataset_table} WHERE key = %s FOR UPDATE", [dataset.pk])
@@ -251,60 +265,91 @@ def publish_staged_attributions(*, dataset, population, assignments, chunk_size=
             if restore_immediate:
                 cursor.execute("SET CONSTRAINTS " + ", ".join(quote(name) for name in restore_immediate) + " IMMEDIATE")
 
-        in_chunk = f"{{track}} IN (SELECT track_id FROM {affected} WHERE n BETWEEN %s AND %s)"
+        cursor.execute(f"SELECT EXISTS (SELECT 1 FROM {attribution} WHERE dataset_id = %s)", [dataset.pk])
+        any_attribution = cursor.fetchone()[0]
+        planned = quote(f"graph_planned_attributions_{suffix}")
+        # No write below reads the table it fills: their statistics lag behind the rows a statement adds.
         with _staged_publication_bypass(cursor):
             with step("write"):
                 for low, high in chunks:
-                    selected = (
-                        f"SELECT a.id FROM {attribution} a JOIN {affected} p ON p.track_id = a.track_id "
-                        f"WHERE a.dataset_id = %s AND p.n BETWEEN %s AND %s"
-                    )
                     bounds = [dataset.pk, low, high]
-                    cursor.execute(f"DELETE FROM {link} WHERE attribution_id IN ({selected})", bounds)
-                    cursor.execute(f"DELETE FROM {attribution} WHERE id IN ({selected})", bounds)
-                    cursor.execute(
-                        f"""INSERT INTO {attribution} (track_id, node_id, dataset_id)
-                        SELECT DISTINCT d.track_id, d.node_id, %s FROM {desired} d JOIN {affected} p
-                        ON p.track_id = d.track_id WHERE p.n BETWEEN %s AND %s""",
-                        bounds,
-                    )
-                    cursor.execute(
-                        f"""INSERT INTO {link} (attribution_id, evidence_id)
-                        SELECT DISTINCT a.id, d.evidence_id FROM {desired} d JOIN {affected} p
-                        ON p.track_id = d.track_id
-                        JOIN {attribution} a ON a.track_id = d.track_id AND a.node_id = d.node_id
-                        WHERE a.dataset_id = %s AND p.n BETWEEN %s AND %s""",
-                        bounds,
-                    )
+                    if any_attribution:
+                        selected = (
+                            f"SELECT a.id FROM {attribution} a JOIN {affected} p ON p.track_id = a.track_id "
+                            f"WHERE a.dataset_id = %s AND p.n BETWEEN %s AND %s"
+                        )
+                        cursor.execute(f"DELETE FROM {link} WHERE attribution_id IN ({selected})", bounds)
+                        cursor.execute(f"DELETE FROM {attribution} WHERE id IN ({selected})", bounds)
+                    if postgresql:
+                        # Ids drawn up front let the links be written without reading the new attributions back.
+                        cursor.execute(
+                            f"""CREATE TEMPORARY TABLE {planned} AS
+                            SELECT nextval(pg_get_serial_sequence(%s, 'id')) AS id, track_id, node_id FROM (
+                                SELECT DISTINCT d.track_id, d.node_id FROM {desired} d JOIN {affected} p
+                                ON p.track_id = d.track_id WHERE p.n BETWEEN %s AND %s
+                            ) chunk""",
+                            [attribution, low, high],
+                        )
+                        cursor.execute(f"ANALYZE {planned}")
+                        cursor.execute(
+                            f"INSERT INTO {attribution} (id, track_id, node_id, dataset_id) "
+                            f"SELECT id, track_id, node_id, %s FROM {planned}",
+                            [dataset.pk],
+                        )
+                        cursor.execute(
+                            f"""INSERT INTO {link} (attribution_id, evidence_id)
+                            SELECT DISTINCT a.id, d.evidence_id FROM {desired} d
+                            JOIN {planned} a ON a.track_id = d.track_id AND a.node_id = d.node_id"""
+                        )
+                        cursor.execute(f"DROP TABLE {planned}")
+                    else:
+                        cursor.execute(
+                            f"""INSERT INTO {attribution} (track_id, node_id, dataset_id)
+                            SELECT DISTINCT d.track_id, d.node_id, %s FROM {desired} d JOIN {affected} p
+                            ON p.track_id = d.track_id WHERE p.n BETWEEN %s AND %s""",
+                            bounds,
+                        )
+                        cursor.execute(
+                            f"""INSERT INTO {link} (attribution_id, evidence_id)
+                            SELECT DISTINCT a.id, d.evidence_id FROM {desired} d JOIN {affected} p
+                            ON p.track_id = d.track_id
+                            JOIN {attribution} a ON a.track_id = d.track_id AND a.node_id = d.node_id
+                            WHERE a.dataset_id = %s AND p.n BETWEEN %s AND %s""",
+                            bounds,
+                        )
                     check_constraints()
             with step("state"):
                 for low, high in chunks:
-                    cursor.execute(
-                        f"UPDATE {state} SET revision = {token} WHERE dataset_id = %s AND "
-                        + in_chunk.format(track="track_id"),
-                        [dataset.pk, low, high],
-                    )
+                    if any_state:
+                        cursor.execute(
+                            f"UPDATE {state} SET revision = {token} WHERE dataset_id = %s AND track_id IN "
+                            f"(SELECT track_id FROM {affected} WHERE had_state AND n BETWEEN %s AND %s)",
+                            [dataset.pk, low, high],
+                        )
                     # New tracks receive their final token directly: nothing was archived for them before.
+                    # SQLite has no bypass: its CAS triggers already minted a state for them during the write.
+                    upsert = (
+                        ""
+                        if postgresql
+                        else " ON CONFLICT (dataset_id, track_id) DO UPDATE SET revision = excluded.revision"
+                    )
                     cursor.execute(
                         f"""INSERT INTO {state} (dataset_id, track_id, revision)
-                        SELECT %s, p.track_id, {token} FROM {affected} p WHERE p.n BETWEEN %s AND %s
-                        AND NOT EXISTS (SELECT 1 FROM {state} s WHERE s.dataset_id = %s AND s.track_id = p.track_id)
-                        AND EXISTS (SELECT 1 FROM {desired} d WHERE d.track_id = p.track_id)""",
-                        [dataset.pk, low, high, dataset.pk],
+                        SELECT %s, p.track_id, {token} FROM {affected} p
+                        WHERE NOT p.had_state AND p.has_desired AND p.n BETWEEN %s AND %s{upsert}""",
+                        [dataset.pk, low, high],
                     )
                     check_constraints()
+                # The history archive below joins these tables; plan it on their new size.
+                for model in (GenreGraphAssignmentState, GenreGraphAttribution, GenreGraphAttributionEvidence):
+                    cursor.execute(f"ANALYZE {quote(model._meta.db_table)}")
         if total:
             # The row-level CAS triggers bumped this token; the bypass skips them, so bump it once here.
             cursor.execute(f"UPDATE {dataset_table} SET membership_revision = {token} WHERE key = %s", [dataset.pk])
         with step("archive_after"):
-            archive_population(cursor, dataset=dataset, affected=affected)
+            # Every state of `affected` holds a token minted above, so none is archived yet.
+            archive_population(cursor, dataset=dataset, affected=affected, fresh=True)
         with step("analyze"):
-            for model in (
-                GenreGraphAssignmentState,
-                GenreGraphAttribution,
-                GenreGraphAttributionEvidence,
-                GenreGraphAttributionRevision,
-                GenreGraphEvidence,
-            ):
+            for model in (GenreGraphAttributionRevision, GenreGraphEvidence):
                 cursor.execute(f"ANALYZE {quote(model._meta.db_table)}")
         cursor.execute(f"DROP TABLE {affected}")

@@ -954,6 +954,65 @@ def test_staged_publication_touches_only_changed_tracks(dataset, chunk_size):
     assert GenreGraphAttributionRevision.objects.filter(track_id=new.pk).count() == 1
 
 
+def test_staged_publication_writes_never_read_their_target(dataset):
+    """A statement reading the table it fills is planned on stale statistics: quadratic on a first load."""
+    quote = connection.ops.quote_name
+    written = {
+        quote(model._meta.db_table)
+        for model in (
+            GenreGraphAttribution,
+            GenreGraphAttributionEvidence,
+            GenreGraphAssignmentState,
+            GenreGraphAttributionRevision,
+        )
+    }
+    marks = {}
+    with CaptureQueriesContext(connection) as queries:
+
+        def record(name):
+            marks[name] = len(queries.captured_queries)
+
+        steps = SimpleNamespace(append=record)
+        _first_publication(dataset, None, steps)
+    inserts = [
+        query["sql"]
+        for query in queries.captured_queries[marks["write"] : marks["analyze"]]
+        if query["sql"].lstrip().upper().startswith("INSERT INTO")
+    ]
+    targets = [sql.split()[2] for sql in inserts]
+    assert set(targets) <= written, targets
+    assert set(targets) == written
+    assert all(sql.count(target) == 1 for sql, target in zip(inserts, targets, strict=True))
+
+
+@pytest.mark.skipif(connection.vendor != "postgresql", reason="Volume first load is checked on PostgreSQL only")
+def test_staged_publication_first_load_at_volume(dataset):
+    count = 20000
+    Track.objects.bulk_create([Track(title=f"Bulk {i}") for i in range(count)], batch_size=5000)
+    quote = connection.ops.quote_name
+    population, desired = "population_" + uuid4().hex, "desired_" + uuid4().hex
+    with graph_write_transaction(key=dataset.pk, expected_revision=dataset.revision) as locked:
+        evidence = register_evidence(locked, [provenance("dub")])["dub"]
+        node = locked.nodes.get(identity=ref("dub")).pk
+        with connection.cursor() as cursor:
+            cursor.execute(
+                f"CREATE TEMPORARY TABLE {quote(population)} AS SELECT uuid AS track_id FROM "
+                f"{quote(Track._meta.db_table)} WHERE title LIKE 'Bulk %%'"
+            )
+            cursor.execute(
+                f"CREATE TEMPORARY TABLE {quote(desired)} AS "
+                f"SELECT track_id, %s::bigint AS node_id, %s::bigint AS evidence_id FROM {quote(population)}",
+                [node, evidence.pk],
+            )
+            publish_staged_attributions(dataset=locked, population=population, assignments=desired, chunk_size=7000)
+    assert GenreGraphAttribution.objects.filter(dataset=dataset).count() == count
+    assert GenreGraphAttributionEvidence.objects.filter(attribution__dataset=dataset).count() == count
+    assert GenreGraphAssignmentState.objects.filter(dataset=dataset).count() == count
+    assert GenreGraphAttributionRevision.objects.filter(dataset=dataset).count() == count
+    sample = Track.objects.filter(title="Bulk 0").get()
+    assert assignment_snapshot(dataset=dataset, track_id=sample.pk).keys() == {ref("dub")}
+
+
 def _membership(dataset):
     return type(dataset).objects.values_list("membership_revision", flat=True).get(pk=dataset.pk)
 
