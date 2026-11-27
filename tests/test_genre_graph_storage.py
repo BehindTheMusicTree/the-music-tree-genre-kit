@@ -979,7 +979,8 @@ def test_staged_publication_writes_never_read_their_target(dataset):
         for query in queries.captured_queries[marks["write"] : marks["analyze"]]
         if query["sql"].lstrip().upper().startswith("INSERT INTO")
     ]
-    targets = [next(table for table in written if sql.split()[2] == table) for sql in inserts]
+    targets = [sql.split()[2] for sql in inserts]
+    assert set(targets) <= written, targets
     assert set(targets) == written
     assert all(sql.count(target) == 1 for sql, target in zip(inserts, targets, strict=True))
 
