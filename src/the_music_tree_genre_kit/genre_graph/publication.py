@@ -45,7 +45,8 @@ def archive_population(cursor, *, dataset, affected, fresh=False):
         evidence_set = "json_group_array(json(evidence))"
         assignment_set = "json_group_object(identity, json(evidence))"
         empty = "'{}'"
-        timestamp = "strftime('%Y-%m-%d %H:%M:%f', 'now')"
+        # Doubled: the statement takes parameters, so `%` is a placeholder marker.
+        timestamp = "strftime('%%Y-%%m-%%d %%H:%%M:%%f', 'now')"
     archived = "" if fresh else f" AND NOT EXISTS (SELECT 1 FROM {history} h WHERE h.revision = s.revision)"
     # The inner grouping captures complete assignments, including unaffected destinations.
     cursor.execute(
@@ -326,10 +327,16 @@ def publish_staged_attributions(*, dataset, population, assignments, chunk_size=
                             [dataset.pk, low, high],
                         )
                     # New tracks receive their final token directly: nothing was archived for them before.
+                    # SQLite has no bypass: its CAS triggers already minted a state for them during the write.
+                    upsert = (
+                        ""
+                        if postgresql
+                        else " ON CONFLICT (dataset_id, track_id) DO UPDATE SET revision = excluded.revision"
+                    )
                     cursor.execute(
                         f"""INSERT INTO {state} (dataset_id, track_id, revision)
                         SELECT %s, p.track_id, {token} FROM {affected} p
-                        WHERE NOT p.had_state AND p.has_desired AND p.n BETWEEN %s AND %s""",
+                        WHERE NOT p.had_state AND p.has_desired AND p.n BETWEEN %s AND %s{upsert}""",
                         [dataset.pk, low, high],
                     )
                     check_constraints()
