@@ -9,6 +9,13 @@ Entries before the release-please adoption were written manually. Changes that r
 (`hear-the-music-tree-api`, `grow-the-music-tree-api`) to update its own code are marked as breaking
 (`feat!:` / `BREAKING CHANGE:`).
 
+## [0.73.2](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.73.1...v0.73.2) (2026-11-27)
+
+
+### Performance Improvements
+
+* **genre-graph:** keep first-load publication writes off their targets ([#353](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/issues/353)) ([582f5c3](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/commit/582f5c30977de434b5b2c0658ac184c60833cdd0))
+
 ## [0.73.1](https://github.com/BehindTheMusicTree/the-music-tree-genre-kit/compare/v0.73.0...v0.73.1) (2026-11-26)
 
 
